@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Alarm24</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<div id="app-root" class="hidden">
+    <div class="phone">
+
+        <!-- ================= STATUS BAR ================= -->
+        <div class="statusbar">
+            <span class="statusbar-time" id="statusbar-time">--:--</span>
+            <span class="statusbar-title">ALARM24</span>
+            <span class="statusbar-avail" id="statusbar-avail">🟢</span>
+        </div>
+
+        <!-- ================= CONTENT ================= -->
+        <div class="content">
+
+            <!-- ---------- HOME ---------- -->
+            <section class="view active" data-view="home">
+                <div class="home-header">
+                    <div class="home-greeting">Hallo <span id="home-name">–</span></div>
+                    <button class="avail-badge" id="home-avail-badge">🟢 Einsatzbereit</button>
+                </div>
+
+                <div class="card last-alarm-card" id="home-last-alarm">
+                    <div class="card-label">Letzte Alarmierung</div>
+                    <div class="empty-hint">Noch keine Alarmierung erhalten.</div>
+                </div>
+
+                <div class="card" id="home-live-card" hidden>
+                    <div class="card-label">Rückmeldungen</div>
+                    <div class="live-summary" id="home-live-summary"></div>
+                </div>
+            </section>
+
+            <!-- ---------- ALARMS (Historie) ---------- -->
+            <section class="view" data-view="alarms">
+                <h2 class="view-title">Meine Alarmierungen</h2>
+                <div class="list" id="alarms-list">
+                    <div class="empty-hint">Noch keine Alarmierungen vorhanden.</div>
+                </div>
+            </section>
+
+            <!-- ---------- OPERATIONS (aktueller/letzter Einsatz Detail) ---------- -->
+            <section class="view" data-view="operations">
+                <h2 class="view-title">Einsätze</h2>
+                <div class="list" id="operations-list">
+                    <div class="empty-hint">Kein aktiver Einsatz.</div>
+                </div>
+            </section>
+
+            <!-- ---------- PROFIL ---------- -->
+            <section class="view" data-view="profile">
+                <h2 class="view-title">Profil</h2>
+                <div class="card profile-card">
+                    <div class="profile-name" id="profile-name">–</div>
+                    <div class="profile-org" id="profile-org">–</div>
+
+                    <div class="profile-status-row">
+                        <span>Alarmstatus:</span>
+                        <span id="profile-status">🟢 Einsatzbereit</span>
+                    </div>
+
+                    <div class="profile-stats">
+                        <div class="stat">
+                            <div class="stat-value" id="stat-total">0</div>
+                            <div class="stat-label">Alarmierungen</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value stat-green" id="stat-accepted">0</div>
+                            <div class="stat-label">Zugesagt</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value stat-red" id="stat-declined">0</div>
+                            <div class="stat-label">Abgesagt</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value stat-gray" id="stat-none">0</div>
+                            <div class="stat-label">Keine Antwort</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ---------- EINSTELLUNGEN ---------- -->
+            <section class="view" data-view="settings">
+                <h2 class="view-title">Einstellungen</h2>
+
+                <div class="card">
+                    <div class="card-label">Verfügbarkeit</div>
+                    <div class="availability-grid" id="availability-grid">
+                        <button class="avail-option" data-value="READY">🟢 Einsatzbereit</button>
+                        <button class="avail-option" data-value="LIMITED">🟡 Eingeschränkt verfügbar</button>
+                        <button class="avail-option" data-value="UNAVAILABLE">🔴 Nicht verfügbar</button>
+                        <button class="avail-option" data-value="REST">🌙 Ruhezeit</button>
+                        <button class="avail-option" data-value="AWAY">✈️ Abwesend</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-label">Info</div>
+                    <p class="settings-info">
+                        Alarm24 alarmiert dich ausschließlich, wenn dich die Leitstelle
+                        (EmergencyDispatch) tatsächlich alarmiert hat. Alarm24 trifft
+                        selbst keine Alarmierungsentscheidung.
+                    </p>
+                </div>
+            </section>
+
+        </div>
+
+        <!-- ================= NAVIGATION ================= -->
+        <nav class="navbar">
+            <button class="nav-btn active" data-view="home"><span class="nav-icon">🏠</span><span>Start</span></button>
+            <button class="nav-btn" data-view="alarms"><span class="nav-icon">🚨</span><span>Alarme</span></button>
+            <button class="nav-btn" data-view="operations"><span class="nav-icon">📋</span><span>Einsätze</span></button>
+            <button class="nav-btn" data-view="profile"><span class="nav-icon">👤</span><span>Profil</span></button>
+            <button class="nav-btn" data-view="settings"><span class="nav-icon">⚙</span><span>Mehr</span></button>
+        </nav>
+
+    </div>
+</div>
+
+<!-- ================= ALARM POPUP (Vollbild) ================= -->
+<div id="alarm-overlay" class="alarm-overlay hidden">
+    <div class="alarm-flash"></div>
+    <div class="alarm-box">
+        <div class="alarm-icon">🚨</div>
+        <div class="alarm-heading">EINSATZALARM</div>
+        <div class="alarm-keyword" id="alarm-keyword">–</div>
+
+        <div class="alarm-meta">
+            <span id="alarm-priority" class="alarm-priority"></span>
+            <span id="alarm-time" class="alarm-time">🕐 --:--</span>
+        </div>
+
+        <div class="alarm-location" id="alarm-location">📍 –</div>
+        <div class="alarm-description" id="alarm-description"></div>
+
+        <div class="alarm-actions">
+            <button class="alarm-btn alarm-btn-accept" id="btn-accept">✅ ZUSAGEN</button>
+            <button class="alarm-btn alarm-btn-decline" id="btn-decline">❌ ABSAGEN</button>
+            <button class="alarm-btn alarm-btn-later" id="btn-later">⏱ SPÄTER</button>
+        </div>
+
+        <button class="alarm-nav-btn" id="btn-alarm-nav" hidden>🧭 NAVIGATION STARTEN</button>
+    </div>
+</div>
+
+<!-- ================= ADMINBEREICH ================= -->
+<!-- Verwaltet ausschliesslich Benutzer/Zuordnungen/Logs - disponiert NIEMALS Einsaetze (siehe Punkt 21). -->
+<div id="admin-overlay" class="admin-overlay hidden">
+    <div class="admin-box">
+        <div class="admin-header">
+            <span>ALARM24 · ADMIN</span>
+            <button id="admin-close">✕</button>
+        </div>
+
+        <div class="admin-tabs">
+            <button class="admin-tab active" data-admintab="users">Benutzer</button>
+            <button class="admin-tab" data-admintab="logs">Logs</button>
+        </div>
+
+        <div class="admin-content">
+            <div class="admin-panel active" data-adminpanel="users">
+                <div class="admin-form">
+                    <input type="text" id="admin-input-identifier" placeholder="FiveM License (license:...)" />
+                    <input type="text" id="admin-input-name" placeholder="Name" />
+                    <input type="text" id="admin-input-org" placeholder="Organisation" />
+                    <button id="admin-add-user">Benutzer speichern</button>
+                </div>
+                <div class="admin-list" id="admin-users-list">
+                    <div class="empty-hint">Keine Benutzer geladen.</div>
+                </div>
+            </div>
+
+            <div class="admin-panel" data-adminpanel="logs">
+                <div class="admin-list" id="admin-logs-list">
+                    <div class="empty-hint">Keine Logs geladen.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ================= TOAST ================= -->
+<div id="toast" class="toast hidden"></div>
+
+<audio id="alarm-audio" preload="auto"></audio>
+
+<script src="js/app.js"></script>
+</body>
+</html>
