@@ -1,0 +1,206 @@
+// BOS_SH24 – Datenbankschema
+// SQLite für einfaches Self-Hosting ohne externen DB-Server.
+// Auf Postgres/MySQL umstellbar, indem "provider" + DATABASE_URL geändert werden.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// SQLite unterstützt keine nativen Enums. Die gültigen Werte werden stattdessen
+// als TypeScript-Union-Typen in src/lib/types.ts gepflegt und per Zod validiert:
+// Role: VISITOR | USER | EDITOR | ADMIN
+// UserStatus: ACTIVE | BLOCKED
+// PostStatus: DRAFT | SCHEDULED | PUBLISHED | ARCHIVED
+// ContactStatus: NEW | IN_PROGRESS | DONE
+
+model User {
+  id                 String    @id @default(cuid())
+  name               String
+  username            String    @unique
+  email              String    @unique
+  passwordHash       String
+  role               String    @default("USER")
+  status             String    @default("ACTIVE")
+  avatarUrl          String?
+  bio                String?
+  resetToken         String?   @unique
+  resetTokenExpiry   DateTime?
+  lastLoginAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  posts              Post[]           @relation("PostAuthor")
+  media              Media[]          @relation("MediaUploader")
+  savedPosts         SavedPost[]
+  notifications      Notification[]
+  contactHandled     ContactMessage[] @relation("ContactHandler")
+
+  @@index([role])
+}
+
+model Category {
+  id          String @id @default(cuid())
+  name        String @unique
+  slug        String @unique
+  description String?
+  color       String  @default("#3564ff")
+  posts       Post[]
+}
+
+model Tag {
+  id    String @id @default(cuid())
+  name  String @unique
+  slug  String @unique
+  posts PostTag[]
+}
+
+model Post {
+  id              String     @id @default(cuid())
+  title           String
+  subtitle        String?
+  slug            String     @unique
+  excerpt         String
+  content         String // sanitized HTML aus dem Rich-Text-Editor
+  coverImageUrl   String?
+  coverImageAlt   String?
+  status          String     @default("DRAFT")
+  featured        Boolean    @default(false)
+  viewCount       Int        @default(0)
+  publishedAt     DateTime?
+  scheduledAt     DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  author          User       @relation("PostAuthor", fields: [authorId], references: [id])
+  authorId        String
+
+  category        Category   @relation(fields: [categoryId], references: [id])
+  categoryId      String
+
+  tags            PostTag[]
+  gallery         PostImage[]
+  savedBy         SavedPost[]
+
+  @@index([status, publishedAt])
+  @@index([categoryId])
+}
+
+model PostImage {
+  id        String  @id @default(cuid())
+  url       String
+  caption   String?
+  position  Int     @default(0)
+  post      Post    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId    String
+}
+
+model PostTag {
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId String
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  tagId  String
+
+  @@id([postId, tagId])
+}
+
+model SavedPost {
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId    String
+  createdAt DateTime @default(now())
+
+  @@id([userId, postId])
+}
+
+model Event {
+  id          String   @id @default(cuid())
+  title       String
+  slug        String   @unique
+  description String
+  imageUrl    String?
+  startsAt    DateTime
+  endsAt      DateTime?
+  location    String
+  address     String?
+  category    String?
+  isPublic    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([startsAt])
+}
+
+model Media {
+  id          String   @id @default(cuid())
+  filename    String
+  url         String
+  mimeType    String
+  size        Int
+  title       String?
+  description String?
+  credit      String?
+  uploader    User     @relation("MediaUploader", fields: [uploaderId], references: [id])
+  uploaderId  String
+  createdAt   DateTime @default(now())
+}
+
+model ContactMessage {
+  id          String        @id @default(cuid())
+  firstName   String
+  lastName    String
+  email       String
+  phone       String?
+  subject     String
+  message     String
+  status      String        @default("NEW")
+  handledBy   User?         @relation("ContactHandler", fields: [handledById], references: [id])
+  handledById String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model NewsletterSubscriber {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  confirmed Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  type      String
+  message   String
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+}
+
+model SiteSettings {
+  id                 Int      @id @default(1)
+  siteName           String   @default("BOS_SH24")
+  tagline            String   @default("Presseagentur für Blaulicht- und Einsatzberichte")
+  description        String   @default("BOS_SH24 berichtet unabhängig und aktuell über Einsätze, Pressemitteilungen und Veranstaltungen von Feuerwehr, Rettungsdienst und Polizei.")
+  logoUrl            String?
+  contactEmail       String   @default("redaktion@bos-sh24.de")
+  contactPhone       String   @default("+49 461 1234567")
+  contactAddress     String   @default("Pressehaus BOS_SH24, Musterstraße 1, 24937 Flensburg")
+  facebookUrl        String?
+  instagramUrl       String?
+  youtubeUrl         String?
+  tiktokUrl          String?
+  xUrl                String?
+  footerText         String   @default("BOS_SH24 ist eine unabhängige Presseagentur für Berichte aus dem Bereich Behörden und Organisationen mit Sicherheitsaufgaben (BOS).")
+  impressumContent   String   @default("")
+  datenschutzContent String   @default("")
+  updatedAt          DateTime @updatedAt
+}
