@@ -47,13 +47,37 @@ let currentSource = null;
 // MIKROFON / AUFNAHME
 // =========================================================
 
+function getUserMediaWithTimeout(timeoutMs) {
+    return Promise.race([
+        navigator.mediaDevices.getUserMedia({ audio: true }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('getUserMedia timeout - keine Antwort/Berechtigungsdialog haengt')), timeoutMs)),
+    ]);
+}
+
 async function initMic() {
     try {
-        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        micStream = await getUserMediaWithTimeout(8000);
         setupRecorder();
         setupVadAnalyser();
     } catch (e) {
+        // Haengt am ehesten an einer fehlenden Mikrofon-Berechtigung, die einen
+        // fokussierten Klick brauchte (siehe /policevoiceai_setupmic).
         fetchNui('micError', { message: String(e) });
+    }
+}
+
+// Manueller Retry (siehe client/voice_capture.lua policevoiceai_setupmic):
+// laeuft MIT NUI-Fokus, damit ein evtl. haengender Berechtigungsdialog klickbar ist.
+async function retryMic() {
+    try {
+        if (!micStream) {
+            micStream = await getUserMediaWithTimeout(15000);
+            setupRecorder();
+            setupVadAnalyser();
+        }
+        fetchNui('micSetupDone', { ok: true });
+    } catch (e) {
+        fetchNui('micSetupDone', { ok: false, message: String(e) });
     }
 }
 
@@ -329,6 +353,10 @@ window.addEventListener('message', (event) => {
 
         case 'closeDialogMenu':
             closeDialogMenuUI();
+            break;
+
+        case 'setupMic':
+            retryMic();
             break;
     }
 });

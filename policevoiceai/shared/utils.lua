@@ -35,6 +35,24 @@ function Utils.RollChance(chancePercent)
     return math.random(1, 100) <= chancePercent
 end
 
+-- =========================================================
+-- VOICE-DEBUG-LOGGING (siehe Config.VoiceDebug)
+-- =========================================================
+-- Funktioniert identisch client- und serverseitig (beide haben `print`).
+-- Utils.VoiceLog ist an Config.VoiceDebug gekoppelt, Utils.VoiceLogError
+-- meldet sich IMMER - ein Fehlschlag darf nie einfach "nichts passieren".
+
+function Utils.VoiceLog(fmt, ...)
+    if not Config.VoiceDebug then return end
+    local ok, msg = pcall(string.format, fmt, ...)
+    print('[VOICE] ' .. (ok and msg or fmt))
+end
+
+function Utils.VoiceLogError(fmt, ...)
+    local ok, msg = pcall(string.format, fmt, ...)
+    print('[VOICE ERROR] ' .. (ok and msg or fmt))
+end
+
 function Utils.SafeJsonDecode(str, default)
     if Utils.IsEmpty(str) then return default end
     local ok, result = pcall(json.decode, str)

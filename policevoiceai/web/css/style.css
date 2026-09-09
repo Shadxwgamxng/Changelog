@@ -3,6 +3,17 @@
     font-family: 'Segoe UI', Roboto, Arial, sans-serif;
 }
 
+/* KRITISCH: #hud/.indicator/#dialog-menu setzen weiter unten "display: flex".
+   Als Autor-Regel wuerde das sonst IMMER die Browser-Standardregel
+   "[hidden] { display: none }" (User-Agent-Stylesheet) ueberschreiben, egal wie
+   die Selektor-Spezifitaet aussieht - Autor-Origin schlaegt UA-Origin in der
+   CSS-Kaskade unabhaengig von Spezifitaet. Das war der tatsaechliche Grund,
+   warum die Dialog-/Voice-UI trotz `element.hidden = true` permanent sichtbar
+   blieb. !important erzwingt hier immer Vorrang. */
+[hidden] {
+    display: none !important;
+}
+
 html, body {
     width: 100%;
     height: 100%;

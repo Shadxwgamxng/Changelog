@@ -34,9 +34,12 @@ RegisterNetEvent('policevoiceai:server:startConversation', function(pedNetId, si
     local conversationId, reason = ConversationManager.StartConversation(source, pedNetId, situation)
 
     if not conversationId then
+        Utils.VoiceLogError('StartConversation failed for player %s, ped %s: %s', tostring(source), tostring(pedNetId), tostring(reason))
         TriggerClientEvent('policevoiceai:client:startResult', source, { success = false, reason = reason })
         return
     end
+
+    Utils.VoiceLog('Conversation %s started for player %s, ped %s', conversationId, tostring(source), tostring(pedNetId))
 
     local state = ConversationManager.GetState(conversationId)
     local npcRow = Database.GetNPC(state.npcId)
@@ -89,6 +92,7 @@ RegisterNetEvent('policevoiceai:server:speech', function(payload)
         text = Security.SanitizeSpeechText(payload.presetText)
         if not text then sttErr = 'empty_preset_text' end
     else
+        Utils.VoiceLog('Sending audio to STT (provider: %s)', tostring(Config.STT.provider))
         text, sttErr = STTProvider.Transcribe({
             audioBase64 = payload.audioBase64,
             format = payload.format,
@@ -98,6 +102,7 @@ RegisterNetEvent('policevoiceai:server:speech', function(payload)
     end
 
     if not text then
+        Utils.VoiceLogError('STT request failed: %s', tostring(sttErr))
         if Config.Fallback.useOnSTTError then
             TriggerClientEvent('policevoiceai:client:speechError', source, { reason = 'speech_not_recognized' })
             local fallback = Fallback.SttFailureReply()
@@ -110,8 +115,11 @@ RegisterNetEvent('policevoiceai:server:speech', function(payload)
         return
     end
 
+    Utils.VoiceLog('STT result: "%s"', text)
+
     local ok, processErr = ConversationManager.ProcessPlayerSpeech(payload.conversationId, source, text)
     if not ok then
+        Utils.VoiceLogError('ProcessPlayerSpeech rejected: %s', tostring(processErr))
         TriggerClientEvent('policevoiceai:client:speechError', source, { reason = processErr })
         ConversationManager.SetVoiceListening(payload.conversationId, false) -- Punkt 75: kein 20s-Haengenbleiben bei ungueltiger Anfrage
         return
@@ -120,6 +128,7 @@ RegisterNetEvent('policevoiceai:server:speech', function(payload)
     -- UI-Feedback: was hat die STT verstanden (Punkt 26 - dezente Anzeige)
     TriggerClientEvent('policevoiceai:client:transcript', source, { conversationId = payload.conversationId, text = text })
 
+    Utils.VoiceLog('Sending text to NPC AI (provider: %s)', tostring(Config.AI.provider))
     local reply, replyErr = ConversationManager.GenerateNPCResponse(payload.conversationId)
     if not reply then
         TriggerClientEvent('policevoiceai:client:speechError', source, { reason = replyErr })

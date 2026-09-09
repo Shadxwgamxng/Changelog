@@ -75,6 +75,7 @@ RegisterNetEvent('policevoiceai:client:npcReply', function(data)
 
     local pedEntity = NetworkGetEntityFromNetworkId(data.pedNetId)
 
+    Utils.VoiceLog('NPC speaking (%s): "%s"', data.audioBase64 and 'audio' or 'text-only', tostring(data.text))
     NUI.Send({ action = 'setSpeaking', speaking = true, emotion = data.emotion })
     NUI.Send({ action = 'showTranscript', role = 'npc', text = data.text })
 

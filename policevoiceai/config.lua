@@ -7,6 +7,14 @@ Config = {}
 Config.Locale = 'de'
 Config.Debug = false
 
+-- Detailliertes Schritt-fuer-Schritt-Logging der kompletten Voice-Pipeline
+-- (Konsole client- UND serverseitig), z.B. "[VOICE] PTT pressed", "[VOICE] STT
+-- result: ...". Unabhaengig von Config.Debug (das nur das NPC-State-Overlay
+-- steuert) - gedacht, um "Sprachinteraktion funktioniert nicht zuverlaessig"
+-- Schritt fuer Schritt nachvollziehen zu koennen. Fehler ([VOICE ERROR]) werden
+-- IMMER geloggt, unabhaengig von diesem Schalter.
+Config.VoiceDebug = false
+
 -- =========================================================
 -- PHASE 4 / PUNKT 52-55: VOICE INPUT (PMA-Voice / Push-to-Talk / Voice Activation)
 -- =========================================================

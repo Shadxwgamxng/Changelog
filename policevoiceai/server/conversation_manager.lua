@@ -286,6 +286,7 @@ function ConversationManager.GenerateNPCResponse(conversationId)
 
     local reply, err = AIProvider.Generate(context)
     if not reply and Config.Fallback.useOnAIError then
+        Utils.VoiceLogError('AI request failed (%s), using fallback reply', tostring(err))
         reply = Fallback.AiFailureReply(context)
         err = nil
     end
@@ -293,8 +294,11 @@ function ConversationManager.GenerateNPCResponse(conversationId)
     state.pendingRequest = false
 
     if not reply then
+        Utils.VoiceLogError('AI request failed: %s', tostring(err))
         return nil, err or 'ai_failed'
     end
+
+    Utils.VoiceLog('AI response received: "%s" (emotion: %s)', reply.text, tostring(reply.emotion))
 
     return ConversationManager.FinalizeReply(conversationId, state, npcRow, reply)
 end
@@ -316,10 +320,12 @@ function ConversationManager.FinalizeReply(conversationId, state, npcRow, reply)
 
     -- Phase 8/27: TTS ist best-effort. Schlaegt es fehl, bleibt die Antwort text-only,
     -- das Gespraech bricht dadurch NICHT ab.
+    Utils.VoiceLog('Sending response to TTS (provider: %s)', tostring(Config.TTS.provider))
     local audio, ttsErr = TTSProvider.Synthesize(reply.text, npcRow.voice_profile, npcRow.npc_id)
-    if not audio and Config.Debug and ttsErr ~= 'mock_provider_text_only' then
-        print(('[policevoiceai] TTS nicht verfuegbar (%s), Antwort bleibt text-only.'):format(tostring(ttsErr)))
+    if not audio and ttsErr ~= 'mock_provider_text_only' then
+        Utils.VoiceLogError('TTS request failed (%s), reply stays text-only', tostring(ttsErr))
     end
+    Utils.VoiceLog('NPC speaking (%s)', audio and 'audio' or 'text-only')
 
     return {
         conversationId = conversationId,

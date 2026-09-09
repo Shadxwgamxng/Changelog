@@ -25,17 +25,23 @@ end
 
 local function BeginListening()
     if isRecording then return end
+    if not NPCInteraction.IsInConversation() then return end
+
     isRecording = true
+    Utils.VoiceLog('PTT pressed')
     NUI.Send({ action = 'startRecording' })
     NUI.Send({ action = 'setListening', listening = true })
+    Utils.VoiceLog('Recording started')
     TriggerServerEvent('policevoiceai:server:voiceState', Client.state.conversationId, true)
 end
 
 local function StopListening()
     if not isRecording then return end
     isRecording = false
+    Utils.VoiceLog('PTT released')
     NUI.Send({ action = 'stopRecording' })
     NUI.Send({ action = 'setListening', listening = false })
+    Utils.VoiceLog('Recording stopped')
 end
 
 RegisterCommand('+policevoiceai_talk', function()
@@ -102,6 +108,13 @@ function VoiceCapture.OnSpeechRecorded(data)
     if not NPCInteraction.IsInConversation() then return end
     if not data then return end
 
+    if Utils.IsEmpty(data.audioBase64) and Utils.IsEmpty(data.debugText) then
+        Utils.VoiceLogError('Recording finished with no audio data (Mikrofon evtl. nicht verfuegbar - siehe /policevoiceai_setupmic)')
+        NUI.Send({ action = 'setListening', listening = false })
+        return
+    end
+
+    Utils.VoiceLog('Sending audio to STT')
     TriggerServerEvent('policevoiceai:server:speech', {
         conversationId = Client.state.conversationId,
         audioBase64 = data.audioBase64,
@@ -116,11 +129,31 @@ RegisterNetEvent('policevoiceai:client:transcript', function(data)
 end)
 
 RegisterNetEvent('policevoiceai:client:speechError', function(data)
-    if Config.Debug then print('[policevoiceai] Speech-Fehler: ' .. tostring(data.reason)) end
+    Utils.VoiceLogError('Speech-Fehler: %s', tostring(data.reason))
     NUI.Send({ action = 'setListening', listening = false })
 
     -- Punkt 74: bei nicht erkannter Sprache bleibt das Dialogmenu vollstaendig nutzbar
     if data.reason == 'speech_not_recognized' then
         NUI.Send({ action = 'showTranscript', role = 'npc', text = Locale('speech_not_recognized') })
     end
+end)
+
+-- =========================================================
+-- MANUELLES MIKROFON-SETUP (Fallback, falls getUserMedia beim NUI-Start
+-- keine Berechtigung bekommen hat, z.B. weil ein Klick-Dialog Fokus brauchte)
+-- =========================================================
+
+RegisterCommand('policevoiceai_setupmic', function()
+    SetNuiFocus(true, true)
+    NUI.Send({ action = 'setupMic' })
+end, false)
+
+RegisterNUICallback('micSetupDone', function(data, cb)
+    SetNuiFocus(false, false)
+    if data and data.ok then
+        Utils.VoiceLog('Mikrofon-Setup erfolgreich')
+    else
+        Utils.VoiceLogError('Mikrofon-Setup fehlgeschlagen: %s', tostring(data and data.message))
+    end
+    cb('ok')
 end)

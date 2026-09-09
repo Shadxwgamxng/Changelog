@@ -23,6 +23,31 @@ einer unangenehmen Tatsache lügt, hängt von seinem `honesty`-Wert ab - die
 **Datenbank selbst bleibt dabei immer wahr**, damit ein Officer eine Lüge später
 über MDT, Atemalkoholtest oder Durchsuchung aufdecken kann.
 
+## Fehlerbehebung: UI blieb dauerhaft sichtbar / Sprache unzuverlässig
+
+Zwei kritische Bugs wurden behoben:
+
+- **UI blieb permanent sichtbar**: `web/css/style.css` setzte auf `#hud`,
+  `.indicator` und `#dialog-menu` direkt `display: flex`. Das ist eine
+  Autor-Regel und schlägt die Browser-Standardregel `[hidden] { display: none }`
+  (User-Agent-Stylesheet) **immer**, unabhängig von Selektor-Spezifität - Autor-
+  Origin gewinnt in der CSS-Kaskade grundsätzlich gegen User-Agent-Origin. Das
+  `hidden`-Attribut, das Lua/JS korrekt gesetzt hat, wurde dadurch komplett
+  ignoriert. Fix: eine `[hidden] { display: none !important; }`-Regel am
+  Anfang von `style.css` erzwingt jetzt immer Vorrang. Die UI wird ausschließlich
+  über `element.hidden = true/false` gesteuert, ausgelöst durch echte
+  Conversation-State-Events (`setConversationActive`, `setListening`,
+  `setSpeaking`) - kein Dauer-Loop sendet "show".
+- **Sprachinteraktion unzuverlässig**: `Config.VoiceDebug = true` aktiviert
+  detailliertes `[VOICE]`-Logging der kompletten Pipeline (PTT gedrückt →
+  Recording gestartet → Audio an STT → STT-Ergebnis → Text an KI →
+  KI-Antwort → TTS → NPC spricht) client- und serverseitig in der Konsole -
+  Fehlschläge werden immer als `[VOICE ERROR]` geloggt, unabhängig vom Schalter.
+  Zusätzlich: `getUserMedia` hat jetzt ein Timeout (erkennt einen hängenden
+  Berechtigungsdialog statt für immer zu warten), und `/policevoiceai_setupmic`
+  gibt der NUI kurz Fokus, damit ein evtl. hängender Mikrofon-Berechtigungsdialog
+  anklickbar ist.
+
 ## Voraussetzungen
 
 - [oxmysql](https://github.com/overextended/oxmysql)
@@ -112,6 +137,10 @@ trotzdem vollständig eigenständig zurecht:
   Sprachäußerung durch Persönlichkeit/Fakten/Lüge-Logik verarbeitet.
 - Nur der zuletzt angesprochene NPC reagiert (Punkt 4/50) - steht der Spieler zu
   weit weg, endet das Gespräch automatisch.
+- Das Gespräch endet außerdem automatisch bei: `ESC`, Einsteigen in ein
+  Fahrzeug, Tod/Verschwinden des NPCs, oder wenn der Server die Verbindung
+  zwischen Spieler und NPC nicht mehr autorisiert - in jedem Fall verschwindet
+  die UI sofort mit (Punkt 9).
 
 ## Zuverlässigkeit & NPC-Verhalten (Punkte 47-84)
 

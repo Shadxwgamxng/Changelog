@@ -45,6 +45,7 @@ function NPCInteraction.TryStartConversation(situationHint)
 
     local pedNetId = NPCInteraction.FindNearestPed()
     if not pedNetId then
+        Utils.VoiceLog('Kein gueltiges Ziel in Reichweite gefunden')
         BeginTextCommandThefeedPost('STRING')
         AddTextComponentSubstringPlayerName(Locale('no_target'))
         EndTextCommandThefeedPostTicker(false, false)
@@ -52,11 +53,13 @@ function NPCInteraction.TryStartConversation(situationHint)
     end
 
     Client.state.pendingPedNetId = pedNetId
+    Utils.VoiceLog('Requesting conversation start, target ped netId: %s', tostring(pedNetId))
     TriggerServerEvent('policevoiceai:server:startConversation', pedNetId, situationHint or { type = 'general' })
 end
 
-function NPCInteraction.EndConversation()
+function NPCInteraction.EndConversation(reason)
     if not NPCInteraction.IsInConversation() then return end
+    Utils.VoiceLog('Conversation ended (%s)', tostring(reason or 'player_ended'))
     TriggerServerEvent('policevoiceai:server:endConversation', Client.state.conversationId)
     NPCInteraction.ResetState()
 end
@@ -98,6 +101,8 @@ RegisterNetEvent('policevoiceai:client:startResult', function(data)
     Client.state.npcLastName = data.lastName
     Client.state.voiceProfile = data.voiceProfile
 
+    Utils.VoiceLog('Conversation started. Target NPC: %s (%s %s)', tostring(data.npcId), tostring(data.firstName), tostring(data.lastName))
+
     if NPCSocial then NPCSocial.StartPriorityOverride(data.pedNetId) end
 
     NUI.Send({
@@ -112,27 +117,59 @@ RegisterNetEvent('policevoiceai:client:conversationEnded', function()
 end)
 
 -- =========================================================
--- PHASE 4: REICHWEITEN-UEBERWACHUNG
+-- PUNKT 9: AUTOMATISCHES GESPRAECHSENDE
 -- =========================================================
 -- Leichter Client-Thread, der NUR laeuft solange ein Gespraech aktiv ist
--- (kein globaler Dauer-Loop, Phase 28).
+-- (kein globaler Dauer-Loop, Phase 28). Deckt: Distanz, toter/verschwundener
+-- NPC und Fahrzeugeinstieg des Spielers ab.
 
 CreateThread(function()
     while true do
         Wait(500)
         if NPCInteraction.IsInConversation() then
             local pedEntity = NetworkGetEntityFromNetworkId(Client.state.pedNetId)
+
             if pedEntity == 0 or not DoesEntityExist(pedEntity) then
-                NPCInteraction.EndConversation()
+                Utils.VoiceLog('Target ped no longer exists')
+                NPCInteraction.EndConversation('target_missing')
+            elseif IsEntityDead(pedEntity) then
+                Utils.VoiceLog('Target ped died')
+                NPCInteraction.EndConversation('target_dead')
+            elseif IsPedInAnyVehicle(PlayerPedId(), false) then
+                Utils.VoiceLog('Player entered a vehicle')
+                NPCInteraction.EndConversation('player_entered_vehicle')
             else
                 local dist = Utils.Distance(GetEntityCoords(PlayerPedId()), GetEntityCoords(pedEntity))
                 if dist > Config.NPCInteraction.ConversationDistance then
                     BeginTextCommandThefeedPost('STRING')
                     AddTextComponentSubstringPlayerName(Locale('out_of_range'))
                     EndTextCommandThefeedPostTicker(false, false)
-                    NPCInteraction.EndConversation()
+                    Utils.VoiceLog('Player moved out of range (%.1fm)', dist)
+                    NPCInteraction.EndConversation('out_of_range')
                 end
             end
+        end
+    end
+end)
+
+-- =========================================================
+-- PUNKT 9: ESC BEENDET DAS GESPRAECH
+-- =========================================================
+-- Eigener, schnell taktender Thread (nur waehrend eines aktiven Gespraechs),
+-- da INPUT_FRONTEND_PAUSE (ESC) nur fuer einen einzelnen Frame "just pressed"
+-- ist - ein 500ms-Loop wuerde den Tastendruck fast immer verpassen.
+
+CreateThread(function()
+    while true do
+        if NPCInteraction.IsInConversation() then
+            Wait(0)
+            DisableControlAction(0, 200, true) -- INPUT_FRONTEND_PAUSE
+            if IsDisabledControlJustPressed(0, 200) then
+                Utils.VoiceLog('ESC pressed')
+                NPCInteraction.EndConversation('esc_pressed')
+            end
+        else
+            Wait(250)
         end
     end
 end)
