@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8" />
+    <title>PoliceVoiceAI</title>
+    <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+    <!-- Punkt 26: dezente, nicht-blockierende Voice-UI. Kein Menu, keine Maus noetig. -->
+    <div id="hud" hidden>
+        <div id="npc-name" class="npc-name"></div>
+
+        <div id="listening-indicator" class="indicator listening" hidden>
+            <span class="dot"></span> Zuhören...
+        </div>
+
+        <div id="speaking-indicator" class="indicator speaking" hidden>
+            <span class="wave"></span> Spricht<span id="speaking-emotion" class="emotion"></span>...
+        </div>
+
+        <div id="transcript" class="transcript" hidden></div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
