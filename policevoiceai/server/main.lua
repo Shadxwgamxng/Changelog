@@ -50,6 +50,14 @@ RegisterNetEvent('policevoiceai:server:startConversation', function(pedNetId, si
         lastName = npcRow.last_name,
         voiceProfile = npcRow.voice_profile,
     })
+
+    -- Punkt 59: hat der NPC den Officer selbst angesprochen (Social AI), liefert
+    -- er jetzt direkt seine Einstiegszeile, ohne auf eine Officer-Frage zu warten.
+    local openingLine = SocialAI.ConsumePendingOpeningLine(pedNetId, source)
+    if openingLine then
+        local reply = ConversationManager.RespondWithFallbackText(conversationId, openingLine.text, openingLine.emotion)
+        if reply then BroadcastNpcReply(reply) end
+    end
 end)
 
 -- =========================================================
@@ -68,20 +76,36 @@ RegisterNetEvent('policevoiceai:server:speech', function(payload)
         return
     end
 
-    local text, sttErr = STTProvider.Transcribe({
-        audioBase64 = payload.audioBase64,
-        format = payload.format,
-        mimeType = payload.mimeType,
-        debugText = payload.debugText,
-    })
+    -- Punkt 71: Indikator/State sofort auf "Verarbeiten..." setzen, noch bevor
+    -- STT/KI ueberhaupt geantwortet haben.
+    ConversationManager.SetProcessing(payload.conversationId)
+
+    local text, sttErr
+
+    -- Punkt 74: Dialogmenu-Fallback liefert bereits fertigen Text (Officer hat
+    -- eine vorgefertigte Frage ausgewaehlt) - komplett ohne STT, funktioniert
+    -- daher IMMER, egal ob/welcher STT-Provider konfiguriert ist.
+    if not Utils.IsEmpty(payload.presetText) then
+        text = Security.SanitizeSpeechText(payload.presetText)
+        if not text then sttErr = 'empty_preset_text' end
+    else
+        text, sttErr = STTProvider.Transcribe({
+            audioBase64 = payload.audioBase64,
+            format = payload.format,
+            mimeType = payload.mimeType,
+            debugText = payload.debugText,
+        })
+    end
 
     if not text then
         if Config.Fallback.useOnSTTError then
+            TriggerClientEvent('policevoiceai:client:speechError', source, { reason = 'speech_not_recognized' })
             local fallback = Fallback.SttFailureReply()
             local reply = ConversationManager.RespondWithFallbackText(payload.conversationId, fallback.text, fallback.emotion)
             if reply then BroadcastNpcReply(reply) end
         else
             TriggerClientEvent('policevoiceai:client:speechError', source, { reason = sttErr or 'stt_failed' })
+            ConversationManager.SetVoiceListening(payload.conversationId, false)
         end
         return
     end
@@ -89,6 +113,7 @@ RegisterNetEvent('policevoiceai:server:speech', function(payload)
     local ok, processErr = ConversationManager.ProcessPlayerSpeech(payload.conversationId, source, text)
     if not ok then
         TriggerClientEvent('policevoiceai:client:speechError', source, { reason = processErr })
+        ConversationManager.SetVoiceListening(payload.conversationId, false) -- Punkt 75: kein 20s-Haengenbleiben bei ungueltiger Anfrage
         return
     end
 
@@ -98,10 +123,35 @@ RegisterNetEvent('policevoiceai:server:speech', function(payload)
     local reply, replyErr = ConversationManager.GenerateNPCResponse(payload.conversationId)
     if not reply then
         TriggerClientEvent('policevoiceai:client:speechError', source, { reason = replyErr })
+        ConversationManager.SetVoiceListening(payload.conversationId, false)
         return
     end
 
     BroadcastNpcReply(reply)
+end)
+
+-- =========================================================
+-- PUNKT 55/71: SPRECHZUSTAND (PMA-Voice-Erkennung oder eigene PTT-Taste)
+-- =========================================================
+
+RegisterNetEvent('policevoiceai:server:voiceState', function(conversationId, listening)
+    local source = source
+    local state = ConversationManager.GetState(conversationId)
+    if not state or state.playerSource ~= source then return end
+
+    ConversationManager.SetVoiceListening(conversationId, listening == true)
+end)
+
+-- =========================================================
+-- PUNKT 75: SAUBERES ENDE VON "RESPONDING" (TTS-Wiedergabe fertig)
+-- =========================================================
+
+RegisterNetEvent('policevoiceai:server:playbackFinished', function(conversationId)
+    local source = source
+    local state = ConversationManager.GetState(conversationId)
+    if not state or state.playerSource ~= source then return end
+
+    ConversationManager.OnPlaybackFinished(conversationId)
 end)
 
 -- =========================================================
@@ -114,6 +164,24 @@ RegisterNetEvent('policevoiceai:server:endConversation', function(conversationId
     if not state or state.playerSource ~= source then return end
 
     ConversationManager.EndConversation(conversationId, 'player_ended')
+end)
+
+-- =========================================================
+-- PUNKT 57-59: NPC-SEITIGE ANNAEHERUNG (Social AI)
+-- =========================================================
+
+RegisterNetEvent('policevoiceai:server:evaluateApproach', function(pedNetId)
+    local source = source
+    if type(pedNetId) ~= 'number' then return end
+
+    local decision = SocialAI.EvaluateApproach(pedNetId, source)
+    TriggerClientEvent('policevoiceai:client:npcApproachDecision', source, decision)
+end)
+
+RegisterNetEvent('policevoiceai:server:cancelApproach', function(pedNetId)
+    local source = source
+    if type(pedNetId) ~= 'number' then return end
+    SocialAI.CancelApproach(pedNetId, source)
 end)
 
 -- =========================================================

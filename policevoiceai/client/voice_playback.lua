@@ -62,6 +62,12 @@ function VoicePlayback.OnPlaybackEnded()
 
     local pedEntity = pedNetId and NetworkGetEntityFromNetworkId(pedNetId)
     if pedEntity and pedEntity ~= 0 then Animation.StopTalking(pedEntity) end
+
+    -- Punkt 75: Server sauber aus RESPONDING zurueckholen, sobald die Wiedergabe
+    -- (Audio ODER text-only Fallback) tatsaechlich beendet ist.
+    if Client.state.conversationId then
+        TriggerServerEvent('policevoiceai:server:playbackFinished', Client.state.conversationId)
+    end
 end
 
 RegisterNetEvent('policevoiceai:client:npcReply', function(data)

@@ -26,7 +26,7 @@ function NPCInteraction.FindNearestPed()
     local playerPed = PlayerPedId()
     local playerCoords = GetEntityCoords(playerPed)
 
-    local closestPed, closestDist = nil, Config.NPCConversationDistance
+    local closestPed, closestDist = nil, Config.NPCInteraction.ConversationDistance
     for _, ped in ipairs(GetGamePool('CPed')) do
         if ped ~= playerPed and not IsPedAPlayer(ped) and not IsEntityDead(ped) then
             local dist = Utils.Distance(playerCoords, GetEntityCoords(ped))
@@ -62,6 +62,8 @@ function NPCInteraction.EndConversation()
 end
 
 function NPCInteraction.ResetState()
+    local previousPedNetId = Client.state.pedNetId
+
     Client.state.conversationId = nil
     Client.state.pedNetId = nil
     Client.state.npcFirstName = nil
@@ -69,6 +71,7 @@ function NPCInteraction.ResetState()
     Client.state.voiceProfile = nil
 
     if VoicePlayback then VoicePlayback.Stop() end
+    if NPCSocial and previousPedNetId then NPCSocial.StopPriorityOverride(previousPedNetId) end
 
     NUI.Send({ action = 'setConversationActive', active = false })
     NUI.Send({ action = 'setListening', listening = false })
@@ -94,6 +97,8 @@ RegisterNetEvent('policevoiceai:client:startResult', function(data)
     Client.state.npcFirstName = data.firstName
     Client.state.npcLastName = data.lastName
     Client.state.voiceProfile = data.voiceProfile
+
+    if NPCSocial then NPCSocial.StartPriorityOverride(data.pedNetId) end
 
     NUI.Send({
         action = 'setConversationActive',
@@ -121,7 +126,7 @@ CreateThread(function()
                 NPCInteraction.EndConversation()
             else
                 local dist = Utils.Distance(GetEntityCoords(PlayerPedId()), GetEntityCoords(pedEntity))
-                if dist > Config.NPCConversationDistance then
+                if dist > Config.NPCInteraction.ConversationDistance then
                     BeginTextCommandThefeedPost('STRING')
                     AddTextComponentSubstringPlayerName(Locale('out_of_range'))
                     EndTextCommandThefeedPostTicker(false, false)

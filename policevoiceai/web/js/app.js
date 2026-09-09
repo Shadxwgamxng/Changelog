@@ -235,6 +235,42 @@ function showTranscript(role, text) {
 }
 
 // =========================================================
+// DIALOGMENU-FALLBACK (Punkt 74/83)
+// =========================================================
+
+function openDialogMenu(questions, npcName) {
+    const menu = document.getElementById('dialog-menu');
+    document.getElementById('dialog-menu-title').textContent = npcName ? `Fragen an ${npcName}` : 'Fragen';
+    document.getElementById('dialog-menu-close-hint').textContent = 'Schließen (ESC)';
+
+    const list = document.getElementById('dialog-menu-list');
+    list.innerHTML = '';
+
+    (questions || []).forEach((q) => {
+        const btn = document.createElement('div');
+        btn.className = 'dialog-menu-item';
+        btn.textContent = q.text;
+        btn.addEventListener('click', () => {
+            fetchNui('dialogQuestionSelected', { id: q.id, text: q.text });
+        });
+        list.appendChild(btn);
+    });
+
+    menu.hidden = false;
+}
+
+function closeDialogMenuUI() {
+    document.getElementById('dialog-menu').hidden = true;
+}
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        const menu = document.getElementById('dialog-menu');
+        if (!menu.hidden) fetchNui('closeDialogMenu', {});
+    }
+});
+
+// =========================================================
 // NACHRICHTEN VON LUA
 // =========================================================
 
@@ -285,6 +321,14 @@ window.addEventListener('message', (event) => {
 
         case 'stopAudio':
             stopAudio();
+            break;
+
+        case 'openDialogMenu':
+            openDialogMenu(data.questions, data.npcName);
+            break;
+
+        case 'closeDialogMenu':
+            closeDialogMenuUI();
             break;
     }
 });

@@ -36,7 +36,7 @@ function Security.IsPlayerInRangeOfPed(source, pedNetId, maxDistance)
     local playerCoords = GetEntityCoords(playerPed)
     local targetCoords = GetEntityCoords(targetPed)
 
-    return Utils.Distance(playerCoords, targetCoords) <= (maxDistance or Config.NPCConversationDistance)
+    return Utils.Distance(playerCoords, targetCoords) <= (maxDistance or Config.NPCInteraction.ConversationDistance)
 end
 
 -- Haertet vom Client gemeldeten (bereits transkribierten) Text ab, bevor er an

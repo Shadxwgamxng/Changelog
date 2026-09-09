@@ -96,14 +96,90 @@ trotzdem vollständig eigenständig zurecht:
 
 ## Bedienung
 
-- **Push-to-Talk** (`Config.VoiceMode = 'push_to_talk'`, Standard): Taste
-  `Config.VoiceKey` (Standard `LALT`, über FiveM-Tastenbelegung frei änderbar)
-  in der Nähe eines Bürgers halten, um das Gespräch zu beginnen und zu sprechen.
+- **PMA-Voice** (Standard, `Config.Voice.UsePmaVoiceKey = true`): dieselbe Taste,
+  die der Spieler ohnehin für pma-voice als Push-to-Talk nutzt, treibt auch das
+  NPC-Gespräch an. `Config.Voice.FallbackKey` (Standard `LALT`, über
+  FiveM-Tastenbelegung frei änderbar) wählt/beendet nur das Gesprächsziel.
+- **Push-to-Talk** (`Config.VoiceMode = 'push_to_talk'`, Fallback ohne pma-voice):
+  Taste `Config.Voice.FallbackKey` in der Nähe eines Bürgers halten, um das
+  Gespräch zu beginnen und zu sprechen.
 - **Voice Activation** (`Config.VoiceMode = 'voice_activation'`): dieselbe Taste
   einmal drücken startet/beendet das Gespräch, danach hört die NUI per
   RMS-Lautstärkeerkennung automatisch zu, ganz ohne Taste halten zu müssen.
-- Nur der zuletzt angesprochene NPC reagiert (Punkt 4) - steht der Spieler zu
+- **Dialogmenü-Fallback** (`Config.NPCInteraction.DialogMenuKey`, Standard `F7`):
+  funktioniert immer, auch bei `Config.Voice.enabled = false` oder komplett ohne
+  KI-Provider (Punkt 74) - eine vorgefertigte Frage wird 1:1 wie eine erkannte
+  Sprachäußerung durch Persönlichkeit/Fakten/Lüge-Logik verarbeitet.
+- Nur der zuletzt angesprochene NPC reagiert (Punkt 4/50) - steht der Spieler zu
   weit weg, endet das Gespräch automatisch.
+
+## Zuverlässigkeit & NPC-Verhalten (Punkte 47-84)
+
+Diese Erweiterung behebt gezielt das Problem "NPC reagiert nicht/teilweise":
+
+- **Server-autoritative State Machine** (`shared/npc_states.lua`,
+  `server/npc_manager.lua`): jeder NPC durchläuft klar definierte Zustände
+  (`IDLE → APPROACHING → WAITING_FOR_PLAYER → LISTENING → PROCESSING →
+  RESPONDING → ... → LEAVING`). Jeder Zustand außer IDLE bekommt automatisch
+  einen **Sicherheits-Timeout** - bleibt ein NPC z.B. in `LISTENING` hängen, weil
+  ein Client-Event verloren ging, erzwingt der Server nach spätestens wenigen
+  Sekunden einen sauberen Rückfall. Ein NPC kann dadurch nicht mehr dauerhaft in
+  "Zuhören"/"Spricht" steckenbleiben (Punkt 75).
+- **3D-Indikator über dem NPC-Kopf** (`client/npc_indicator.lua`): zeigt Name
+  (`Config.NPCNameDisplay`) und Sprechstatus (🎙/⏳/🔊) direkt am Ped an, **nur**
+  für den NPC, mit dem gerade tatsächlich kommuniziert wird (Punkt 49-51) -
+  andere NPCs in der Nähe zeigen nichts an.
+- **Debug-Modus** (`Config.Debug = true`): blendet zusätzlich NPC-ID, Zustand,
+  Distanz, Ziel-Spieler und Kernpersönlichkeitswerte über dem Kopf ein - gedacht
+  genau für "warum reagiert dieser NPC nicht"-Fehlersuche (Punkt 73).
+- **Prioritäts-Override** (`client/npc_social.lua`): während eines aktiven
+  Gesprächs blockiert der NPC ambientes GTA-Verhalten
+  (`SetBlockingOfNonTemporaryEvents`, Rückkehr per `TaskStandStill` bei
+  Ortsdrift) - er läuft nicht weg, weicht nicht aus, steigt nicht plötzlich in
+  ein Fahrzeug (Punkt 62/67/69). Nach Gesprächsende wird der Override sauber
+  aufgehoben (Punkt 68).
+- **NPC-seitige Annäherung** (`server/social_ai.lua`, `client/npc_social.lua`):
+  NPCs können, abhängig von Persönlichkeit (Selbstbewusstsein/Kooperation/
+  Nervosität), selbstständig auf einen nahen Officer zugehen und ihn ansprechen
+  (Zeuge/Opfer/allgemeine Frage, Punkt 58/59/65), oder bei hoher Kriminalität
+  stattdessen fliehen (`TaskSmartFleePed`). Die Navigation nutzt
+  `TaskGoStraightToCoord` (kein Teleport, natürliches Lauftempo) und bricht bei
+  Timeout/zu großer Distanz sauber ab (kein Soft-Lock, Punkt 63/75).
+- **Umgebungserkennung** (Punkt 60/61): erkennt Polizeifahrzeuge mit Blaulicht
+  in der Nähe (`GetVehicleClass`/`IsVehicleSirenOn`) und lässt NPCs stattdessen
+  hinschauen statt eine laufende Einsatzstelle zu durchqueren.
+
+### PMA-Voice-Integration - ehrlich betrachtet (Punkt 54)
+
+FiveM bietet **keine API**, um die tatsächlich in pma-voice hinterlegte
+Push-to-Talk-Taste eines Spielers auszulesen - dieses Script behauptet das
+nirgends. Stattdessen probiert `client/pma_voice_integration.lua` mehrere
+bekannte pma-voice-Export-/State-Bag-Konventionen der Reihe nach (pcall-
+abgesichert), um den **Sprechzustand** ("spricht der Spieler gerade") zu lesen.
+Funktioniert das mit der eingesetzten pma-voice-Version/-Fork nicht, fällt das
+Script automatisch und ohne Fehlermeldung auf `Config.Voice.FallbackKey` als
+ganz normale, eigene Push-to-Talk-Taste zurück - das Script bleibt so in jedem
+Fall benutzbar. Passe `client/pma_voice_integration.lua` an, falls die eigene
+pma-voice-Version einen anderen, bekannten Export/State-Bag-Key bereitstellt.
+
+### Akzeptanztests (Punkt 83)
+
+| Test | Abgedeckt durch |
+|---|---|
+| 1 - Voice (PMA-PTT → Zuhören → Antwort) | `client/voice_capture.lua`, `client/npc_indicator.lua` |
+| 2 - Menü (Voice aus, Dialogmenü) | `Config.Voice.enabled = false`, `client/dialog_menu.lua` |
+| 3 - NPC geht zum Officer | `server/social_ai.lua`, `client/npc_social.lua` (`NavigateToOfficer`) |
+| 4 - NPC ignoriert Ambient-Verhalten waehrend Gespraech | `NPCSocial.StartPriorityOverride` |
+| 5 - Verkehrskontrolle | Integrationspunkt: `exports['policevoiceai']:StartConversationWithSituation({type='traffic_stop'})`, ausgelöst durch FivePDs eigene Anhalte-Taste/Logik |
+| 6 - Funk/Leitstelle | Außerhalb des Scopes dieser Ressource - eigenständiges Dispatch/Funk-System, siehe FivePD/EmergencyDispatch |
+| 7 - Fallback (Voice/KI down) | `Config.Fallback.*`, Dialogmenü bleibt unabhängig davon nutzbar |
+
+**Test 6 ist bewusst nicht Teil von PoliceVoiceAI**: Funk/Leitstelle ist ein
+eigenständiges System (siehe z.B. EmergencyDispatch in diesem Repo) und würde
+eine erfundene Integration in eine fremde, nicht spezifizierte Funk-Ressource
+bedeuten. `exports['policevoiceai']:StartConversationWithSituation(...)` ist der
+saubere Anknüpfungspunkt, falls ein Funk-/Leitstellen-Script eigene
+KI-Antworten darüber anfordern möchte.
 
 ## Sicherheit
 
@@ -132,12 +208,21 @@ trotzdem vollständig eigenständig zurecht:
 policevoiceai/
 ├── fxmanifest.lua
 ├── config.lua
-├── client/            (Mikrofonsteuerung, Targeting, 3D-Wiedergabe, Animation, FivePD-Hook)
-├── server/             (Conversation Manager, KI/STT/TTS-Provider, Personality, MDT, Callouts)
+├── client/
+│   ├── pma_voice_integration.lua  (best-effort PMA-Voice Sprechzustand)
+│   ├── voice_capture.lua          (PTT/Voice-Activation/PMA-Steuerung)
+│   ├── voice_playback.lua         (3D-Panning-Wiedergabe)
+│   ├── animation.lua              (Lipsync/Gestik)
+│   ├── npc_interaction.lua        (Targeting, Conversation-State)
+│   ├── npc_indicator.lua          (3D-Kopf-Indikator + Debug-Overlay)
+│   ├── npc_social.lua             (Annaeherung, Prioritaets-Override, Polizeierkennung)
+│   ├── dialog_menu.lua            (Dialogmenue-Fallback)
+│   └── fivepd_integration.lua     (optionaler FivePD-Hook)
+├── server/             (Conversation Manager, KI/STT/TTS-Provider, Personality, NPC-/State-Manager, Social AI, MDT, Callouts)
 ├── integrations/
 │   └── fivepd.lua       (einzige, optionale Schnittstelle zu FivePD)
-├── shared/            (Locales, Utils, Personas)
-├── web/               (NUI: Mikrofonaufnahme, Voice-Activation, 3D-Panning-Wiedergabe, Voice-UI)
+├── shared/            (Locales, Utils, Personas, State-Machine-Enum)
+├── web/               (NUI: Mikrofonaufnahme, Voice-Activation, 3D-Panning-Wiedergabe, Voice-UI, Dialogmenue)
 └── sql/install.sql
 ```
 
@@ -172,3 +257,11 @@ policevoiceai/
 - Lipsync basiert auf dokumentierten GTA-V-Natives (`TaskChatEvent`,
   `TaskLookAtEntity`, Gestik-Animationen) und ist eine Annäherung, keine
   Phonem-genaue Mundbewegung.
+- PMA-Voice-Sprecherkennung ist best-effort (siehe oben) - je nach Fork/Version
+  kann ein Anpassen von `client/pma_voice_integration.lua` nötig sein; der
+  Fallback über `Config.Voice.FallbackKey` funktioniert davon unabhängig immer.
+- Die Umgebungserkennung deckt Polizeifahrzeuge/Sirenen ab (Punkt 60/61). Eine
+  generische Erkennung von Schusswechsel/Unfall/Schlägerei (Punkt 60) ist
+  bewusst nicht enthalten, da das zuverlässig nur mit tiefer Integration in ein
+  konkretes Callout-/Kampf-System möglich wäre und sonst reine Vortäuschung
+  wäre - `server/callouts.lua` bietet dafür den strukturierten Anknüpfungspunkt.

@@ -165,6 +165,9 @@ function ConversationManager.StartConversation(playerSource, pedNetId, situation
     Database.CreateConversation(conversationId, npcId, GetPlayerIdentifier(playerSource), state.situation.type, state.situation)
     ConversationManager.ScheduleIdleCheck(conversationId)
 
+    -- Punkt 48: der NPC ist ab jetzt eindeutig "Active Conversation Target"
+    NPCManager.SetState(pedNetId, NPC_STATES.WAITING_FOR_PLAYER)
+
     return conversationId
 end
 
@@ -308,6 +311,9 @@ function ConversationManager.FinalizeReply(conversationId, state, npcRow, reply)
 
     Database.AddMessage(conversationId, 'npc', reply.text, reply.emotion)
 
+    -- Punkt 71: Indikator/Debug muss synchron mit der tatsaechlichen Antwort sein
+    NPCManager.SetState(state.pedNetId, NPC_STATES.RESPONDING)
+
     -- Phase 8/27: TTS ist best-effort. Schlaegt es fehl, bleibt die Antwort text-only,
     -- das Gespraech bricht dadurch NICHT ab.
     local audio, ttsErr = TTSProvider.Synthesize(reply.text, npcRow.voice_profile, npcRow.npc_id)
@@ -366,6 +372,31 @@ end
 
 function ConversationManager.GetState(conversationId)
     return conversations[conversationId]
+end
+
+-- Punkt 55/71: wird ausgeloest, sobald der Client tatsaechlich zu sprechen beginnt/
+-- aufhoert (PMA-Voice-Erkennung oder eigene PTT-Taste), synchronisiert den
+-- Indikator/State bereits VOR dem Eintreffen des fertigen Sprachtexts.
+function ConversationManager.SetVoiceListening(conversationId, listening)
+    local state = conversations[conversationId]
+    if not state or not state.active then return end
+
+    state.lastActivityAt = GetGameTimer()
+    NPCManager.SetState(state.pedNetId, listening and NPC_STATES.LISTENING or NPC_STATES.WAITING_FOR_PLAYER)
+end
+
+function ConversationManager.SetProcessing(conversationId)
+    local state = conversations[conversationId]
+    if not state or not state.active then return end
+    NPCManager.SetState(state.pedNetId, NPC_STATES.PROCESSING)
+end
+
+-- Punkt 75: sauberer Rueckweg aus RESPONDING, sobald der Client die
+-- Wiedergabe (Audio ODER text-only Fallback) tatsaechlich beendet hat.
+function ConversationManager.OnPlaybackFinished(conversationId)
+    local state = conversations[conversationId]
+    if not state or not state.active then return end
+    NPCManager.SetState(state.pedNetId, NPC_STATES.WAITING_FOR_PLAYER)
 end
 
 -- =========================================================

@@ -81,3 +81,63 @@ html, body {
     0%, 100% { opacity: 1; transform: scale(1); }
     50% { opacity: 0.35; transform: scale(0.7); }
 }
+
+/* Punkt 74/83: Dialogmenu-Fallback - einziges Element mit Maus-Interaktion */
+#dialog-menu {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(5, 6, 8, 0.45);
+    pointer-events: auto;
+}
+
+.dialog-menu-box {
+    width: min(420px, 90vw);
+    max-height: 70vh;
+    overflow-y: auto;
+    background: rgba(18, 20, 24, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 14px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+}
+
+.dialog-menu-title {
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.dialog-menu-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.dialog-menu-item {
+    pointer-events: auto;
+    cursor: pointer;
+    color: #f0f0f0;
+    font-size: 13px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 9px 12px;
+    text-align: left;
+    transition: background 0.1s ease;
+}
+
+.dialog-menu-item:hover {
+    background: rgba(255, 255, 255, 0.14);
+}
+
+.dialog-menu-close {
+    margin-top: 10px;
+    text-align: center;
+    color: #999;
+    font-size: 11px;
+}

@@ -8,16 +8,14 @@ Config.Locale = 'de'
 Config.Debug = false
 
 -- =========================================================
--- PHASE 4: VOICE INPUT (Push-to-Talk / Voice Activation)
+-- PHASE 4 / PUNKT 52-55: VOICE INPUT (PMA-Voice / Push-to-Talk / Voice Activation)
 -- =========================================================
 
--- 'push_to_talk' oder 'voice_activation'
+-- 'push_to_talk' oder 'voice_activation'. Wird IGNORIERT, solange
+-- Config.Voice.UsePmaVoiceKey aktiv ist UND pma-voice tatsaechlich laeuft/
+-- erkannt wird (siehe unten) - dann uebernimmt pma-voice die eigentliche
+-- Sprechsteuerung und Config.VoiceMode ist nur noch der Fallback dafuer.
 Config.VoiceMode = 'push_to_talk'
-
--- Default-Taste zum Sprechen. Der Spieler kann sie in den FiveM-Bindings
--- (Einstellungen -> Tastenbelegung -> FiveM -> "PoliceVoiceAI: Sprechen") aendern,
--- da wir RegisterKeyMapping benutzen (siehe client/voice_capture.lua).
-Config.VoiceKey = 'LMENU'
 
 -- Nur relevant wenn Config.VoiceMode = 'voice_activation'
 Config.VoiceActivation = {
@@ -32,18 +30,114 @@ Config.VoiceActivation = {
 -- endlos Daten sendet (Performance/Sicherheit, Phase 28)
 Config.MaxRecordingSeconds = 12
 
+-- Punkt 52-54: PMA-Voice-Integration. Ziel: keine zweite, komplett eigene
+-- Sprechtaste - die NPC-Konversation soll moeglichst dieselbe Taste nutzen,
+-- die der Spieler ohnehin fuer den normalen Proximity-Voice-Chat gedrueckt haelt.
+--
+-- WICHTIG (Punkt 54): FiveM bietet keine API, mit der ein anderes Script
+-- zuverlaessig auslesen kann, welche physische Taste ein Spieler in pma-voice
+-- als PTT hinterlegt hat. Dieses Script behauptet das NICHT. Stattdessen wird
+-- best-effort versucht, ueber pma-voice-Exports/State-Bags den *Sprechzustand*
+-- ("spricht der Spieler gerade") auszulesen (siehe client/pma_voice_integration.lua).
+-- Schlaegt das fehl (andere pma-voice-Version/-Fork, anderer Voice-Anbieter),
+-- greift automatisch Config.Voice.FallbackKey als ganz normale, eigene
+-- Push-to-Talk-Taste - das Script bleibt so IMMER funktionsfaehig.
+Config.Voice = {
+    -- Punkt 74 (Test 2/7): auf false stellen, um Voice komplett zu deaktivieren -
+    -- das Dialogmenu (Config.NPCInteraction.DialogMenuKey) bleibt davon unberuehrt
+    -- vollstaendig nutzbar.
+    enabled = true,
+
+    Provider = 'pma-voice',
+    UsePmaVoiceKey = true,
+    -- Eigene, ueber FiveM-Bindings frei umbelegbare Taste. Wird genutzt als:
+    --  a) Ziel-Auswahl-Taste (Gespraech starten/beenden), wenn pma-voice-Erkennung
+    --     funktioniert - der Spieler spricht dann ganz normal ueber seine eigene
+    --     pma-voice-PTT-Taste weiter, ohne eine zweite Taste lernen zu muessen.
+    --  b) Vollstaendige Push-to-Talk-Taste (Halten = Sprechen), falls pma-voice
+    --     nicht erkannt werden kann.
+    FallbackKey = 'LMENU',
+}
+
 -- =========================================================
--- PHASE 1/4: REICHWEITE & TARGETING
+-- PHASE 1/4 / PUNKT 64: REICHWEITE & TARGETING
 -- =========================================================
 
--- Ab welcher Entfernung (Meter) ein NPC den Spieler ueberhaupt hoeren kann.
--- Wird SOWOHL client- als auch serverseitig geprueft (Server ist autoritativ,
--- siehe Config.Security.validateDistanceServerSide).
-Config.NPCConversationDistance = 4.0
+Config.NPCInteraction = {
+    -- Ab dieser Entfernung (Meter) kann ein NPC einen Officer ueberhaupt als
+    -- moegliches Gespraechsziel wahrnehmen (Punkt 57-59, NPC spricht Officer an)
+    StartDistance = 3.5,
+
+    -- Ab welcher Entfernung (Meter) ein NPC den Spieler ueberhaupt hoeren kann.
+    -- Wird SOWOHL client- als auch serverseitig geprueft (Server ist autoritativ,
+    -- siehe Config.Security.validateDistanceServerSide).
+    ConversationDistance = 4.0,
+
+    -- Zieldistanz, in der ein auf den Officer zulaufender NPC stehen bleibt (Punkt 63/64)
+    StopDistance = 1.8,
+
+    -- Ab dieser Entfernung (Meter) kann ein NPC ueberhaupt in Erwaegung ziehen,
+    -- selbststaendig auf den Officer zuzugehen (Punkt 58/63)
+    ApproachDistance = 15.0,
+
+    -- Taste zum Oeffnen des Dialogmenu-Fallbacks (Punkt 74, funktioniert IMMER,
+    -- auch komplett ohne Voice/KI-Provider)
+    DialogMenuKey = 'F7',
+
+    -- Wie oft (Sekunden) ein einzelner NPC maximal neu bewerten darf, ob er den
+    -- Officer anspricht (verhindert staendiges Neu-Wuerfeln bei jedem Scan-Tick)
+    ApproachRerollCooldownSeconds = 20,
+}
 
 -- Nur der zuletzt gezielt angesprochene NPC "hoert zu". Auch wenn mehrere NPCs
 -- in Reichweite stehen, reagiert nicht automatisch jeder von ihnen.
 Config.MaxSimultaneousListeners = 1
+
+-- =========================================================
+-- PUNKT 72: NAME UEBER DEM KOPF
+-- =========================================================
+-- 'always' | 'conversation_only' | 'never'
+Config.NPCNameDisplay = 'conversation_only'
+
+-- =========================================================
+-- PUNKT 74: DIALOGMENU-FALLBACK (funktioniert immer, auch ohne Voice/KI)
+-- =========================================================
+-- Jeder Eintrag wird 1:1 wie eine transkribierte Officer-Aeusserung durch
+-- Conversation Manager + KI verarbeitet (Persoenlichkeit/Fakten/Luegen etc.
+-- greifen genauso wie bei echter Sprache) - nur die Spracherkennung entfaellt.
+Config.DialogQuestions = {
+    { id = 'intro', text = 'Guten Tag. Koennen Sie sich bitte ausweisen?' },
+    { id = 'license', text = 'Koennen Sie mir Ihren Fuehrerschein zeigen?' },
+    { id = 'address', text = 'Wo wohnen Sie?' },
+    { id = 'occupation', text = 'Was arbeiten Sie?' },
+    { id = 'vehicle', text = 'Gehoert dieses Fahrzeug Ihnen?' },
+    { id = 'alcohol', text = 'Haben Sie heute etwas getrunken?' },
+    { id = 'warrant', text = 'Haben Sie schon einmal Probleme mit der Polizei gehabt?' },
+    { id = 'reason', text = 'Wissen Sie, warum ich Sie angehalten habe?' },
+    { id = 'goodbye', text = 'Alles klar, das waer\'s. Einen schoenen Tag noch.' },
+}
+
+-- =========================================================
+-- PUNKT 57-70: NPC SOCIAL AI (Annaeherung, Prioritaeten, Umgebungserkennung)
+-- =========================================================
+Config.SocialAI = {
+    enabled = true,
+
+    -- Wie oft (ms) ein Client umliegende Peds auf moegliche Annaeherung prueft
+    scanIntervalMs = 4000,
+
+    -- Basis-Wahrscheinlichkeit (%) dass ein grundsaetzlich kooperativer/soziale
+    -- NPC (Persoenlichkeit) den Officer anspricht, wenn er ihn wahrnimmt (Punkt 65)
+    baseApproachChance = 12,
+
+    -- Timeout (ms) fuer die Annaeherungs-Navigation (Punkt 63) - laeuft der NPC
+    -- so lange nicht an, wird der Versuch sauber abgebrochen (kein Soft-Lock)
+    approachTimeoutMs = 15000,
+
+    -- Punkt 60/61: reagiert auf Polizeifahrzeuge mit Blaulicht in der Naehe
+    -- (unterdrueckt Annaeherungs-Wuerfe, NPC schaut stattdessen zum Fahrzeug)
+    policeVehicleAwarenessRadius = 12.0,
+}
 
 -- =========================================================
 -- PHASE 6: CONVERSATION MANAGER
