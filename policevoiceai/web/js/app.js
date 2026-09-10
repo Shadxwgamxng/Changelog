@@ -43,20 +43,34 @@ let gainNode = null;
 let pannerNode = null;
 let currentSource = null;
 
+let preferredMicDeviceId = null;
+let micInitialized = false;
+
 // =========================================================
 // MIKROFON / AUFNAHME
 // =========================================================
 
-function getUserMediaWithTimeout(timeoutMs) {
+function micConstraints(deviceId) {
+    return { audio: deviceId ? { deviceId: { exact: deviceId } } : true };
+}
+
+function getUserMediaWithTimeout(timeoutMs, deviceId) {
     return Promise.race([
-        navigator.mediaDevices.getUserMedia({ audio: true }),
+        navigator.mediaDevices.getUserMedia(micConstraints(deviceId)),
         new Promise((_, reject) => setTimeout(() => reject(new Error('getUserMedia timeout - keine Antwort/Berechtigungsdialog haengt')), timeoutMs)),
     ]);
 }
 
+function stopMicStream() {
+    if (micStream) {
+        micStream.getTracks().forEach((t) => t.stop());
+        micStream = null;
+    }
+}
+
 async function initMic() {
     try {
-        micStream = await getUserMediaWithTimeout(8000);
+        micStream = await getUserMediaWithTimeout(8000, preferredMicDeviceId);
         setupRecorder();
         setupVadAnalyser();
     } catch (e) {
@@ -71,13 +85,30 @@ async function initMic() {
 async function retryMic() {
     try {
         if (!micStream) {
-            micStream = await getUserMediaWithTimeout(15000);
+            micStream = await getUserMediaWithTimeout(15000, preferredMicDeviceId);
             setupRecorder();
             setupVadAnalyser();
         }
         fetchNui('micSetupDone', { ok: true });
     } catch (e) {
         fetchNui('micSetupDone', { ok: false, message: String(e) });
+    }
+}
+
+// Wechselt das aktive Mikrofon-Geraet zur Laufzeit (Einstellungspanel), ohne
+// dass die NUI neu geladen werden muss.
+async function switchMicDevice(deviceId) {
+    preferredMicDeviceId = deviceId || null;
+    try {
+        const newStream = await getUserMediaWithTimeout(8000, preferredMicDeviceId);
+        stopMicStream();
+        micStream = newStream;
+        setupRecorder();
+        setupVadAnalyser();
+        return true;
+    } catch (e) {
+        fetchNui('micError', { message: String(e) });
+        return false;
     }
 }
 
@@ -128,7 +159,17 @@ function stopRecording() {
 // VOICE ACTIVATION (einfache RMS-Erkennung)
 // =========================================================
 
+let vadGeneration = 0;
+
 function setupVadAnalyser() {
+    // Vorherigen Context/Tick-Loop sauber beenden (z.B. bei Mikrofon-Geraetewechsel
+    // aus dem Einstellungspanel), sonst liefen mehrere Analyser parallel weiter.
+    vadGeneration += 1;
+    const myGeneration = vadGeneration;
+    if (vadAudioCtx) {
+        try { vadAudioCtx.close(); } catch (e) { /* bereits geschlossen */ }
+    }
+
     vadAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const sourceNode = vadAudioCtx.createMediaStreamSource(micStream);
     analyser = vadAudioCtx.createAnalyser();
@@ -138,6 +179,7 @@ function setupVadAnalyser() {
     const data = new Uint8Array(analyser.frequencyBinCount);
 
     function tick() {
+        if (vadGeneration !== myGeneration) return; // abgeloest durch neueren Analyser
         requestAnimationFrame(tick);
         if (mode !== 'voice_activation' || !conversationActive) return;
 
@@ -287,11 +329,224 @@ function closeDialogMenuUI() {
     document.getElementById('dialog-menu').hidden = true;
 }
 
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-        const menu = document.getElementById('dialog-menu');
-        if (!menu.hidden) fetchNui('closeDialogMenu', {});
+// =========================================================
+// SPRACH-EINSTELLUNGEN (Mikrofon/Taste/Lautstaerke + Admin-Provider)
+// =========================================================
+
+let capturingKey = false;
+let pendingCustomKeyCode = null;
+let pendingCustomKeyLabel = null;
+let isAdminSettings = false;
+
+let settingsTestStream = null;
+let settingsTestCtx = null;
+let settingsTestAnalyser = null;
+let settingsMeterRAF = null;
+
+function describeKey(e) {
+    const NAMED = { ' ': 'SPACE', Control: 'CTRL', Shift: 'SHIFT', Alt: 'ALT', Enter: 'ENTER', Tab: 'TAB', Escape: 'ESC' };
+    if (NAMED[e.key]) return NAMED[e.key];
+    if (e.key && e.key.length === 1) return e.key.toUpperCase();
+    return (e.key || ('KEY_' + e.keyCode)).toUpperCase();
+}
+
+function fillSelect(id, options, current) {
+    const el = document.getElementById(id);
+    el.innerHTML = '';
+    (options || []).forEach((value) => {
+        const opt = document.createElement('option');
+        opt.value = value;
+        opt.textContent = value;
+        if (value === current) opt.selected = true;
+        el.appendChild(opt);
+    });
+}
+
+async function populateMicDevices(selectedId) {
+    const select = document.getElementById('set-mic-device');
+    select.innerHTML = '<option value="">Standard-Mikrofon</option>';
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        devices.filter((d) => d.kind === 'audioinput').forEach((d, i) => {
+            const opt = document.createElement('option');
+            opt.value = d.deviceId;
+            opt.textContent = d.label || ('Mikrofon ' + (i + 1));
+            if (d.deviceId === selectedId) opt.selected = true;
+            select.appendChild(opt);
+        });
+    } catch (e) { /* Geraeteliste nicht verfuegbar - Standard-Option bleibt */ }
+}
+
+function stopMicTest() {
+    if (settingsMeterRAF) cancelAnimationFrame(settingsMeterRAF);
+    settingsMeterRAF = null;
+    settingsTestAnalyser = null;
+    if (settingsTestStream) {
+        settingsTestStream.getTracks().forEach((t) => t.stop());
+        settingsTestStream = null;
     }
+    if (settingsTestCtx) {
+        try { settingsTestCtx.close(); } catch (e) { /* bereits geschlossen */ }
+        settingsTestCtx = null;
+    }
+    document.getElementById('set-mic-meter-bar').style.width = '0%';
+    document.getElementById('set-mic-test').textContent = 'Mikrofon testen';
+}
+
+async function startMicTest() {
+    stopMicTest();
+    const deviceId = document.getElementById('set-mic-device').value || null;
+
+    try {
+        settingsTestStream = await navigator.mediaDevices.getUserMedia(micConstraints(deviceId));
+    } catch (e) {
+        document.getElementById('settings-status').textContent = 'Mikrofon-Fehler: ' + e;
+        return;
+    }
+
+    settingsTestCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = settingsTestCtx.createMediaStreamSource(settingsTestStream);
+    settingsTestAnalyser = settingsTestCtx.createAnalyser();
+    settingsTestAnalyser.fftSize = 512;
+    source.connect(settingsTestAnalyser);
+
+    const data = new Uint8Array(settingsTestAnalyser.frequencyBinCount);
+    const bar = document.getElementById('set-mic-meter-bar');
+
+    function tick() {
+        if (!settingsTestAnalyser) return;
+        settingsTestAnalyser.getByteTimeDomainData(data);
+        let sumSquares = 0;
+        for (let i = 0; i < data.length; i++) {
+            const v = (data[i] - 128) / 128;
+            sumSquares += v * v;
+        }
+        const rms = Math.sqrt(sumSquares / data.length);
+        bar.style.width = Math.min(100, rms * 400) + '%';
+        settingsMeterRAF = requestAnimationFrame(tick);
+    }
+    tick();
+
+    document.getElementById('set-mic-test').textContent = 'Test stoppen';
+}
+
+function openSettingsUI(payload) {
+    const s = payload.playerSettings || {};
+
+    document.getElementById('set-mode').value = s.mode || 'auto';
+
+    pendingCustomKeyCode = s.customKeyCode || null;
+    pendingCustomKeyLabel = s.customKeyLabel || null;
+    document.getElementById('set-key-label').textContent = pendingCustomKeyLabel || 'FiveM-Tastenbelegung';
+
+    document.getElementById('set-sensitivity').value = s.vadThreshold != null ? s.vadThreshold : vadThreshold;
+    document.getElementById('set-npc-volume').value = s.npcVolume != null ? s.npcVolume : 1.0;
+
+    populateMicDevices(s.micDeviceId);
+
+    isAdminSettings = !!payload.isAdmin;
+    const adminSection = document.getElementById('settings-admin-section');
+    adminSection.hidden = !isAdminSettings;
+
+    if (isAdminSettings && payload.options && payload.runtime) {
+        fillSelect('set-ai-provider', payload.options.aiProviders, payload.runtime.aiProvider);
+        fillSelect('set-stt-provider', payload.options.sttProviders, payload.runtime.sttProvider);
+        fillSelect('set-tts-provider', payload.options.ttsProviders, payload.runtime.ttsProvider);
+        fillSelect('set-default-voicemode', payload.options.voiceModes, payload.runtime.voiceMode);
+        document.getElementById('set-conversation-distance').value = payload.runtime.conversationDistance;
+        document.getElementById('set-approach-distance').value = payload.runtime.approachDistance;
+    }
+
+    document.getElementById('settings-status').textContent = payload.saved
+        ? 'Gespeichert.'
+        : (payload.error ? ('Fehler: ' + payload.error) : '');
+
+    document.getElementById('settings-panel').hidden = false;
+}
+
+function closeSettingsUI() {
+    stopMicTest();
+    capturingKey = false;
+    document.getElementById('settings-panel').hidden = true;
+}
+
+document.getElementById('set-key-capture').addEventListener('click', () => {
+    capturingKey = true;
+    document.getElementById('set-key-label').textContent = 'Taste drücken... (ESC zum Abbrechen)';
+});
+
+document.getElementById('set-key-reset').addEventListener('click', () => {
+    pendingCustomKeyCode = null;
+    pendingCustomKeyLabel = null;
+    document.getElementById('set-key-label').textContent = 'FiveM-Tastenbelegung';
+});
+
+document.getElementById('set-mic-test').addEventListener('click', () => {
+    if (settingsTestAnalyser) stopMicTest();
+    else startMicTest();
+});
+
+document.getElementById('set-mic-device').addEventListener('change', () => {
+    if (settingsTestAnalyser) startMicTest();
+});
+
+document.getElementById('set-cancel').addEventListener('click', () => fetchNui('closeSettings', {}));
+
+document.getElementById('set-save').addEventListener('click', async () => {
+    const micDeviceId = document.getElementById('set-mic-device').value || null;
+
+    const playerSettings = {
+        mode: document.getElementById('set-mode').value,
+        customKeyCode: pendingCustomKeyCode,
+        customKeyLabel: pendingCustomKeyLabel,
+        micDeviceId: micDeviceId,
+        vadThreshold: parseFloat(document.getElementById('set-sensitivity').value),
+        npcVolume: parseFloat(document.getElementById('set-npc-volume').value),
+    };
+
+    const payload = { playerSettings };
+
+    if (isAdminSettings) {
+        payload.runtimeSettings = {
+            aiProvider: document.getElementById('set-ai-provider').value,
+            sttProvider: document.getElementById('set-stt-provider').value,
+            ttsProvider: document.getElementById('set-tts-provider').value,
+            voiceMode: document.getElementById('set-default-voicemode').value,
+            conversationDistance: parseFloat(document.getElementById('set-conversation-distance').value),
+            approachDistance: parseFloat(document.getElementById('set-approach-distance').value),
+        };
+    }
+
+    // Gewaehltes Mikrofon direkt live uebernehmen, nicht erst beim naechsten NUI-Reload
+    if (micDeviceId !== preferredMicDeviceId) {
+        await switchMicDevice(micDeviceId);
+    }
+
+    fetchNui('saveSettings', payload);
+});
+
+document.addEventListener('keydown', (e) => {
+    if (capturingKey) {
+        e.preventDefault();
+        capturingKey = false;
+        if (e.key !== 'Escape') {
+            pendingCustomKeyCode = e.keyCode;
+            pendingCustomKeyLabel = describeKey(e);
+        }
+        document.getElementById('set-key-label').textContent = pendingCustomKeyLabel || 'FiveM-Tastenbelegung';
+        return;
+    }
+
+    if (e.key !== 'Escape') return;
+
+    const settingsPanel = document.getElementById('settings-panel');
+    if (!settingsPanel.hidden) {
+        fetchNui('closeSettings', {});
+        return;
+    }
+
+    const dialogMenu = document.getElementById('dialog-menu');
+    if (!dialogMenu.hidden) fetchNui('closeDialogMenu', {});
 });
 
 // =========================================================
@@ -307,6 +562,14 @@ window.addEventListener('message', (event) => {
             vadThreshold = data.vadThreshold;
             silenceTimeoutMs = data.silenceTimeoutMs;
             maxRecordingMs = (data.maxRecordingSeconds || 12) * 1000;
+            if (data.micDeviceId) preferredMicDeviceId = data.micDeviceId;
+            // Erst hier (statt bei DOMContentLoaded) initialisieren, damit ein evtl.
+            // gespeichertes bevorzugtes Mikrofon-Geraet (preferredMicDeviceId) schon
+            // gesetzt ist, bevor getUserMedia zum ersten Mal aufgerufen wird.
+            if (!micInitialized) {
+                micInitialized = true;
+                initMic();
+            }
             break;
 
         case 'setConversationActive':
@@ -358,6 +621,14 @@ window.addEventListener('message', (event) => {
         case 'setupMic':
             retryMic();
             break;
+
+        case 'openSettings':
+            openSettingsUI(data);
+            break;
+
+        case 'closeSettings':
+            closeSettingsUI();
+            break;
     }
 });
 
@@ -367,5 +638,6 @@ window.addEventListener('message', (event) => {
 
 window.addEventListener('DOMContentLoaded', () => {
     fetchNui('ready', {});
-    initMic();
+    // initMic() wird von der ersten 'setMode'-Nachricht ausgeloest (siehe oben),
+    // damit ein evtl. gespeichertes Mikrofon-Geraet schon bekannt ist.
 });

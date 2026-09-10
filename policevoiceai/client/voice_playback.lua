@@ -16,7 +16,7 @@ local function ComputeVolumeAndPan(listenerPed, targetCoords)
     local listenerCoords = GetEntityCoords(listenerPed)
     local dist = Utils.Distance(listenerCoords, targetCoords)
     local maxDist = Config.Voice3D.maxHearingDistance
-    local volume = Utils.Clamp(1.0 - (dist / maxDist), 0.0, 1.0)
+    local volume = Utils.Clamp(1.0 - (dist / maxDist), 0.0, 1.0) * Settings.GetNpcVolumeMultiplier()
 
     local forward = GetEntityForwardVector(listenerPed)
     local right = vector3(forward.y, -forward.x, 0.0)
@@ -87,7 +87,7 @@ RegisterNetEvent('policevoiceai:client:npcReply', function(data)
     end
 
     if data.audioBase64 then
-        local volume, pan = 1.0, 0.0
+        local volume, pan = Settings.GetNpcVolumeMultiplier(), 0.0
         if pedEntity ~= 0 then
             volume, pan = ComputeVolumeAndPan(PlayerPedId(), GetEntityCoords(pedEntity))
         end

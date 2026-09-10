@@ -3,24 +3,27 @@ VoiceCapture = {}
 -- =========================================================
 -- PHASE 4 / PUNKT 52-55: VOICE INPUT
 -- =========================================================
--- Eine einzige, ueber FiveM-Bindings frei umbelegbare Taste
--- (Config.Voice.FallbackKey) deckt je nach Situation ab:
+-- Eine einzige Taste deckt je nach effektivem Modus (Server-Standard ODER
+-- Spieler-Override aus dem Einstellungspanel, siehe client/settings.lua) ab:
 --
---  a) PMA-Voice erkannt (Config.Voice.UsePmaVoiceKey, Standard):
---     Taste = NUR Zielauswahl (Gespraech starten/beenden). Das eigentliche
---     "Zuhoeren" wird ueber die tatsaechliche pma-voice-Sprechererkennung
---     gesteuert (siehe client/pma_voice_integration.lua) - der Spieler nutzt
---     also weiterhin seine gewohnte Proximity-Voice-Taste (Punkt 52/53:
---     keine doppelte Voice-Steuerung).
---  b) push_to_talk (Fallback, falls PMA nicht erkannt wird): Taste halten = sprechen.
+--  a) PMA-Voice erkannt: Taste = NUR Zielauswahl (Gespraech starten/beenden).
+--     Das eigentliche "Zuhoeren" wird ueber die tatsaechliche pma-voice-
+--     Sprechererkennung gesteuert (client/pma_voice_integration.lua) - der
+--     Spieler nutzt weiterhin seine gewohnte Proximity-Voice-Taste
+--     (Punkt 52/53: keine doppelte Voice-Steuerung).
+--  b) push_to_talk: Taste halten = sprechen.
 --  c) voice_activation: Taste = Toggle, danach automatisches Zuhoeren per RMS (NUI).
+--
+-- Hat der Spieler im Einstellungspanel eine EIGENE Taste festgelegt, wird
+-- stattdessen ein Raw-Key-Polling-Thread (IsRawKeyDown) genutzt und die
+-- FiveM-Keybind-Taste ('policevoiceai_talk') deaktiviert sich selbst.
 
 local isRecording = false
 
 RegisterKeyMapping('policevoiceai_talk', 'PoliceVoiceAI: Sprechen / Gespräch starten', 'keyboard', Config.Voice.FallbackKey)
 
-local function UsePmaMode()
-    return Config.Voice.UsePmaVoiceKey and PmaVoice.IsAvailable()
+local function EffectiveMode()
+    return Settings.GetEffectiveMode()
 end
 
 local function BeginListening()
@@ -44,9 +47,11 @@ local function StopListening()
     Utils.VoiceLog('Recording stopped')
 end
 
-RegisterCommand('+policevoiceai_talk', function()
-    if not Config.Voice.enabled or Config.VoiceMode == 'voice_activation' or UsePmaMode() then
-        -- Reine Zielauswahl/Toggle - siehe oben (a) und (c)
+local function OnTalkPressed()
+    local mode = EffectiveMode()
+
+    if not Config.Voice.enabled or mode == 'voice_activation' or mode == 'pma' then
+        -- Reine Zielauswahl/Toggle - siehe (a) und (c) oben
         if NPCInteraction.IsInConversation() then
             NPCInteraction.EndConversation()
         else
@@ -55,7 +60,7 @@ RegisterCommand('+policevoiceai_talk', function()
         return
     end
 
-    -- Reiner push_to_talk Fallback (kein PMA erkannt, kein voice_activation)
+    -- Reiner push_to_talk Fallback (kein PMA erkannt/gewaehlt, kein voice_activation)
     if not NPCInteraction.IsInConversation() then
         NPCInteraction.TryStartConversation()
         -- Das eigentliche Gespraech startet asynchron (Serverantwort). Der Spieler
@@ -65,18 +70,52 @@ RegisterCommand('+policevoiceai_talk', function()
     end
 
     BeginListening()
+end
+
+local function OnTalkReleased()
+    local mode = EffectiveMode()
+    if not Config.Voice.enabled or mode == 'voice_activation' or mode == 'pma' then return end
+    StopListening()
+end
+
+RegisterCommand('+policevoiceai_talk', function()
+    if Settings.HasCustomKey() then return end -- eigene Taste uebernimmt (siehe unten)
+    OnTalkPressed()
 end, false)
 
 RegisterCommand('-policevoiceai_talk', function()
-    if not Config.Voice.enabled or Config.VoiceMode == 'voice_activation' or UsePmaMode() then return end
-    StopListening()
+    if Settings.HasCustomKey() then return end
+    OnTalkReleased()
 end, false)
+
+-- =========================================================
+-- EIGENE TASTE AUS DEM EINSTELLUNGSPANEL (Raw-Key statt FiveM-Keybind)
+-- =========================================================
+
+CreateThread(function()
+    local wasDown = false
+
+    while true do
+        if Settings.HasCustomKey() then
+            Wait(0)
+            local code = Settings.Get().customKeyCode
+            local down = IsRawKeyDown(code)
+
+            if down and not wasDown then OnTalkPressed() end
+            if not down and wasDown then OnTalkReleased() end
+            wasDown = down
+        else
+            wasDown = false
+            Wait(250)
+        end
+    end
+end)
 
 -- =========================================================
 -- PMA-VOICE-GETRIEBENES ZUHOEREN (Punkt 52/53/55)
 -- =========================================================
--- Solange ein Gespraech aktiv ist UND pma-voice erkannt wird, uebernimmt die
--- tatsaechliche pma-voice-Sprechererkennung die Steuerung von LISTENING.
+-- Solange ein Gespraech aktiv ist UND der effektive Modus 'pma' ist, uebernimmt
+-- die tatsaechliche pma-voice-Sprechererkennung die Steuerung von LISTENING.
 
 CreateThread(function()
     local wasTalking = false
@@ -84,7 +123,7 @@ CreateThread(function()
     while true do
         Wait(100)
 
-        if Config.Voice.enabled and UsePmaMode() and NPCInteraction.IsInConversation() then
+        if Config.Voice.enabled and EffectiveMode() == 'pma' and NPCInteraction.IsInConversation() then
             local talking = PmaVoice.IsPlayerTalking()
             if talking == nil then talking = isRecording end -- Erkennung nicht verfuegbar -> nichts erzwingen
 
@@ -109,7 +148,7 @@ function VoiceCapture.OnSpeechRecorded(data)
     if not data then return end
 
     if Utils.IsEmpty(data.audioBase64) and Utils.IsEmpty(data.debugText) then
-        Utils.VoiceLogError('Recording finished with no audio data (Mikrofon evtl. nicht verfuegbar - siehe /policevoiceai_setupmic)')
+        Utils.VoiceLogError('Recording finished with no audio data (Mikrofon evtl. nicht verfuegbar - siehe /policevoiceai_setupmic oder Einstellungspanel)')
         NUI.Send({ action = 'setListening', listening = false })
         return
     end

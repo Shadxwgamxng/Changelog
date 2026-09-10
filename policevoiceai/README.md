@@ -48,6 +48,55 @@ Zwei kritische Bugs wurden behoben:
   gibt der NUI kurz Fokus, damit ein evtl. hängender Mikrofon-Berechtigungsdialog
   anklickbar ist.
 
+## Spracheinstellungen (Mikrofon/Taste/Lautstärke)
+
+Jeder Spieler kann seine eigenen Voice-Einstellungen über ein eigenes Panel
+konfigurieren - Taste **F9** (über FiveM-Tastenbelegung "PoliceVoiceAI:
+Spracheinstellungen öffnen" frei umbelegbar) oder `/policevoiceai_settings`:
+
+- **Sprechmodus**: Automatisch (Server-Standard) / PMA-Voice-Erkennung / Eigene
+  Taste / Sprachaktivierung.
+- **Eigene Taste**: "Taste festlegen" klicken, gewünschte Taste drücken - läuft
+  unabhängig von der FiveM-Tastenbelegung über `IsRawKeyDown` und funktioniert
+  daher sofort, ohne dass der Spieler etwas in den FiveM-Einstellungen umlegen muss.
+- **Mikrofon-Gerät**: Dropdown mit allen erkannten Eingabegeräten + Testknopf
+  mit Live-Lautstärkeanzeige - direkt hilfreich, um zu prüfen, ob überhaupt ein
+  Signal ankommt (siehe Fehlerbehebung oben).
+- **Empfindlichkeit**: Schwellwert für die Sprachaktivierungs-Erkennung.
+- **NPC-Lautstärke**: 0-150%, wirkt auf die komplette 3D-Sprachwiedergabe.
+
+Alle Werte werden clientseitig persistiert (`GetResourceKvp`/`SetResourceKvp`)
+und überleben Server-Neustarts.
+
+### Admin-Bereich (im selben Panel)
+
+Spieler mit der ACE-Permission `Config.Permissions.adminAce` sehen zusätzlich
+einen Server-Bereich: KI-/STT-/TTS-Provider, Standard-Sprechmodus,
+Gesprächs-/Annäherungsdistanz - live änderbar, ohne `config.lua` zu bearbeiten
+oder den Server neu zu starten (persistiert in `runtime_config.json` über
+`SaveResourceFile`/`LoadResourceFile`). **API-Keys sind bewusst NICHT Teil
+dieses Panels** (Punkt 20 - die bleiben Server-Convars, siehe unten) - ohne
+gültigen Key bewirkt eine Umstellung auf z.B. `openai_tts` hier nichts, das
+Panel weist im Admin-Bereich darauf hin.
+
+**Damit NPCs tatsächlich hörbar sprechen statt nur Text anzuzeigen**, muss im
+Admin-Bereich (oder in `config.lua`) `Config.TTS.provider` auf einen echten
+Anbieter (`openai_tts`/`elevenlabs`) gestellt UND der zugehörige API-Key als
+Server-Convar gesetzt sein (siehe "Echte Provider aktivieren"). Im
+`'mock'`-Standardmodus bleibt JEDE Antwort - auch wenn ein NPC von sich aus auf
+den Officer zugeht - bewusst text-only, das ist kein Bug sondern der
+dokumentierte Offline-Modus.
+
+### "Reiter im MDT" - warum es das nicht gibt
+
+FivePDs MDT ist eine fremde NUI mit unbekanntem, versionsabhängigem
+Tab-/Plugin-System. Ohne Einsicht in dessen Quellcode lässt sich kein echter
+Tab zuverlässig von außen einhängen (siehe Kommentar in
+`integrations/fivepd.lua`) - ein geratener Ansatz würde bei der nächsten
+FivePD-Version einfach nichts tun. Das eigene Einstellungspanel oben ist der
+garantiert funktionierende Ersatz; `exports['policevoiceai']:OpenSettingsPanel()`
+steht zur Verfügung, falls ein eigener FivePD-Menüeintrag es aufrufen soll.
+
 ## Voraussetzungen
 
 - [oxmysql](https://github.com/overextended/oxmysql)

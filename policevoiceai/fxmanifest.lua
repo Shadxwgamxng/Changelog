@@ -5,7 +5,7 @@ lua54 'yes'
 name 'policevoiceai'
 author 'PoliceVoiceAI'
 description 'FivePD Erweiterung: Voice-AI NPCs (Speech-to-Text, LLM, Text-to-Speech, 3D Voice) fuer echtes Polizei-Rollenspiel'
-version '1.1.0'
+version '1.2.0'
 
 shared_scripts {
     'config.lua',
@@ -17,6 +17,7 @@ shared_scripts {
 
 client_scripts {
     'client/nui.lua',
+    'client/settings.lua',
     'client/pma_voice_integration.lua',
     'client/voice_capture.lua',
     'client/voice_playback.lua',
@@ -33,6 +34,7 @@ server_scripts {
     '@oxmysql/lib/MySQL.lua',
     'server/security.lua',
     'server/database.lua',
+    'server/runtime_config.lua',
     'server/personality.lua',
     'server/npc_manager.lua',
     'server/stt_provider.lua',

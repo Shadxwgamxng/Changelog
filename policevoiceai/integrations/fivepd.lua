@@ -48,3 +48,29 @@ function FivePDIntegration.TryNativeCitizenLookup(plate)
     if ok then return result end
     return nil
 end
+
+-- =========================================================
+-- "REITER IM MDT" - WARUM ES DAS NICHT GIBT
+-- =========================================================
+-- FivePDs MDT ist eine eigene NUI mit eigenem, unbekanntem Tab-/Plugin-System
+-- (Framework, Routing, Rechteverwaltung - alles versionsabhaengig). Ohne
+-- Einsicht in dessen Quellcode gibt es KEINE zuverlaessige Moeglichkeit, von
+-- aussen einen echten neuen Tab in diese fremde UI einzuhaengen - ein Versuch,
+-- das zu erfinden, wuerde bei der naechsten FivePD-Version einfach nichts tun
+-- oder die MDT-UI zerschiessen.
+--
+-- Stattdessen bietet PoliceVoiceAI ein EIGENES, garantiert funktionierendes
+-- Einstellungspanel (Mikrofon/Taste/Empfindlichkeit/Lautstaerke + Admin-Provider-
+-- Bereich), siehe client/settings.lua:
+--   - Taste (Standard F9, ueber FiveM-Tastenbelegung "PoliceVoiceAI:
+--     Spracheinstellungen öffnen" frei umbelegbar)
+--   - Befehl: /policevoiceai_settings
+--   - Export fuer andere Ressourcen (z.B. einen eigenen FivePD-MDT-Menuepunkt,
+--     falls dessen Tab-System bekannt ist): exports['policevoiceai']:OpenSettingsPanel()
+--
+-- Sollte die eigene FivePD-Version tatsaechlich ein bekanntes Plugin-/Tab-
+-- Registrierungs-Export bereitstellen, kann hier (pcall-abgesichert, wie beim
+-- Rest dieser Datei) ein Aufruf ergaenzt werden, der beim Start versucht einen
+-- Tab/Menuepunkt zu registrieren, der intern exports['policevoiceai']:OpenSettingsPanel()
+-- aufruft. Ohne einen bekannten, dokumentierten Exportnamen wird hier bewusst
+-- nichts geraten.

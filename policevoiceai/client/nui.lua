@@ -12,12 +12,14 @@ function NUI.Send(data)
 end
 
 RegisterNUICallback('ready', function(_, cb)
+    local settings = Settings and Settings.Get() or {}
     NUI.Send({
         action = 'setMode',
         mode = Config.VoiceMode,
-        vadThreshold = Config.VoiceActivation.energyThreshold,
+        vadThreshold = Settings and Settings.GetEffectiveVadThreshold() or Config.VoiceActivation.energyThreshold,
         silenceTimeoutMs = Config.VoiceActivation.silenceTimeoutMs,
         maxRecordingSeconds = Config.MaxRecordingSeconds,
+        micDeviceId = settings.micDeviceId,
     })
     cb('ok')
 end)
@@ -33,8 +35,6 @@ RegisterNUICallback('playbackEnded', function(_, cb)
 end)
 
 RegisterNUICallback('micError', function(data, cb)
-    if Config.Debug then
-        print('[policevoiceai] Mikrofon-Fehler: ' .. tostring(data and data.message))
-    end
+    Utils.VoiceLogError('Mikrofon-Fehler: %s', tostring(data and data.message))
     cb('ok')
 end)

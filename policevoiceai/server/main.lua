@@ -202,6 +202,36 @@ local function EnsureAdmin(source)
     return IsPlayerAceAllowed(source, Config.Permissions.adminAce)
 end
 
+-- =========================================================
+-- SPRACH-EINSTELLUNGEN-PANEL
+-- =========================================================
+
+RegisterNetEvent('policevoiceai:server:requestSettingsPanel', function()
+    local source = source
+    local isAdmin = EnsureAdmin(source)
+
+    TriggerClientEvent('policevoiceai:client:settingsPanelData', source, {
+        isAdmin = isAdmin,
+        runtime = isAdmin and RuntimeConfig.GetCurrent() or nil,
+        options = isAdmin and RuntimeConfig.GetOptions() or nil,
+    })
+end)
+
+RegisterNetEvent('policevoiceai:server:saveRuntimeConfig', function(newValues)
+    local source = source
+    if not EnsureAdmin(source) then return end
+
+    local merged, err = RuntimeConfig.Save(newValues, GetPlayerIdentifierByType(source, 'license2') or tostring(source))
+    if not merged then
+        TriggerClientEvent('policevoiceai:client:settingsPanelData', source, { isAdmin = true, error = err })
+        return
+    end
+
+    TriggerClientEvent('policevoiceai:client:settingsPanelData', source, {
+        isAdmin = true, runtime = merged, options = RuntimeConfig.GetOptions(), saved = true,
+    })
+end)
+
 RegisterCommand('policevoiceai_npcinfo', function(source, args)
     if not EnsureAdmin(source) then return end
     local npcId = args[1]
