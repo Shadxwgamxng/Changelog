@@ -62,6 +62,11 @@ Spracheinstellungen öffnen" frei umbelegbar) oder `/policevoiceai_settings`:
 - **Mikrofon-Gerät**: Dropdown mit allen erkannten Eingabegeräten + Testknopf
   mit Live-Lautstärkeanzeige - direkt hilfreich, um zu prüfen, ob überhaupt ein
   Signal ankommt (siehe Fehlerbehebung oben).
+- **Mikrofon-Lautstärke**: echte Verstärkung/Dämpfung (0,3x-3x) über einen
+  Web-Audio-`GainNode`, der zwischen Rohsignal und sowohl der Sprachaktivierungs-
+  Erkennung als auch der tatsächlich aufgenommenen/an STT gesendeten Audiodatei
+  sitzt - verändert also wirklich, was übertragen wird, nicht nur eine Anzeige.
+  Beim "Mikrofon testen" sofort hör-/sichtbar.
 - **Empfindlichkeit**: Schwellwert für die Sprachaktivierungs-Erkennung.
 - **NPC-Lautstärke**: 0-150%, wirkt auf die komplette 3D-Sprachwiedergabe.
 

@@ -15,6 +15,7 @@ local DEFAULTS = {
     customKeyCode = nil,
     customKeyLabel = nil,
     micDeviceId = nil,
+    micGain = 1.0, -- Verstaerkung (0.3 - 3.0) auf das rohe Mikrofonsignal, wirkt auf Aufnahme UND VAD
     vadThreshold = nil, -- nil = Config.VoiceActivation.energyThreshold verwenden
     npcVolume = 1.0,
 }

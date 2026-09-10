@@ -20,6 +20,7 @@ RegisterNUICallback('ready', function(_, cb)
         silenceTimeoutMs = Config.VoiceActivation.silenceTimeoutMs,
         maxRecordingSeconds = Config.MaxRecordingSeconds,
         micDeviceId = settings.micDeviceId,
+        micGain = settings.micGain,
     })
     cb('ok')
 end)

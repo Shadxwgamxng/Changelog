@@ -46,6 +46,10 @@ let currentSource = null;
 let preferredMicDeviceId = null;
 let micInitialized = false;
 
+let micGain = 1.0; // Verstaerkungsfaktor auf das rohe Mikrofonsignal (0.3 - 3.0)
+let micGainNode = null;
+let processedMicStream = null; // gain-verarbeiteter Stream, der tatsaechlich aufgenommen/gesendet wird
+
 // =========================================================
 // MIKROFON / AUFNAHME
 // =========================================================
@@ -71,8 +75,8 @@ function stopMicStream() {
 async function initMic() {
     try {
         micStream = await getUserMediaWithTimeout(8000, preferredMicDeviceId);
+        setupVadAnalyser(); // baut u.a. processedMicStream (mit Gain) auf, muss vor setupRecorder laufen
         setupRecorder();
-        setupVadAnalyser();
     } catch (e) {
         // Haengt am ehesten an einer fehlenden Mikrofon-Berechtigung, die einen
         // fokussierten Klick brauchte (siehe /policevoiceai_setupmic).
@@ -86,8 +90,8 @@ async function retryMic() {
     try {
         if (!micStream) {
             micStream = await getUserMediaWithTimeout(15000, preferredMicDeviceId);
-            setupRecorder();
             setupVadAnalyser();
+            setupRecorder();
         }
         fetchNui('micSetupDone', { ok: true });
     } catch (e) {
@@ -103,8 +107,8 @@ async function switchMicDevice(deviceId) {
         const newStream = await getUserMediaWithTimeout(8000, preferredMicDeviceId);
         stopMicStream();
         micStream = newStream;
-        setupRecorder();
         setupVadAnalyser();
+        setupRecorder();
         return true;
     } catch (e) {
         fetchNui('micError', { message: String(e) });
@@ -112,11 +116,20 @@ async function switchMicDevice(deviceId) {
     }
 }
 
+// Setzt die Mikrofon-Verstaerkung live (Einstellungspanel-Regler) - wirkt sich
+// direkt auf das tatsaechlich aufgenommene/an STT gesendete Signal aus, nicht
+// nur auf eine Anzeige.
+function setMicGain(value) {
+    micGain = Math.max(0.3, Math.min(3.0, value || 1.0));
+    if (micGainNode) micGainNode.gain.value = micGain;
+    if (settingsTestGainNode) settingsTestGainNode.gain.value = micGain;
+}
+
 function setupRecorder() {
     const preferredType = 'audio/webm;codecs=opus';
     const mimeType = (window.MediaRecorder && MediaRecorder.isTypeSupported(preferredType)) ? preferredType : 'audio/webm';
 
-    mediaRecorder = new MediaRecorder(micStream, { mimeType });
+    mediaRecorder = new MediaRecorder(processedMicStream || micStream, { mimeType });
     mediaRecorder.ondataavailable = (e) => {
         if (e.data && e.data.size > 0) chunks.push(e.data);
     };
@@ -172,9 +185,21 @@ function setupVadAnalyser() {
 
     vadAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const sourceNode = vadAudioCtx.createMediaStreamSource(micStream);
+
+    // Gain-Stufe zwischen Rohsignal und allem Weiteren (Analyse UND Aufnahme),
+    // damit die Mikrofon-Lautstaerke aus dem Einstellungspanel tatsaechlich das
+    // an STT gesendete Audio veraendert, nicht nur eine Anzeige.
+    micGainNode = vadAudioCtx.createGain();
+    micGainNode.gain.value = micGain;
+    sourceNode.connect(micGainNode);
+
     analyser = vadAudioCtx.createAnalyser();
     analyser.fftSize = 512;
-    sourceNode.connect(analyser);
+    micGainNode.connect(analyser);
+
+    const destination = vadAudioCtx.createMediaStreamDestination();
+    micGainNode.connect(destination);
+    processedMicStream = destination.stream;
 
     const data = new Uint8Array(analyser.frequencyBinCount);
 
@@ -341,6 +366,7 @@ let isAdminSettings = false;
 let settingsTestStream = null;
 let settingsTestCtx = null;
 let settingsTestAnalyser = null;
+let settingsTestGainNode = null;
 let settingsMeterRAF = null;
 
 function describeKey(e) {
@@ -381,6 +407,7 @@ function stopMicTest() {
     if (settingsMeterRAF) cancelAnimationFrame(settingsMeterRAF);
     settingsMeterRAF = null;
     settingsTestAnalyser = null;
+    settingsTestGainNode = null;
     if (settingsTestStream) {
         settingsTestStream.getTracks().forEach((t) => t.stop());
         settingsTestStream = null;
@@ -406,9 +433,14 @@ async function startMicTest() {
 
     settingsTestCtx = new (window.AudioContext || window.webkitAudioContext)();
     const source = settingsTestCtx.createMediaStreamSource(settingsTestStream);
+
+    settingsTestGainNode = settingsTestCtx.createGain();
+    settingsTestGainNode.gain.value = micGain;
+    source.connect(settingsTestGainNode);
+
     settingsTestAnalyser = settingsTestCtx.createAnalyser();
     settingsTestAnalyser.fftSize = 512;
-    source.connect(settingsTestAnalyser);
+    settingsTestGainNode.connect(settingsTestAnalyser);
 
     const data = new Uint8Array(settingsTestAnalyser.frequencyBinCount);
     const bar = document.getElementById('set-mic-meter-bar');
@@ -441,6 +473,10 @@ function openSettingsUI(payload) {
 
     document.getElementById('set-sensitivity').value = s.vadThreshold != null ? s.vadThreshold : vadThreshold;
     document.getElementById('set-npc-volume').value = s.npcVolume != null ? s.npcVolume : 1.0;
+
+    const initialGain = s.micGain != null ? s.micGain : micGain;
+    document.getElementById('set-mic-gain').value = initialGain;
+    setMicGain(initialGain);
 
     populateMicDevices(s.micDeviceId);
 
@@ -490,6 +526,10 @@ document.getElementById('set-mic-device').addEventListener('change', () => {
     if (settingsTestAnalyser) startMicTest();
 });
 
+document.getElementById('set-mic-gain').addEventListener('input', (e) => {
+    setMicGain(parseFloat(e.target.value));
+});
+
 document.getElementById('set-cancel').addEventListener('click', () => fetchNui('closeSettings', {}));
 
 document.getElementById('set-save').addEventListener('click', async () => {
@@ -502,6 +542,7 @@ document.getElementById('set-save').addEventListener('click', async () => {
         micDeviceId: micDeviceId,
         vadThreshold: parseFloat(document.getElementById('set-sensitivity').value),
         npcVolume: parseFloat(document.getElementById('set-npc-volume').value),
+        micGain: parseFloat(document.getElementById('set-mic-gain').value),
     };
 
     const payload = { playerSettings };
@@ -563,9 +604,10 @@ window.addEventListener('message', (event) => {
             silenceTimeoutMs = data.silenceTimeoutMs;
             maxRecordingMs = (data.maxRecordingSeconds || 12) * 1000;
             if (data.micDeviceId) preferredMicDeviceId = data.micDeviceId;
+            if (data.micGain) micGain = data.micGain;
             // Erst hier (statt bei DOMContentLoaded) initialisieren, damit ein evtl.
-            // gespeichertes bevorzugtes Mikrofon-Geraet (preferredMicDeviceId) schon
-            // gesetzt ist, bevor getUserMedia zum ersten Mal aufgerufen wird.
+            // gespeichertes bevorzugtes Mikrofon-Geraet/Gain schon gesetzt ist, bevor
+            // getUserMedia zum ersten Mal aufgerufen wird.
             if (!micInitialized) {
                 micInitialized = true;
                 initMic();
