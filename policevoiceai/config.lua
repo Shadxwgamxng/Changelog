@@ -93,8 +93,10 @@ Config.NPCInteraction = {
     DialogMenuKey = 'F7',
 
     -- Wie oft (Sekunden) ein einzelner NPC maximal neu bewerten darf, ob er den
-    -- Officer anspricht (verhindert staendiges Neu-Wuerfeln bei jedem Scan-Tick)
-    ApproachRerollCooldownSeconds = 20,
+    -- Officer anspricht (verhindert staendiges Neu-Wuerfeln bei jedem Scan-Tick).
+    -- Bewusst hoch angesetzt, damit sich Annaeherungen selten/besonders statt
+    -- staendig anfuehlen (siehe auch Config.SocialAI.baseApproachChance).
+    ApproachRerollCooldownSeconds = 120,
 }
 
 -- Nur der zuletzt gezielt angesprochene NPC "hoert zu". Auch wenn mehrere NPCs
@@ -132,11 +134,14 @@ Config.SocialAI = {
     enabled = true,
 
     -- Wie oft (ms) ein Client umliegende Peds auf moegliche Annaeherung prueft
-    scanIntervalMs = 4000,
+    scanIntervalMs = 8000,
 
     -- Basis-Wahrscheinlichkeit (%) dass ein grundsaetzlich kooperativer/soziale
-    -- NPC (Persoenlichkeit) den Officer anspricht, wenn er ihn wahrnimmt (Punkt 65)
-    baseApproachChance = 12,
+    -- NPC (Persoenlichkeit) den Officer anspricht, wenn er ihn wahrnimmt (Punkt 65).
+    -- Bewusst niedrig: mit mehreren NPCs in der Naehe summiert sich das sonst schnell
+    -- zu "staendig kommt wer an" (Erfahrungswert aus Tests - vorher 12, fuehlte sich
+    -- deutlich zu haeufig an).
+    baseApproachChance = 4,
 
     -- Timeout (ms) fuer die Annaeherungs-Navigation (Punkt 63) - laeuft der NPC
     -- so lange nicht an, wird der Versuch sauber abgebrochen (kein Soft-Lock)
@@ -145,6 +150,40 @@ Config.SocialAI = {
     -- Punkt 60/61: reagiert auf Polizeifahrzeuge mit Blaulicht in der Naehe
     -- (unterdrueckt Annaeherungs-Wuerfe, NPC schaut stattdessen zum Fahrzeug)
     policeVehicleAwarenessRadius = 12.0,
+}
+
+-- =========================================================
+-- WAFFE/TASER AUF NPC GERICHTET: HAENDE HOCH ODER FLUCHT
+-- =========================================================
+-- Zielt der Officer mit einer gezogenen Waffe (inkl. Taser) auf einen NPC,
+-- reagiert dieser abhaengig von seiner Persoenlichkeit - kooperative/aengstliche
+-- NPCs heben die Haende und bleiben stehen, kriminelle/selbstbewusste NPCs
+-- fliehen eher (Analog zu Punkt 65, nur situativ statt als freie Annaeherung).
+Config.ThreatAI = {
+    enabled = true,
+
+    -- Wie weit (Meter) ein NPC ueberhaupt erkennt, dass eine Waffe auf ihn
+    -- gerichtet ist
+    reactionDistance = 20.0,
+
+    -- Wie oft (ms) der Client prueft, ob der Spieler gerade auf einen NPC zielt.
+    -- Laeuft NUR, solange der Spieler tatsaechlich eine Waffe gezogen hat.
+    scanIntervalMs = 200,
+
+    -- Ab diesem criminality-Wert (0-100) fliehen NPCs eher, statt die Haende zu heben
+    criminalityFleeThreshold = 55,
+    -- Wahrscheinlichkeit (%) zu fliehen, wenn der Schwellwert erreicht ist
+    -- (nicht 100%, damit nicht jeder kriminelle NPC exakt gleich reagiert)
+    fleeChancePercent = 65,
+
+    -- Sicherheits-Timeout (ms): haende-hoch/Flucht-Reaktion wird spaetestens nach
+    -- dieser Zeit automatisch aufgehoben, falls der Client nie eine Entwarnung
+    -- meldet (z.B. Verbindungsabbruch) - kein dauerhaft "haende-hoch" NPC.
+    autoReleaseMs = 30000,
+
+    -- Wie lange (ms) nach dem letzten Zielen gewartet wird, bevor ein
+    -- kooperativer NPC die Haende wieder runternimmt (Waffe kurz weggenommen != komplett entspannt)
+    releaseGraceMs = 2500,
 }
 
 -- =========================================================
@@ -228,6 +267,15 @@ Config.TTS = {
     -- Identische Texte + identisches Stimmprofil muessen nicht erneut synthetisiert werden
     cacheEnabled = true,
     cacheMaxEntries = 300,
+
+    -- Sobald eine Antwort OHNE Audio beim Client ankommt (provider = 'mock' ODER
+    -- ein echter Provider ist fehlgeschlagen), laesst die NUI den Text stattdessen
+    -- ueber die im Spielclient eingebaute Web Speech API (speechSynthesis) lokal
+    -- vorlesen - komplett kostenlos, ohne API-Key, funktioniert offline. Qualitaet/
+    -- Stimmenauswahl haengt vom Betriebssystem des Spielers ab (siehe README).
+    -- Auf false stellen, um stattdessen beim reinen Text-Fallback (nur Subtitle,
+    -- keine Sprachausgabe) zu bleiben.
+    browserFallbackEnabled = true,
 }
 
 -- =========================================================

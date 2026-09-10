@@ -43,6 +43,8 @@ let gainNode = null;
 let pannerNode = null;
 let currentSource = null;
 
+let browserTtsEnabled = true;
+
 let preferredMicDeviceId = null;
 let micInitialized = false;
 
@@ -283,6 +285,73 @@ function stopAudio() {
             currentSource.stop();
         } catch (e) { /* bereits gestoppt */ }
         currentSource = null;
+    }
+    if (window.speechSynthesis) {
+        try { window.speechSynthesis.cancel(); } catch (e) { /* nicht unterstuetzt */ }
+    }
+}
+
+// =========================================================
+// BROWSER-TTS-FALLBACK (Web Speech API, kein API-Key/Internet noetig)
+// =========================================================
+// Greift, wenn eine NPC-Antwort ohne Server-seitig erzeugtes Audio ankommt
+// (Config.AI.provider = 'mock' oder ein echter TTS-Provider ist fehlgeschlagen,
+// siehe client/voice_playback.lua) - damit der NPC trotzdem hoerbar spricht,
+// statt nur Text anzuzeigen. Qualitaet/Stimmenauswahl haengt vom Betriebssystem
+// des Spielers ab (Windows liefert i.d.R. SAPI-Stimmen inkl. Deutsch).
+
+let cachedVoices = [];
+if (window.speechSynthesis) {
+    const refreshVoices = () => { cachedVoices = window.speechSynthesis.getVoices() || []; };
+    refreshVoices();
+    window.speechSynthesis.onvoiceschanged = refreshVoices;
+}
+
+function pickVoiceForProfile(voiceProfile) {
+    if (!cachedVoices.length) return null;
+
+    const lang = (navigator.language || 'de-DE').split('-')[0];
+    const candidates = cachedVoices.filter((v) => v.lang && v.lang.toLowerCase().startsWith(lang));
+    const pool = candidates.length ? candidates : cachedVoices;
+
+    if (voiceProfile && voiceProfile.gender) {
+        const genderHints = voiceProfile.gender === 'female'
+            ? ['female', 'frau', 'hedda', 'katja', 'zira', 'anna']
+            : ['male', 'mann', 'stefan', 'markus', 'david'];
+        const match = pool.find((v) => genderHints.some((hint) => v.name.toLowerCase().includes(hint)));
+        if (match) return match;
+    }
+
+    return pool[0] || null;
+}
+
+// Liefert true, wenn eine Aeusserung tatsaechlich gestartet wurde (dann meldet
+// utterance.onend spaeter "playbackEnded"). Liefert false, wenn die Web Speech
+// API gar nicht verfuegbar ist - der Aufrufer muss dann selbst weiterschalten.
+function speakWithBrowserTts(text, voiceProfile, npcVolume) {
+    if (!browserTtsEnabled || !window.speechSynthesis || !text) return false;
+
+    try {
+        window.speechSynthesis.cancel(); // vorherige Aeusserung nicht ueberlappen lassen
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = navigator.language || 'de-DE';
+        utterance.rate = voiceProfile && voiceProfile.speed ? Math.max(0.5, Math.min(2.0, voiceProfile.speed)) : 1.0;
+        utterance.pitch = voiceProfile && voiceProfile.pitch != null ? Math.max(0.0, Math.min(2.0, 1.0 + voiceProfile.pitch)) : 1.0;
+        // SpeechSynthesisUtterance.volume erlaubt max. 1.0 (anders als der GainNode-Pfad,
+        // der bis 1.5x verstaerken kann)
+        utterance.volume = Math.max(0.0, Math.min(1.0, npcVolume != null ? npcVolume : 1.0));
+
+        const voice = pickVoiceForProfile(voiceProfile);
+        if (voice) utterance.voice = voice;
+
+        utterance.onend = () => fetchNui('playbackEnded', {});
+        utterance.onerror = () => fetchNui('playbackEnded', {});
+
+        window.speechSynthesis.speak(utterance);
+        return true;
+    } catch (e) {
+        return false;
     }
 }
 
@@ -605,6 +674,7 @@ window.addEventListener('message', (event) => {
             maxRecordingMs = (data.maxRecordingSeconds || 12) * 1000;
             if (data.micDeviceId) preferredMicDeviceId = data.micDeviceId;
             if (data.micGain) micGain = data.micGain;
+            if (data.browserTtsEnabled != null) browserTtsEnabled = !!data.browserTtsEnabled;
             // Erst hier (statt bei DOMContentLoaded) initialisieren, damit ein evtl.
             // gespeichertes bevorzugtes Mikrofon-Geraet/Gain schon gesetzt ist, bevor
             // getUserMedia zum ersten Mal aufgerufen wird.
@@ -650,6 +720,12 @@ window.addEventListener('message', (event) => {
 
         case 'stopAudio':
             stopAudio();
+            break;
+
+        case 'speakText':
+            if (!speakWithBrowserTts(data.text, data.voiceProfile, data.npcVolume)) {
+                // Web Speech API nicht verfuegbar - Lua-seitiger Sicherheits-Timeout uebernimmt
+            }
             break;
 
         case 'openDialogMenu':

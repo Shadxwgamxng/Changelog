@@ -206,6 +206,7 @@ end
 
 function NPCManager.CanConsiderApproach(pedNetId)
     if activeSpeakerOfPed[pedNetId] or approachClaimedBy[pedNetId] then return false end
+    if NPCManager.GetThreatState(pedNetId) then return false end -- Punkt: haende-hoch/Flucht hat Vorrang
 
     local runtime = GetRuntime(pedNetId)
     if runtime.state ~= NPC_STATES.IDLE then return false end
@@ -230,6 +231,45 @@ end
 
 function NPCManager.IsApproachClaimedBy(pedNetId, playerSource)
     return approachClaimedBy[pedNetId] == playerSource
+end
+
+-- =========================================================
+-- WAFFE/TASER AUF NPC GERICHTET (Haende hoch / Flucht)
+-- =========================================================
+-- Eigene, leichte Zustandsablage statt der vollen Conversation-State-Machine
+-- (das ist keine Unterhaltung) - blockiert aber Annaeherungs-Wuerfe waehrend
+-- der Reaktion und bekommt denselben Soft-Lock-Schutz (Token + Timeout).
+
+local threatState = {}       -- [pedNetId] = { reaction = 'comply'|'fleeing', token }
+local threatTokenCounter = {} -- [pedNetId] = number
+
+function NPCManager.GetThreatState(pedNetId)
+    local entry = threatState[pedNetId]
+    return entry and entry.reaction or nil
+end
+
+-- reaction: 'comply' | 'fleeing' | nil (nil = Reaktion aufheben)
+function NPCManager.SetThreatState(pedNetId, reaction)
+    threatTokenCounter[pedNetId] = (threatTokenCounter[pedNetId] or 0) + 1
+    local token = threatTokenCounter[pedNetId]
+
+    if not reaction then
+        threatState[pedNetId] = nil
+        return
+    end
+
+    threatState[pedNetId] = { reaction = reaction, token = token }
+
+    SetTimeout(Config.ThreatAI.autoReleaseMs, function()
+        local current = threatState[pedNetId]
+        if not current or current.token ~= token then return end -- laengst weitergeschaltet/aufgehoben
+        if Config.Debug then
+            print(('[policevoiceai] Threat-Soft-Lock-Schutz: Ped %s haengte in "%s" fest, setze zurueck.')
+                :format(tostring(pedNetId), reaction))
+        end
+        threatState[pedNetId] = nil
+        TriggerClientEvent('policevoiceai:client:npcThreatCleared', -1, pedNetId)
+    end)
 end
 
 AddEventHandler('playerDropped', function()

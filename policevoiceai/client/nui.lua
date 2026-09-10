@@ -21,6 +21,7 @@ RegisterNUICallback('ready', function(_, cb)
         maxRecordingSeconds = Config.MaxRecordingSeconds,
         micDeviceId = settings.micDeviceId,
         micGain = settings.micGain,
+        browserTtsEnabled = Config.TTS.browserFallbackEnabled,
     })
     cb('ok')
 end)

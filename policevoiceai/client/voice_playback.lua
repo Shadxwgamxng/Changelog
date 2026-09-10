@@ -11,6 +11,7 @@ VoicePlayback = {}
 
 local playing = false
 local currentPedNetId = nil
+local playbackGeneration = 0
 
 local function ComputeVolumeAndPan(listenerPed, targetCoords)
     local listenerCoords = GetEntityCoords(listenerPed)
@@ -73,13 +74,16 @@ end
 RegisterNetEvent('policevoiceai:client:npcReply', function(data)
     if Client.state.conversationId ~= data.conversationId then return end
 
+    playbackGeneration = playbackGeneration + 1
+    local myGeneration = playbackGeneration
+
     local pedEntity = NetworkGetEntityFromNetworkId(data.pedNetId)
 
     Utils.VoiceLog('NPC speaking (%s): "%s"', data.audioBase64 and 'audio' or 'text-only', tostring(data.text))
     NUI.Send({ action = 'setSpeaking', speaking = true, emotion = data.emotion })
     NUI.Send({ action = 'showTranscript', role = 'npc', text = data.text })
 
-    -- Grobe Sprechdauer-Schaetzung fuer die Animation/das text-only Fallback (~70ms/Zeichen)
+    -- Grobe Sprechdauer-Schaetzung fuer die Animation/den Sicherheits-Timeout (~70ms/Zeichen)
     local estimatedMs = math.max(1500, #data.text * 70)
 
     if pedEntity ~= 0 then
@@ -101,9 +105,24 @@ RegisterNetEvent('policevoiceai:client:npcReply', function(data)
         })
         StartPanLoop(data.pedNetId)
     else
-        -- Phase 27: kein Audio (Mock/Fallback) - Antwort bleibt text-only, Gespraech laeuft weiter
-        SetTimeout(estimatedMs, function()
-            VoicePlayback.OnPlaybackEnded()
+        -- Punkt "NPCs sollen reden": ohne echtes Server-TTS (Mock-Provider oder
+        -- ein fehlgeschlagener echter Provider, Phase 27) laesst die NUI den Text
+        -- stattdessen ueber die im Spielclient eingebaute Web Speech API lokal
+        -- vorlesen - kostenlos, ohne API-Key (siehe web/js/app.js, Config.TTS.browserFallbackEnabled).
+        NUI.Send({
+            action = 'speakText',
+            text = data.text,
+            voiceProfile = data.voiceProfile,
+            npcVolume = Settings.GetNpcVolumeMultiplier(),
+        })
+
+        -- Sicherheits-Timeout (Punkt 75): falls speechSynthesis nicht verfuegbar ist
+        -- oder aus irgendeinem Grund nie "playbackEnded" meldet, haengt das Gespraech
+        -- trotzdem nicht fest. Wird ignoriert, falls laengst eine neuere Antwort lief.
+        SetTimeout(estimatedMs + 6000, function()
+            if playbackGeneration == myGeneration then
+                VoicePlayback.OnPlaybackEnded()
+            end
         end)
     end
 end)

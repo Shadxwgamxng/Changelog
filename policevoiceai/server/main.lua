@@ -194,6 +194,26 @@ RegisterNetEvent('policevoiceai:server:cancelApproach', function(pedNetId)
 end)
 
 -- =========================================================
+-- WAFFE/TASER AUF NPC GERICHTET (Haende hoch / Flucht)
+-- =========================================================
+
+RegisterNetEvent('policevoiceai:server:evaluateThreat', function(pedNetId)
+    local source = source
+    if type(pedNetId) ~= 'number' then return end
+
+    local decision = SocialAI.EvaluateThreat(pedNetId, source)
+    if decision.action ~= 'none' then
+        TriggerClientEvent('policevoiceai:client:npcThreatDecision', source, decision)
+    end
+end)
+
+RegisterNetEvent('policevoiceai:server:clearThreat', function(pedNetId)
+    local source = source
+    if type(pedNetId) ~= 'number' then return end
+    SocialAI.ClearThreat(pedNetId, source)
+end)
+
+-- =========================================================
 -- ADMIN-KOMMANDOS (Konsole/ACE, siehe Config.Permissions.adminAce)
 -- =========================================================
 

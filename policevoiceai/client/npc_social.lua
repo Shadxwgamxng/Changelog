@@ -39,7 +39,9 @@ CreateThread(function()
             local checked = 0
 
             for _, ped in ipairs(GetGamePool('CPed')) do
-                if checked >= 8 then break end -- Performance: nicht jeden Ped im Umkreis auf einmal pruefen
+                -- Performance UND Punkt 65-Feedback ("zu viele Annaeherungen"): pro Tick nur
+                -- eine kleine Auswahl bewerten, nicht jeden Ped im Umkreis auf einmal.
+                if checked >= 4 then break end
 
                 if ped ~= playerPed and not IsPedAPlayer(ped) and not IsEntityDead(ped) then
                     local pedCoords = GetEntityCoords(ped)

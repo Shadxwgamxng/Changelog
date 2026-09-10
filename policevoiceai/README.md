@@ -84,13 +84,17 @@ dieses Panels** (Punkt 20 - die bleiben Server-Convars, siehe unten) - ohne
 gültigen Key bewirkt eine Umstellung auf z.B. `openai_tts` hier nichts, das
 Panel weist im Admin-Bereich darauf hin.
 
-**Damit NPCs tatsächlich hörbar sprechen statt nur Text anzuzeigen**, muss im
-Admin-Bereich (oder in `config.lua`) `Config.TTS.provider` auf einen echten
-Anbieter (`openai_tts`/`elevenlabs`) gestellt UND der zugehörige API-Key als
-Server-Convar gesetzt sein (siehe "Echte Provider aktivieren"). Im
-`'mock'`-Standardmodus bleibt JEDE Antwort - auch wenn ein NPC von sich aus auf
-den Officer zugeht - bewusst text-only, das ist kein Bug sondern der
-dokumentierte Offline-Modus.
+**NPCs sprechen bereits standardmäßig hörbar**, auch ohne API-Key: liefert der
+Server kein Audio (`'mock'`-Provider oder ein fehlgeschlagener echter
+Provider), lässt die NUI den Text stattdessen über die im Spielclient
+eingebaute **Web Speech API** (`speechSynthesis`) lokal vorlesen - kostenlos,
+ohne Internetzugriff, siehe `web/js/app.js` (`Config.TTS.browserFallbackEnabled`,
+Standard `true`). Stimmqualität/-auswahl hängt vom Betriebssystem des Spielers
+ab (Windows liefert i.d.R. mehrere SAPI-Stimmen inkl. Deutsch) und ist
+naturgemäß kein Vergleich zu einer echten KI-Stimme wie ElevenLabs/OpenAI TTS -
+für bessere Qualität im Admin-Bereich (oder in `config.lua`) `Config.TTS.provider`
+auf `openai_tts`/`elevenlabs` stellen UND den zugehörigen API-Key als
+Server-Convar setzen (siehe "Echte Provider aktivieren").
 
 ### "Reiter im MDT" - warum es das nicht gibt
 
@@ -130,9 +134,10 @@ Anfragen:
   ohne Mikrofon/Whisper einfach in der Nähe eines NPCs `/pvoice <Text>` eingeben,
   z.B. `/pvoice Wo wohnen Sie?` - das Gespräch läuft danach normal weiter
   (Antwort, Emotion, Verlauf, MDT-Lookup, alles funktioniert).
-- **TTS**: liefert keine Audiodatei, die Antwort bleibt "text-only" (Subtitle in
-  der Voice-UI + Sprechanimation anhand der geschätzten Textlänge). Das ist
-  zugleich Phase 27 (Fallback-System) in Aktion.
+- **TTS**: liefert keine eigene Audiodatei, die NUI lässt den Text aber
+  automatisch über die Web Speech API des Spielclients hörbar vorlesen (siehe
+  Abschnitt "Spracheinstellungen" oben) - Subtitle + Sprechanimation laufen
+  synchron dazu. Das ist zugleich Phase 27 (Fallback-System) in Aktion.
 
 ## Echte Provider aktivieren
 
@@ -231,6 +236,19 @@ Diese Erweiterung behebt gezielt das Problem "NPC reagiert nicht/teilweise":
 - **Umgebungserkennung** (Punkt 60/61): erkennt Polizeifahrzeuge mit Blaulicht
   in der Nähe (`GetVehicleClass`/`IsVehicleSirenOn`) und lässt NPCs stattdessen
   hinschauen statt eine laufende Einsatzstelle zu durchqueren.
+- **Waffe/Taser auf NPC gerichtet** (`client/npc_threat.lua`,
+  `server/social_ai.lua`, `Config.ThreatAI`): zielt der Officer mit gezogener
+  Waffe auf einen NPC (`GetEntityPlayerIsFreeAimingAt`), entscheidet der Server
+  persönlichkeitsbasiert - kooperative NPCs heben die Hände (`TaskHandsUp`) und
+  bleiben stehen, NPCs mit hoher `criminality` fliehen eher (`TaskSmartFleePed`,
+  beendet dabei ein laufendes Gespräch mit diesem NPC automatisch). Auch hier
+  greift der Soft-Lock-Schutz: die Reaktion wird spätestens nach
+  `Config.ThreatAI.autoReleaseMs` automatisch aufgehoben, falls nie eine
+  Entwarnung ankommt.
+- **Annäherungsrate deutlich gesenkt**: `Config.SocialAI.baseApproachChance`
+  (12 → 4), `ApproachRerollCooldownSeconds` (20 → 120) und der pro Scan-Tick
+  geprüfte Ped-Anteil wurden reduziert, nachdem sich "NPCs kommen ständig an"
+  in Tests bestätigt hat - beides ist über `config.lua` weiter fein einstellbar.
 
 ### PMA-Voice-Integration - ehrlich betrachtet (Punkt 54)
 
