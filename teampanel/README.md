@@ -109,7 +109,7 @@ Siehe `.env.example`. Es werden **keine Secrets ans Frontend** ausgeliefert (kei
 
 Das Datenmodell liegt in `prisma/schema.prisma` (inkl. Foreign Keys und Indizes). Migrationen liegen versioniert in `prisma/migrations/`.
 
-**Modelle:** `User`, `Role`, `TeamMemberProfile`, `Event`, `EventAttendance`, `EventEquipment`, `Equipment`, `UserEquipment`, `EquipmentRequirement`, `Announcement`, `ShoppingItem`, `TeamSettings`, `AuditLog` – zusätzlich `Session`, `Invitation`, `PasswordResetToken`, `Notification`, `RateLimit`.
+**Modelle:** `User`, `Role`, `TeamMemberProfile`, `Event`, `EventAttendance`, `EventEquipment`, `Equipment`, `UserEquipment`, `PersonalItem`, `EquipmentRequirement`, `Announcement`, `ShoppingItem`, `TeamSettings`, `AuditLog` – zusätzlich `Session`, `Invitation`, `PasswordResetToken`, `Notification`, `RateLimit`.
 
 | Aufgabe | Befehl |
 |---|---|
@@ -209,6 +209,7 @@ Rechte ändern: nur `src/lib/permissions.ts` anpassen (und den Test `src/lib/__t
 - **Spieltage:** Typen (Spieltag, Training, Besprechung, Sonstiges), Status (geplant, Anmeldung offen, voll – automatisch bei Limit –, abgeschlossen – automatisch nach Ende –, abgesagt), Anmeldefrist, Teilnehmerlimit, Kosten, Treffpunkt/Abfahrt, Maps-Link, benötigte Ausrüstung. Zusage/Vielleicht/Absage, Mitfahrbörse (Fahrer, freie Plätze, Abfahrtsort), Kommentar. Teilnehmertabelle für Teamleitung/Admin inkl. „Noch keine Antwort“ und Pflege für andere.
 - **Kalender:** Monats- und Listenansicht (mobil mit Punkten), farbcodiert nach Terminart.
 - **Ausrüstung:** zentraler Katalog (16 Kategorien, Pflicht/optional, Preis, Shop-Link, Bild, Hersteller, Priorität, Notizen); persönliche Ausrüstung mit Status (vorhanden, fehlt, bestellt, teilweise, defekt); Admin-Zuweisung von Anforderungen an mehrere Mitglieder gleichzeitig mit Frist; daraus entsteht die **persönliche Einkaufsliste** („🔴 dringend / 🟡 zusätzlich“, „Zum Shop“ im neuen Tab).
+- **Mein Inventar:** Jedes Mitglied legt eigene Ausrüstung frei an – **Kleidung** und **Waffen**, darunter **Anbauteile** (gehören zu einer Waffe) und **Gadgets** (an einer Waffe oder einzeln). Sichtbar nur für das Mitglied selbst und – lesend – für Teamleitung/Admin (Mitgliederverwaltung). Beim Löschen einer Waffe verschwinden ihre Anbauteile, Gadgets bleiben einzeln erhalten.
 - **Team-Einkaufsliste:** Artikel mit Preis, Priorität, Shop, Bild, Status; Bedarfsberechnung („5 Mitglieder benötigen diesen Artikel“) bei Verknüpfung mit dem Katalog; „Katalog → Einkaufsliste“ per Klick.
 - **Ankündigungen:** Prioritäten normal/wichtig/dringend, anheften, Bild, geplante Veröffentlichung; wichtige/dringende lösen Benachrichtigungen aus.
 - **Benachrichtigungen (intern):** neue Termine, Terminabsagen, Rolle geändert, Ausrüstung zugewiesen, wichtige Ankündigungen sowie automatisch erzeugte Erinnerungen (Termin in ≤ 7 Tagen, fehlende Pflichtausrüstung; ohne Cron beim Seitenaufruf, dedupliziert).

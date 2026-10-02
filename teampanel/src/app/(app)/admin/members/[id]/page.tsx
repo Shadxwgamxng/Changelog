@@ -14,6 +14,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { Table, TableWrap, Td, Th } from "@/components/ui/table";
+import { PersonalInventory } from "@/components/features/personal-inventory";
 import { MemberForm } from "@/components/features/member-form";
 import { OwnershipEditor, OwnershipSelect } from "@/components/features/ownership-controls";
 import { RoleBadge } from "@/components/features/badges";
@@ -31,10 +32,11 @@ export default async function AdminMemberPage({ params }: { params: Promise<{ id
 
   const manageable = can(viewer, "members.manage") && canManageUser(viewer, { id: member.id, role: member.role });
   const manageEquipment = can(viewer, "equipment.manageAll");
-  const [catalog, owned, requirements] = await Promise.all([
+  const [catalog, owned, requirements, inventory] = await Promise.all([
     db.equipment.findMany({ orderBy: [{ required: "desc" }, { category: "asc" }, { name: "asc" }] }),
     db.userEquipment.findMany({ where: { userId: id } }),
     db.equipmentRequirement.findMany({ where: { userId: id }, include: { equipment: true, assignedBy: { select: { profile: { select: { firstName: true, callsign: true } } } } }, orderBy: { createdAt: "desc" } }),
+    can(viewer, "equipment.manageAll") ? db.personalItem.findMany({ where: { userId: id }, include: { parts: { orderBy: { name: "asc" } } }, orderBy: { name: "asc" } }) : Promise.resolve([]),
   ]);
   const ownedMap = new Map(owned.map((o) => [o.equipmentId, o]));
   const roleOptions = (() => {
@@ -165,6 +167,13 @@ export default async function AdminMemberPage({ params }: { params: Promise<{ id
               </Table>
             </TableWrap>
           </Card>
+
+          {manageEquipment && (
+            <div>
+              <h2 className="label-caps mb-3">Persönliches Inventar (nur lesen)</h2>
+              <PersonalInventory items={inventory} editable={false} />
+            </div>
+          )}
         </div>
       </div>
     </>

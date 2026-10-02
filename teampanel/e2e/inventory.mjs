@@ -1,0 +1,74 @@
+/** Kurztest Persönliches Inventar. Aufruf: CHROME_PATH=… node e2e/inventory.mjs (App läuft, Demo-Daten geseedet) */
+import { chromium } from "playwright-core";
+import { PrismaClient } from "@prisma/client";
+import "dotenv/config";
+const base = process.env.BASE_URL || "http://localhost:3000";
+const db = new PrismaClient();
+await db.rateLimit.deleteMany();
+const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined, args: ["--no-sandbox"] });
+let fails = 0;
+const check = (n, c) => { console.log(`${c ? "PASS" : "FAIL"}  ${n}`); if (!c) fails++; };
+async function login(id) {
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await ctx.newPage();
+  page.on("pageerror", (e) => { console.log("PAGEERROR", e.message); fails++; });
+  await page.goto(base + "/login");
+  await page.fill("input[name=identifier]", id);
+  await page.fill("input[name=password]", process.env.SEED_DEMO_PASSWORD || "DEMO-Passwort-2026!");
+  await page.click("button[type=submit]");
+  await page.waitForURL(base + "/");
+  return { ctx, page };
+}
+const dlg = (p) => p.locator("dialog[open]");
+const { ctx, page } = await login("member@example.local");
+await page.goto(base + "/equipment/inventory"); await page.waitForSelector("h1");
+await page.getByRole("button", { name: "Waffe hinzufügen" }).click();
+await dlg(page).locator("input[name=name]").fill("M4A1 Test");
+await dlg(page).locator("input[name=manufacturer]").fill("Hersteller");
+await dlg(page).getByRole("button", { name: "Hinzufügen" }).click();
+await page.getByText("M4A1 Test").first().waitFor();
+check("Waffe hinzufügen", true);
+await page.getByRole("button", { name: "Anbauteil hinzufügen" }).first().click();
+check("Anbauteil: Waffe vorausgewählt", (await dlg(page).locator("select[name=parentId]").inputValue()) !== "");
+await dlg(page).locator("input[name=name]").fill("Rotpunkt Test");
+await dlg(page).getByRole("button", { name: "Hinzufügen" }).click();
+await page.getByText("Rotpunkt Test").waitFor();
+check("Anbauteil unter der Waffe", true);
+await page.getByRole("button", { name: "Gadget hinzufügen" }).first().click();
+await dlg(page).locator("input[name=name]").fill("Taschenlampe Test");
+await dlg(page).getByRole("button", { name: "Hinzufügen" }).click();
+await page.getByText("Taschenlampe Test").waitFor();
+check("Gadget an Waffe", true);
+await page.getByRole("button", { name: "Kleidung hinzufügen" }).click();
+await dlg(page).locator("input[name=name]").fill("Feldanzug Test");
+await dlg(page).getByRole("button", { name: "Hinzufügen" }).click();
+await page.getByText("Feldanzug Test").waitFor();
+check("Kleidung hinzufügen", true);
+// Anbauteil ohne Waffe → Fehler (Formular-Validierung serverseitig umgehen: Feld required entfernen)
+await page.getByRole("button", { name: "Anbauteil hinzufügen" }).first().click();
+await dlg(page).locator("input[name=name]").fill("Ohne Waffe");
+await dlg(page).locator("select[name=parentId]").selectOption("");
+await dlg(page).locator("select[name=parentId]").evaluate((el) => el.removeAttribute("required"));
+await dlg(page).getByRole("button", { name: "Hinzufügen" }).click();
+await dlg(page).getByText(/Waffe/).first().waitFor();
+check("Anbauteil ohne Waffe wird serverseitig abgelehnt", (await db.personalItem.count({ where: { name: "Ohne Waffe" } })) === 0);
+await page.keyboard.press("Escape");
+// Fremde Sicht: Admin sieht lesend, Mitglied "viking" sieht nichts davon
+const a = await login("admin@example.local");
+const ghost = await db.user.findFirst({ where: { username: "member" } });
+await a.page.goto(`${base}/admin/members/${ghost.id}`); await a.page.waitForSelector("h1");
+const txt = await a.page.locator("main").innerText();
+check("Admin sieht Inventar lesend", txt.includes("M4A1 Test") && (await a.page.getByRole("button", { name: "Waffe hinzufügen" }).count()) === 0);
+const v = await login("viking@example.local");
+await v.page.goto(base + "/equipment/inventory"); await v.page.waitForSelector("h1");
+check("Anderes Mitglied sieht fremdes Inventar nicht", !(await v.page.locator("main").innerText()).includes("M4A1 Test"));
+// Löschen: Waffe löscht Anbauteil, Gadget bleibt einzeln
+await page.getByRole("button", { name: "M4A1 Test löschen" }).click();
+await dlg(page).getByRole("button", { name: "Löschen" }).click();
+await page.waitForFunction(() => !document.body.innerText.includes("M4A1 Test"));
+await page.reload(); await page.waitForSelector("h1");
+const after = await page.locator("main").innerText();
+check("Waffe gelöscht, Anbauteil weg, Gadget bleibt", !after.includes("Rotpunkt Test") && after.includes("Taschenlampe Test"));
+await db.personalItem.deleteMany({ where: { name: { in: ["Taschenlampe Test", "Feldanzug Test"] } } });
+await db.$disconnect(); await browser.close();
+console.log(fails ? `${fails} FEHLER` : "ALLES BESTANDEN"); process.exit(fails ? 1 : 0);

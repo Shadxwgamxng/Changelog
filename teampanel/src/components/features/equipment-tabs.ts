@@ -1,5 +1,6 @@
-export const equipmentTabs = (active: "mine" | "catalog") => [
+export const equipmentTabs = (active: "mine" | "inventory" | "catalog") => [
   { href: "/equipment", label: "Meine Ausrüstung", active: active === "mine" },
+  { href: "/equipment/inventory", label: "Mein Inventar", active: active === "inventory" },
   { href: "/equipment/catalog", label: "Katalog", active: active === "catalog" },
 ];
 

@@ -135,3 +135,11 @@ export function memberName(p: { firstName: string; lastName: string; callsign?: 
 export function shortName(p: { firstName: string; callsign?: string | null }) {
   return p.callsign || p.firstName;
 }
+
+export const PERSONAL_GROUP_LABELS = {
+  CLOTHING: "Kleidung",
+  WEAPON: "Waffe",
+  ATTACHMENT: "Anbauteil",
+  GADGET: "Gadget",
+} as const;
+export type PersonalGroupKey = keyof typeof PERSONAL_GROUP_LABELS;
