@@ -52,7 +52,16 @@ Alle Abhängigkeiten sind bewusst schlank gehalten: `next`, `react`, `@prisma/cl
 
 ---
 
-## Schnellstart (lokal)
+## Schnellstart (lokal, ohne Docker und ohne PostgreSQL-Installation)
+
+Nur Node.js (≥ 20.9) wird benötigt. Das Startskript startet eine **eingebettete PostgreSQL-Datenbank** (Daten in `./data`), wendet die Migrationen an, legt beim ersten Start Demo-Daten an, baut die App und startet sie:
+
+- **Windows:** Doppelklick auf `start.bat`
+- **Linux/macOS:** `./start.sh`
+
+Danach läuft das Panel auf <http://localhost:3000> (Login `admin@example.local`, Passwort siehe [Demo-Zugänge](#demo-zugänge)). Beenden mit Strg+C. Zurücksetzen: Panel beenden und den Ordner `data` löschen. Nur zum lokalen Testen gedacht; der Datenbankprozess läuft nicht als Administrator/root (PostgreSQL verweigert das).
+
+## Schnellstart mit eigener Datenbank (Entwicklung)
 
 ```bash
 cd teampanel

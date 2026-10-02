@@ -1,0 +1,13 @@
+SH Airsoft Kommando - Team Panel (lokal testen)
+
+1. ZIP entpacken (z. B. nach C:\TeamPanel). Nicht im ZIP-Fenster starten, sondern erst entpacken!
+2. Voraussetzung: Node.js (LTS) von https://nodejs.org
+3. Doppelklick auf  start.bat
+   - Erster Start: installiert Pakete und baut die App (ca. 3-5 Minuten, Internet noetig).
+   - Danach startet das Panel in wenigen Sekunden und oeffnet http://localhost:3000
+4. Login: admin@example.local  /  DEMO-Passwort-2026!
+   (weitere Demo-Accounts: leader@, member@, superadmin@example.local - gleiches Passwort)
+5. Beenden: Strg+C im schwarzen Fenster (oder Fenster schliessen).
+
+Daten (Datenbank, Bilder) liegen im Ordner "data". Zuruecksetzen: Panel beenden, Ordner "data" loeschen, neu starten.
+Hinweis: Nur zum lokalen Testen. Fuer den Betrieb im Internet siehe README.md (Deployment).
