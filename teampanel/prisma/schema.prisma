@@ -1,0 +1,453 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────── Enums ─────────────────────────
+
+/// Systemrolle (steuert Rechte). Getrennt von der Airsoft-Rolle.
+enum RoleKey {
+  SUPERADMIN
+  ADMIN
+  TEAMLEITUNG
+  MITGLIED
+}
+
+/// Airsoft-Rolle im Spiel (rein informativ, keine Rechte).
+enum AirsoftRole {
+  SQUAD_LEADER
+  RIFLEMAN
+  SUPPORT_GUNNER
+  MEDIC
+  RECON
+  SNIPER
+  FUNKER
+  FAHRER
+  SONSTIGE
+}
+
+enum EventType {
+  SPIELTAG
+  TRAINING
+  BESPRECHUNG
+  SONSTIGES
+}
+
+enum EventStatus {
+  PLANNED
+  OPEN
+  FULL
+  COMPLETED
+  CANCELLED
+}
+
+enum AttendanceStatus {
+  ACCEPTED
+  DECLINED
+  MAYBE
+}
+
+enum EquipmentCategory {
+  PRIMARY_WEAPON
+  SIDEARM
+  MAGAZINES
+  EYE_PROTECTION
+  FACE_PROTECTION
+  HELMET
+  CHEST_RIG
+  PLATE_CARRIER
+  UNIFORM
+  BOOTS
+  GLOVES
+  RADIO
+  HEARING_PROTECTION
+  IFAK
+  BAGS
+  OTHER
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum OwnershipStatus {
+  OWNED
+  MISSING
+  ORDERED
+  PARTIAL
+  DEFECTIVE
+}
+
+enum AnnouncementPriority {
+  NORMAL
+  IMPORTANT
+  URGENT
+}
+
+enum ShoppingStatus {
+  OPEN
+  ORDERED
+  PURCHASED
+}
+
+enum NotificationType {
+  EVENT_CREATED
+  EVENT_REMINDER
+  EVENT_CANCELLED
+  EQUIPMENT_MISSING
+  EQUIPMENT_REQUIRED
+  ANNOUNCEMENT
+  ROLE_CHANGED
+  GENERAL
+}
+
+// ───────────────────────── Benutzer & Auth ─────────────────────────
+
+model Role {
+  id          String       @id @default(cuid())
+  key         RoleKey      @unique
+  name        String
+  description String
+  /// Höherer Rang = mehr Befugnis. Wird für "darf Benutzer X verwalten" genutzt.
+  rank        Int          @unique
+  users       User[]
+  invitations Invitation[]
+}
+
+model User {
+  id                 String    @id @default(cuid())
+  username           String    @unique
+  email              String    @unique
+  passwordHash       String
+  mustChangePassword Boolean   @default(false)
+  active             Boolean   @default(true)
+  roleId             String
+  role               Role      @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  lastLoginAt        DateTime?
+
+  profile            TeamMemberProfile?
+  sessions           Session[]
+  resetTokens        PasswordResetToken[]
+  attendances        EventAttendance[]
+  equipment          UserEquipment[]
+  requirements       EquipmentRequirement[] @relation("RequirementTarget")
+  assignedReqs       EquipmentRequirement[] @relation("RequirementAssigner")
+  createdEvents      Event[]
+  announcements      Announcement[]
+  notifications      Notification[]
+  invitationsCreated Invitation[]           @relation("InvitationCreator")
+  shoppingTargets    ShoppingItem[]         @relation("ShoppingTarget")
+  shoppingCreated    ShoppingItem[]         @relation("ShoppingCreator")
+  auditLogs          AuditLog[]
+
+  @@index([roleId])
+  @@index([active])
+}
+
+model TeamMemberProfile {
+  id           String      @id @default(cuid())
+  userId       String      @unique
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName    String
+  lastName     String
+  callsign     String?
+  avatarUrl    String?
+  joinedAt     DateTime    @default(now())
+  bio          String?
+  airsoftRole  AirsoftRole @default(RIFLEMAN)
+  phone        String?
+  /// Telefonnummer für andere Mitglieder sichtbar?
+  phoneVisible Boolean     @default(false)
+  /// Nur für Admin/Teamleitung sichtbar.
+  adminNotes   String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([lastName, firstName])
+}
+
+model Session {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// SHA-256 des Cookie-Tokens – das Token selbst wird nie gespeichert.
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  lastUsedAt DateTime @default(now())
+  userAgent  String?
+  ip         String?
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Invitation {
+  id          String    @id @default(cuid())
+  tokenHash   String    @unique
+  email       String?
+  roleId      String
+  role        Role      @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  createdById String?
+  createdBy   User?     @relation("InvitationCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  note        String?
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([expiresAt])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model RateLimit {
+  key          String    @id
+  count        Int       @default(0)
+  windowStart  DateTime  @default(now())
+  blockedUntil DateTime?
+}
+
+// ───────────────────────── Events ─────────────────────────
+
+model Event {
+  id                   String      @id @default(cuid())
+  title                String
+  type                 EventType   @default(SPIELTAG)
+  status               EventStatus @default(OPEN)
+  startsAt             DateTime
+  endsAt               DateTime?
+  location             String
+  address              String?
+  mapsUrl              String?
+  organizer            String?
+  description          String?
+  meetingPoint         String?
+  departureAt          DateTime?
+  costCents            Int?
+  registrationDeadline DateTime?
+  maxParticipants      Int?
+  createdById          String?
+  createdBy            User?       @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+
+  attendances  EventAttendance[]
+  equipment    EventEquipment[]
+  requirements EquipmentRequirement[]
+
+  @@index([startsAt])
+  @@index([status])
+}
+
+model EventEquipment {
+  eventId     String
+  equipmentId String
+  event       Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  equipment   Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, equipmentId])
+  @@index([equipmentId])
+}
+
+model EventAttendance {
+  id                String           @id @default(cuid())
+  eventId           String
+  event             Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId            String
+  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status            AttendanceStatus
+  needsRide         Boolean          @default(false)
+  canDrive          Boolean          @default(false)
+  freeSeats         Int?
+  departureLocation String?
+  comment           String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@unique([eventId, userId])
+  @@index([userId])
+}
+
+// ───────────────────────── Ausrüstung ─────────────────────────
+
+model Equipment {
+  id                  String            @id @default(cuid())
+  name                String
+  description         String?
+  category            EquipmentCategory
+  required            Boolean           @default(false)
+  recommendedQuantity Int               @default(1)
+  shopUrl             String?
+  priceCents          Int?
+  imageUrl            String?
+  manufacturer        String?
+  model               String?
+  priority            Priority          @default(MEDIUM)
+  notes               String?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  userEquipment UserEquipment[]
+  requirements  EquipmentRequirement[]
+  events        EventEquipment[]
+  shoppingItems ShoppingItem[]
+
+  @@index([category])
+  @@index([required])
+}
+
+model UserEquipment {
+  id          String          @id @default(cuid())
+  userId      String
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  equipmentId String
+  equipment   Equipment       @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  status      OwnershipStatus @default(MISSING)
+  quantity    Int             @default(1)
+  notes       String?
+  updatedAt   DateTime        @updatedAt
+
+  @@unique([userId, equipmentId])
+  @@index([equipmentId])
+}
+
+model EquipmentRequirement {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation("RequirementTarget", fields: [userId], references: [id], onDelete: Cascade)
+  equipmentId  String
+  equipment    Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  eventId      String?
+  event        Event?    @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  dueDate      DateTime?
+  note         String?
+  assignedById String?
+  assignedBy   User?     @relation("RequirementAssigner", fields: [assignedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime  @default(now())
+
+  @@unique([userId, equipmentId])
+  @@index([equipmentId])
+  @@index([eventId])
+}
+
+model ShoppingItem {
+  id           String            @id @default(cuid())
+  name         String
+  category     EquipmentCategory
+  description  String?
+  shop         String?
+  url          String?
+  priceCents   Int?
+  priority     Priority          @default(MEDIUM)
+  imageUrl     String?
+  quantity     Int               @default(1)
+  status       ShoppingStatus    @default(OPEN)
+  /// Optional: Verknüpfung zum Katalog – damit wird der Bedarf im Team berechnet.
+  equipmentId  String?
+  equipment    Equipment?        @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
+  /// Optional: für ein bestimmtes Mitglied bestimmt.
+  targetUserId String?
+  targetUser   User?             @relation("ShoppingTarget", fields: [targetUserId], references: [id], onDelete: SetNull)
+  createdById  String?
+  createdBy    User?             @relation("ShoppingCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@index([status])
+  @@index([equipmentId])
+  @@index([targetUserId])
+}
+
+// ───────────────────────── Kommunikation ─────────────────────────
+
+model Announcement {
+  id          String               @id @default(cuid())
+  title       String
+  body        String
+  priority    AnnouncementPriority @default(NORMAL)
+  pinned      Boolean              @default(false)
+  imageUrl    String?
+  authorId    String?
+  author      User?                @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  publishedAt DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@index([publishedAt])
+  @@index([pinned, publishedAt])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType @default(GENERAL)
+  title     String
+  body      String?
+  href      String?
+  readAt    DateTime?
+  /// Verhindert Doppelungen (z. B. bei automatisch erzeugten Erinnerungen).
+  dedupeKey String?
+  createdAt DateTime         @default(now())
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, readAt, createdAt])
+}
+
+// ───────────────────────── Team & Audit ─────────────────────────
+
+model TeamSettings {
+  id           Int      @id @default(1)
+  name         String   @default("Schleswig-Holstein Airsoft Kommando")
+  shortName    String   @default("SAK")
+  motto        String?
+  foundedYear  Int?
+  location     String   @default("Schleswig-Holstein")
+  description  String?
+  rules        String?
+  contactEmail String?
+  contactPhone String?
+  logoUrl      String?
+  websiteUrl   String?
+  discordUrl   String?
+  instagramUrl String?
+  facebookUrl  String?
+  youtubeUrl   String?
+  updatedAt    DateTime @updatedAt
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorId     String?
+  actor       User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  /// Snapshot, damit der Name auch nach dem Löschen des Benutzers lesbar bleibt.
+  actorLabel  String
+  action      String
+  targetType  String
+  targetId    String?
+  targetLabel String?
+  message     String
+  data        Json?
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([action])
+  @@index([actorId])
+}
