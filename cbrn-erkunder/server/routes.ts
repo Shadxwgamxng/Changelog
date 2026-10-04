@@ -1,6 +1,8 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { db, get, list, insert, update, remove, audit, now, getSetting, setSetting, TABLES, columns } from './db.js';
-import { state, emit, fivemConnected, systemStatus, weatherNow, ingestFivem, spectrumAt, currentSnapshotAt, completeLab, mgmgChannels, routeLL, levelText } from './sim.js';
+import { state, emit, fivemConnected, systemStatus, weatherNow, ingestFivem, spectrumAt, currentSnapshotAt, completeLab, mgmgChannels, routeLL, levelText, startRun, stopRun, runInfo } from './sim.js';
+import { analyze } from './analysis.js';
+import { ORIGIN_LABEL } from './data/derive.js';
 import { SECTORS, sectorPolygon, llToOffset, compass, CENTER, MODE } from './geo.js';
 import { config } from './config.js';
 import { buildReport, reportCsv, reportPdf } from './report.js';
@@ -77,13 +79,32 @@ export function registerRoutes(app: FastifyInstance) {
   app.get('/api/vehicles', async () => list('vehicles'));
   app.get('/api/vehicles/:id', async (req) => { const v = get('vehicles', (req.params as any).id); if (!v) throw nf('Fahrzeug'); return { ...v, crew: list('crew', 'WHERE vehicle_id = ?', [v.id]) }; });
   app.get('/api/crew', async (req) => list('crew', q(req).vehicle ? 'WHERE vehicle_id = ?' : '', q(req).vehicle ? [q(req).vehicle] : []));
-  app.get('/api/live', async () => ({ vehicles: state.live, track_km: +(state.trackLen / 1000).toFixed(2), mp_count: (db.prepare('SELECT COUNT(*) c FROM measurements').get() as any).c, weather: weatherNow(), status: systemStatus(), drive: state.drive }));
+  app.get('/api/live', async () => ({ vehicles: state.live, track_km: +(state.trackLen / 1000).toFixed(2), run: runInfo(), mp_count: (db.prepare('SELECT COUNT(*) c FROM measurements').get() as any).c, weather: weatherNow(), status: systemStatus(), drive: state.drive }));
   app.get('/api/live/spectrum', async (req) => { const v = get('vehicles', q(req).vehicle ?? 'CBRN-01'); if (!v) throw nf('Fahrzeug'); const { x, y } = llToOffset(v.lat, v.lon); return { ...spectrumAt(x, y), label: 'SIMULIERTE AUSWERTUNG', data_source: 'SIMULATED' }; });
   app.get('/api/scenarios', async () => list('scenarios'));
   app.get('/api/scenario/active', async () => { const id = getSetting('active_scenario'); const sc = get('scenarios', id); return { ...sc, source_offset: getSetting('source_offset') }; });
   app.get('/api/track', async (req) => {
-    const rows = db.prepare("SELECT lat,lon,ts FROM measurements WHERE vehicle_id = ? ORDER BY seq DESC LIMIT 400").all(q(req).vehicle ?? 'CBRN-01') as any[];
+    const p = q(req); const run = p.run ?? state.run?.id;
+    const rows = (run ? db.prepare("SELECT lat,lon,ts FROM measurements WHERE run_id = ? ORDER BY seq DESC LIMIT 1500").all(run) : db.prepare("SELECT lat,lon,ts FROM measurements WHERE vehicle_id = ? ORDER BY seq DESC LIMIT 400").all(p.vehicle ?? 'CBRN-01')) as any[];
     return rows.reverse();
+  });
+
+  // ---------- Messfahrten
+  app.get('/api/runs', async () => list('runs', '', [], 'ORDER BY started_at DESC LIMIT 100').map((r: any) => (state.run?.id === r.id ? { ...r, distance_m: Math.round(state.run!.dist), active: true } : r)));
+  app.get('/api/runs/active', async () => ({ run: runInfo() }));
+  app.post('/api/runs/start', async (req, rep) => { const u = need(req, 1); const r = startRun(u.id, (req.body as any)?.name); if ((r as any).error) throw Object.assign(new Error((r as any).error), { statusCode: 409 }); rep.code(201); return r; });
+  app.post('/api/runs/stop', async (req) => { const u = need(req, 1); const r = stopRun(u.id); if ((r as any).error) throw Object.assign(new Error((r as any).error), { statusCode: 409 }); return r; });
+
+  // ---------- Probenanalyse (Entscheidungshilfe)
+  app.get('/api/analysis/options', async () => ({ origins: Object.entries(ORIGIN_LABEL).map(([k, v]) => ({ key: k, label: v })) }));
+  app.post('/api/analysis', async (req) => { need(req, 1); return analyze((req.body ?? {}) as any); });
+  app.post('/api/samples/:id/analysis', async (req) => {
+    const u = need(req, 1); const id = (req.params as any).id; const s = get('samples', id); if (!s) throw nf('Probe');
+    const obs = (req.body as any) ?? {}; const res = analyze({ ...obs, kind: s.kind }); const top = res.candidates[0];
+    const label = !top || top.score < 3 ? 'UNBEKANNT' : `${top.level === 'moegliche_identifikation' ? 'MÖGLICHE IDENTIFIKATION' : top.level === 'verdacht' ? 'VERDACHT' : 'HINWEIS'}: ${top.name.toUpperCase()}`;
+    update('samples', id, { analysis: { observations: obs, result: res, at: now(), by: u.id }, onsite_assessment: label, updated_at: now() });
+    audit(u.id, 'analysis', 'sample', id, { top: top?.id, level: top?.level, score: top?.score }); emit('sample.updated', get('samples', id));
+    return { ...res, label };
   });
 
   // ---------- Aufträge

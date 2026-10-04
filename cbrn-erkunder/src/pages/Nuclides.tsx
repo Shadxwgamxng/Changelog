@@ -1,7 +1,7 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { Page, Panel, Field, CatBadge, Badge, Empty } from '../components/ui';
 import { useApi } from '../store';
-import { SourceBlock } from './Substances';
+import { SourceBlock, ResponsePanel } from './Substances';
 import { NA, orNA } from '../lib/format';
 
 function Master({ rows, cols, sel, base }: { rows: any[]; cols: [string, (r: any) => any][]; sel?: string; base: string }) {
@@ -33,6 +33,7 @@ export function Radionuclides() {
                 <div className="col-span-3"><Field label="Messbarkeit" mono={false}>{orNA(d.measurability)}</Field></div>
               </div>
             </Panel>
+            <ResponsePanel r={d.response} id="handlung" />
             <SourceBlock rec={d} /></>)}
         </div>
       </div>
@@ -61,6 +62,7 @@ export function Bio() {
               </div>
               <div className="text-[11px] text-dim mt-3">Vor-Ort-Geräte der ErkW liefern bei biologischen Gefahren allenfalls Screening; Bestätigung ausschließlich im zuständigen Labor.</div>
             </Panel>
+            <ResponsePanel r={d.response} id="handlung" />
             <SourceBlock rec={d} /></>)}
         </div>
       </div>

@@ -2,6 +2,7 @@ import { Page, Panel, Field, StatusBadge, Btn, Stat } from '../components/ui';
 import { api } from '../api';
 import { useApi, useLive } from '../store';
 import { num } from '../lib/format';
+import { RunCard } from '../components/RunCard';
 
 export default function Vehicle() {
   const { vehicles, live, drive, status, can, meta } = useLive(); const gta = meta?.map?.mode === 'gta5'; const v = vehicles.find((x) => x.id === 'CBRN-01'); const r = live['CBRN-01']; const crew = useApi<any[]>('/crew?vehicle=CBRN-01');
@@ -9,6 +10,7 @@ export default function Vehicle() {
   if (!v) return null; const fivem = status?.fivem === 'CONNECTED';
   return (
     <Page title={`Fahrzeug ${v.name}`} sub="CBRN-Erkundungswagen (neue Generation – konzeptionelle Grundlage)">
+      <RunCard />
       <div className="grid grid-cols-6 gap-2 mb-3">
         <Stat label="Status" value={<StatusBadge s={v.status} />} /><Stat label="GPS" value={<StatusBadge s={v.gps_fix ? 'OK' : 'KEIN FIX'} />} /><Stat label="DFÜ" value={<StatusBadge s={v.link === 'ONLINE' ? 'OK' : 'OFFLINE'} />} />
         <Stat label="Messgeräte" value={<StatusBadge s="OK" />} /><Stat label="Probenahme" value={<StatusBadge s="VERFÜGBAR" />} /><Stat label="Akku / Strom" value={<StatusBadge s={v.power} />} />

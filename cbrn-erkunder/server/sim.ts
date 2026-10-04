@@ -33,6 +33,8 @@ export const state = {
   live: {} as Record<string, any>,
   fivem: { last: 0, info: null as any },
   trackLen: 0, mpCount: 0, lastTrackPos: null as null | { lat: number; lon: number },
+  run: null as null | { id: string; vehicle_id: string; name: string; started_at: string; started_by: string; dist: number; points: number; maxDose: number; maxPid: number; source: string; mission_id: string | null },
+  gameWeather: null as null | { type: string; wind_speed: number; wind_from: number; hour: number; minute: number; at: number },
   cooldown: new Map<string, number>(), tick: 0,
 };
 export const fivemConnected = () => Date.now() - state.fivem.last < 10000;
@@ -152,7 +154,7 @@ const LEVEL_TXT: Record<string, string> = { hinweis: 'Hinweis', verdacht: 'Verda
 export const levelText = (l: string | null) => (l ? LEVEL_TXT[l] : '–');
 
 function evaluateAndStore(v: any, pos: { lat: number; lon: number }, r: ReturnType<typeof readingsAt>, mission: any, forceRoutine: boolean) {
-  const base = { lat: pos.lat, lon: pos.lon, vehicle_id: v.id, mission_id: mission?.id ?? null };
+  const base = { lat: pos.lat, lon: pos.lon, vehicle_id: v.id, mission_id: mission?.id ?? null, run_id: v.id === 'CBRN-01' ? state.run?.id ?? null : null };
   const rows: any[] = [];
   const throttle = state.tick % 3 === 0;
   // PID
@@ -182,24 +184,75 @@ function evaluateAndStore(v: any, pos: { lat: number; lon: number }, r: ReturnTy
 
 // ---- Wetter
 function weatherStep() {
+  if (applyGameWeather()) return;
   const w = state.weather;
   w.wind_from = (w.wind_from + rnd(2.5) + 360) % 360; w.wind_speed = Math.max(0.3, Math.min(14, w.wind_speed + rnd(0.25)));
   w.temperature += rnd(0.05); w.humidity = Math.max(30, Math.min(100, w.humidity + rnd(0.4))); w.pressure += rnd(0.05);
   w.cloud_okta = Math.max(0, Math.min(8, Math.round(w.cloud_okta + rnd(0.3)))); w.precipitation = w.cloud_okta >= 7 && w.humidity > 90 ? 0.4 : 0;
 }
-export function weatherNow() { const w = state.weather; return { ts: now(), temperature: +w.temperature.toFixed(1), humidity: +w.humidity.toFixed(0), pressure: +w.pressure.toFixed(1), wind_speed: +w.wind_speed.toFixed(1), wind_from: +w.wind_from.toFixed(0), wind_from_text: compass(w.wind_from), cloud_okta: w.cloud_okta, precipitation: +w.precipitation.toFixed(1), data_source: 'SIMULATED' }; }
+export function weatherNow() { const w = state.weather; return { ts: now(), temperature: +w.temperature.toFixed(1), humidity: +w.humidity.toFixed(0), pressure: +w.pressure.toFixed(1), wind_speed: +w.wind_speed.toFixed(1), wind_from: +w.wind_from.toFixed(0), wind_from_text: compass(w.wind_from), cloud_okta: w.cloud_okta, precipitation: +w.precipitation.toFixed(1), data_source: 'SIMULATED', game_weather: state.gameWeather && Date.now() - state.gameWeather.at < 20000 ? state.gameWeather.type : null }; }
 
 // ---- FiveM-Adapter-Eingang (optional). Die Weboberfläche setzt FiveM nicht voraus.
-export function ingestFivem(d: { vehicle?: string; lat?: number; lon?: number; x?: number; y?: number; speed_kmh?: number; heading?: number; player?: string; mission?: string }) {
+export interface FivemIn {
+  vehicle?: string; lat?: number; lon?: number; x?: number; y?: number; speed_kmh?: number; heading?: number; player?: string; mission?: string; in_vehicle?: boolean;
+  weather?: { type?: string; wind_speed?: number; wind_from?: number; hour?: number; minute?: number };
+}
+export function ingestFivem(d: FivemIn) {
   const id = d.vehicle ?? 'CBRN-01'; const v = get('vehicles', id); if (!v) return false;
-  let lat = d.lat, lon = d.lon;
-  if (lat == null || lon == null) {
-    if (MODE === 'gta5') { const p = gameToLL(d.x ?? 0, d.y ?? 0); lat = p.lat; lon = p.lon; } // Spielkoordinaten direkt
-    else { const o = getSetting('fivem_origin', { x: 0, y: 0, scale: 1 }); const p = offsetToLL(((d.x ?? 0) - o.x) * o.scale, ((d.y ?? 0) - o.y) * o.scale); lat = p.lat; lon = p.lon; }
+  const was = fivemConnected();
+  if (d.weather?.type) state.gameWeather = { type: String(d.weather.type).toUpperCase(), wind_speed: d.weather.wind_speed ?? 0, wind_from: d.weather.wind_from ?? 0, hour: d.weather.hour ?? 12, minute: d.weather.minute ?? 0, at: Date.now() };
+  const hasPos = (d.lat != null && d.lon != null) || (d.x != null && d.y != null);
+  if (hasPos) {
+    let lat = d.lat, lon = d.lon;
+    if (lat == null || lon == null) {
+      if (MODE === 'gta5') { const p = gameToLL(d.x ?? 0, d.y ?? 0); lat = p.lat; lon = p.lon; } // Spielkoordinaten direkt
+      else { const o = getSetting('fivem_origin', { x: 0, y: 0, scale: 1 }); const p = offsetToLL(((d.x ?? 0) - o.x) * o.scale, ((d.y ?? 0) - o.y) * o.scale); lat = p.lat; lon = p.lon; }
+    }
+    update('vehicles', id, { lat, lon, heading: d.heading ?? v.heading, speed: d.speed_kmh ?? 0, online: 1, gps_fix: 1, link: 'ONLINE' });
+    emit('vehicle.position', get('vehicles', id));
   }
-  update('vehicles', id, { lat, lon, heading: d.heading ?? v.heading, speed: d.speed_kmh ?? 0, online: 1, gps_fix: 1, link: 'ONLINE' });
-  if (id === 'CBRN-01') { const was = fivemConnected(); state.fivem = { last: Date.now(), info: { player: d.player ?? null, mission: d.mission ?? null, heading: d.heading ?? null } }; if (!was) emit('system.status', systemStatus()); }
-  emit('vehicle.position', get('vehicles', id)); return true;
+  if (id === 'CBRN-01') {
+    state.fivem = { last: Date.now(), info: { player: d.player ?? state.fivem.info?.player ?? null, mission: d.mission ?? null, heading: d.heading ?? null, in_vehicle: d.in_vehicle ?? hasPos, game_weather: state.gameWeather?.type ?? null, game_time: state.gameWeather ? `${String(state.gameWeather.hour).padStart(2, '0')}:${String(state.gameWeather.minute).padStart(2, '0')}` : null } };
+    if (!was) emit('system.status', systemStatus());
+  }
+  return true;
+}
+
+// ---- Messfahrt (Run)
+export function runInfo() { const R = state.run; return R ? { id: R.id, name: R.name, vehicle_id: R.vehicle_id, started_at: R.started_at, distance_m: Math.round(R.dist), points: R.points, source: R.source, max_dose: R.maxDose, max_pid: R.maxPid } : null; }
+function saveRun() {
+  const R = state.run; if (!R) return;
+  const pts = (db.prepare('SELECT COUNT(*) c FROM measurements WHERE run_id = ?').get(R.id) as any).c; R.points = pts;
+  update('runs', R.id, { distance_m: Math.round(R.dist), points: pts, max_dose: R.maxDose, max_pid: R.maxPid });
+}
+export function startRun(userId: string, name?: string) {
+  if (state.run) return { error: 'Es läuft bereits eine Messfahrt' };
+  const n = ((db.prepare('SELECT COUNT(*) c FROM runs').get() as any).c ?? 0) + 1;
+  const mission = list('missions', "WHERE vehicle_id = 'CBRN-01' AND status = 'IN BEARBEITUNG' LIMIT 1")[0];
+  const R = { id: 'MF-' + String(n).padStart(4, '0'), vehicle_id: 'CBRN-01', name: name || `Messfahrt ${n}`, started_at: now(), started_by: userId, dist: 0, points: 0, maxDose: 0, maxPid: 0, source: fivemConnected() ? 'FIVEM' : 'DEMO', mission_id: mission?.id ?? null };
+  state.run = R; state.lastTrackPos = null;
+  insert('runs', { id: R.id, vehicle_id: R.vehicle_id, name: R.name, started_at: R.started_at, started_by: userId, distance_m: 0, points: 0, source: R.source, mission_id: R.mission_id });
+  if (!fivemConnected()) state.drive = true; // ohne FiveM: Demo-Fahrt
+  audit(userId, 'start', 'run', R.id, { source: R.source }); emit('run.started', runInfo()); return { run: runInfo() };
+}
+export function stopRun(userId: string) {
+  const R = state.run; if (!R) return { error: 'Keine Messfahrt aktiv' };
+  saveRun(); update('runs', R.id, { ended_at: now() }); state.run = null;
+  audit(userId, 'stop', 'run', R.id, { distance_m: Math.round(R.dist) }); emit('run.stopped', get('runs', R.id)); return { run: get('runs', R.id) };
+}
+// GTA-Wetterlagen -> abgeleitete Wetterwerte (GTA kennt keine Temperatur/Luftfeuchte; Werte sind Näherungen, SIMULIERT)
+const GTA_WX: Record<string, { t: number; rh: number; p: number; okta: number; rain: number }> = {
+  EXTRASUNNY: { t: 31, rh: 35, p: 1018, okta: 0, rain: 0 }, CLEAR: { t: 26, rh: 45, p: 1016, okta: 1, rain: 0 }, CLOUDS: { t: 22, rh: 60, p: 1013, okta: 5, rain: 0 }, SMOG: { t: 24, rh: 55, p: 1012, okta: 4, rain: 0 },
+  FOGGY: { t: 16, rh: 96, p: 1014, okta: 8, rain: 0 }, OVERCAST: { t: 19, rh: 75, p: 1010, okta: 8, rain: 0 }, RAIN: { t: 15, rh: 90, p: 1004, okta: 8, rain: 2.5 }, THUNDER: { t: 16, rh: 92, p: 1000, okta: 8, rain: 6 },
+  CLEARING: { t: 18, rh: 80, p: 1008, okta: 6, rain: 0.4 }, NEUTRAL: { t: 22, rh: 55, p: 1013, okta: 3, rain: 0 }, SNOW: { t: -1, rh: 85, p: 1008, okta: 8, rain: 1 }, BLIZZARD: { t: -6, rh: 88, p: 1002, okta: 8, rain: 3 },
+  SNOWLIGHT: { t: 0, rh: 82, p: 1010, okta: 7, rain: 0.5 }, XMAS: { t: 0, rh: 82, p: 1010, okta: 6, rain: 0 }, HALLOWEEN: { t: 12, rh: 80, p: 1011, okta: 6, rain: 0 },
+};
+function applyGameWeather() {
+  const g = state.gameWeather; if (!g || Date.now() - g.at > 20000) return false;
+  const m = GTA_WX[g.type] ?? GTA_WX.NEUTRAL; const w = state.weather;
+  const diurnal = 4 * Math.sin(((g.hour + g.minute / 60 - 9) / 24) * 2 * Math.PI);
+  w.temperature = m.t + diurnal; w.humidity = Math.max(20, Math.min(100, m.rh - diurnal * 1.5)); w.pressure = m.p; w.cloud_okta = m.okta; w.precipitation = m.rain;
+  w.wind_speed = Math.max(0, g.wind_speed); w.wind_from = ((g.wind_from % 360) + 360) % 360; return true;
 }
 
 export function systemStatus() {
@@ -233,12 +286,17 @@ function tick() {
     const r = readingsAt(x!, y!, speed);
     state.live[v.id] = { ts: now(), lat: pos.lat, lon: pos.lon, speed_kmh: +(speed * 3.6).toFixed(0), heading: cur.heading, ...r };
     if (v.id === 'CBRN-01') {
-      if (state.lastTrackPos) state.trackLen += distM(state.lastTrackPos, pos); state.lastTrackPos = pos;
-      emit('reading.live', { vehicle_id: v.id, ...state.live[v.id], track_km: +(state.trackLen / 1000).toFixed(2), mp_count: (db.prepare('SELECT COUNT(*) c FROM measurements').get() as any).c });
+      if (state.lastTrackPos) { const dd = distM(state.lastTrackPos, pos); state.trackLen += dd; if (state.run) state.run.dist += dd; } state.lastTrackPos = pos;
+      if (state.run && state.tick % 5 === 0) saveRun();
+      emit('reading.live', { vehicle_id: v.id, ...state.live[v.id], track_km: +(state.trackLen / 1000).toFixed(2), run: runInfo(), mp_count: (db.prepare('SELECT COUNT(*) c FROM measurements').get() as any).c });
     }
     emit('vehicle.position', cur);
     const mission = activeMissionFor(v.id);
-    if (v.id === 'CBRN-01' || mission) evaluateAndStore(cur, pos, r, mission, v.id === 'CBRN-01' && state.tick % 5 === 0 && speed > 0);
+    if (v.id === 'CBRN-01' && state.run) {
+      const R = state.run; if (state.lastTrackPos) { /* Strecke wird unten über trackLen geführt */ }
+      R.maxDose = Math.max(R.maxDose, r.dose.value); R.maxPid = Math.max(R.maxPid, r.pid.value);
+    }
+    if ((v.id === 'CBRN-01' && (state.run || mission)) || (v.id !== 'CBRN-01' && mission)) evaluateAndStore(cur, pos, r, mission, v.id === 'CBRN-01' && !!state.run && state.tick % 2 === 0 && (speed > 0 || state.tick % 10 === 0));
   }
   // Demo-Funkstrecke: Aufträge anderer Fahrzeuge laufen automatisch an
   for (const m of list('missions', "WHERE status IN ('ÜBERMITTELT','ANGENOMMEN') AND vehicle_id != 'CBRN-01'")) {

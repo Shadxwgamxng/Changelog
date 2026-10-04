@@ -4,6 +4,8 @@ import { MapView, DEFAULT_LAYERS, LAYER_LABELS } from '../components/MapView';
 import { Panel, Field, Badge, StatusBadge, LevelBadge, DataBadge, Page } from '../components/ui';
 import { useApi, useLive } from '../store';
 import { fmtPos, dt } from '../lib/format';
+import { RunCard } from '../components/RunCard';
+import { WeatherCopy } from '../components/WeatherCopy';
 
 export default function MapPage() {
   const [layers, setLayers] = useState(DEFAULT_LAYERS); const [sel, setSel] = useState<{ type: string; id: string } | null>(null); const [follow, setFollow] = useState(true);
@@ -15,11 +17,12 @@ export default function MapPage() {
         <div className="absolute left-2 bottom-8 panel px-2 py-1 text-[11px] bg-panel/90">Demo-Einsatzraum · Route nicht straßengenau · Daten SIMULIERT</div>
       </div>
       <aside className="w-72 shrink-0 border-l border-line bg-panel overflow-auto p-3 space-y-3">
+        <RunCard compact />
         <div><div className="lbl mb-1">Layer</div>
           {LAYER_LABELS.map(([k, l]) => <label key={k} className="flex items-center gap-2 py-[3px] cursor-pointer"><input type="checkbox" checked={!!layers[k]} onChange={(e) => setLayers({ ...layers, [k]: e.target.checked })} />{l}</label>)}
           <label className="flex items-center gap-2 py-[3px] cursor-pointer"><input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} />Fahrzeug folgen</label>
         </div>
-        {weather && <div><div className="lbl">Wind kommt aus</div><div className="val">{weather.wind_from_text} ({weather.wind_from}°) · {weather.wind_speed} m/s</div></div>}
+        {weather && <div><div className="lbl">Wind kommt aus</div><div className="val">{weather.wind_from_text} ({weather.wind_from}°) · {weather.wind_speed} m/s</div><div className="mt-1"><WeatherCopy compact /></div></div>}
         {sel?.type === 'points' && <MeasInfo id={sel.id} mode={meta?.map?.mode} />}
         {sel?.type === 'samples' && <SampleInfo id={sel.id} />}
         {sel?.type === 'others' && <div><div className="lbl">Fahrzeug</div><div className="val">{sel.id}</div></div>}

@@ -2,7 +2,9 @@
   "name": "cbrn-erkunder",
   "version": "0.1.0",
   "private": true,
-  "engines": { "node": ">=22.5" },
+  "engines": {
+    "node": ">=22.5"
+  },
   "type": "module",
   "description": "CBRN-Erkunder-Software (Simulation) – eigenständige Web-App mit optionalem FiveM-Adapter",
   "scripts": {
@@ -12,7 +14,8 @@
     "build": "vite build && tsc -p tsconfig.server.json",
     "start": "node dist-server/index.js",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.server.json",
-    "db:reset": "tsx server/reset.ts"
+    "db:reset": "tsx server/reset.ts",
+    "fivem-sim": "node tools/fivem-sim.mjs"
   },
   "dependencies": {
     "@fastify/cors": "^11.3.0",

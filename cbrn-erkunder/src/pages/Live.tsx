@@ -6,6 +6,7 @@ import { useApi } from '../store';
 import { Link } from 'react-router-dom';
 import { LevelBadge, StatusBadge } from '../components/ui';
 import { time } from '../lib/format';
+import { RunCard } from '../components/RunCard';
 
 const STEPS = ['Messwert', 'Gerätehinweis', 'Mögliche Stoffgruppe', 'Mögliche Stoffe', 'Weitere Messung / Probe', 'Laborbefund'];
 export default function Live() {
@@ -15,6 +16,7 @@ export default function Live() {
   if (!r) return <Page title="Live-Messung"><Empty>Warte auf Messdaten …</Empty></Page>;
   return (
     <Page title="Live-Messung" sub={<>Datenquelle: {status?.data_source} · <Badge color="#d6742a">SIMULATED DATA</Badge></>}>
+      <RunCard />
       <Panel title="Arbeitsablauf" className="mb-3">
         <div className="flex items-center gap-2 flex-wrap">{STEPS.map((s, i) => (
           <div key={s} className="flex items-center gap-2"><span className={`px-2 py-1 border text-[11px] uppercase tracking-wider ${i <= step ? 'border-accent text-txt bg-accent/10' : 'border-line text-dim'}`}>{s}</span>{i < STEPS.length - 1 && <span className="text-dim">→</span>}</div>))}</div>

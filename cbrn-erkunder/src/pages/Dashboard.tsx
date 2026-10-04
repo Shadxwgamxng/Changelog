@@ -3,6 +3,8 @@ import { Page, Panel, Stat, StatusBadge, Badge, CatBadge } from '../components/u
 import { MapView, DEFAULT_LAYERS } from '../components/MapView';
 import { TimeChart } from '../components/Charts';
 import { useApi, useLive } from '../store';
+import { RunCard } from '../components/RunCard';
+import { WeatherCopy } from '../components/WeatherCopy';
 import { num, time, CAT, STATUS_COLOR, fmtPos } from '../lib/format';
 
 export default function Dashboard() {
@@ -28,6 +30,7 @@ export default function Dashboard() {
         <Stat label="Proben" value={samples.data?.length ?? 0} />
         <Stat label="Warnungen" value={open.length} color={open.length ? '#d9a21b' : undefined} />
       </div>
+      <RunCard />
       <div className="grid grid-cols-12 gap-3">
         <Panel title="Einsatzkarte" className="col-span-8 h-[420px]" right={<Link to="/karte" className="text-accent">Vollbild →</Link>} body="!p-0">
           <MapView layers={{ ...DEFAULT_LAYERS, weather: true }} />
@@ -40,7 +43,7 @@ export default function Dashboard() {
                 <span className="font-mono">{n ? `${n} Auffälligkeit${n > 1 ? 'en' : ''}` : '0'}</span>
               </div>))}
           </Panel>
-          <Panel title="Wetter">
+          <Panel title="Wetter" right={<WeatherCopy compact />}>
             {weather && <div className="grid grid-cols-2 gap-2 font-mono"><span>{num(weather.temperature, 1)} °C</span><span>{num(weather.humidity, 0)} % rF</span><span>{num(weather.pressure, 0)} hPa</span><span>{num(weather.wind_speed, 1)} m/s</span><span className="col-span-2">Wind kommt aus {weather.wind_from_text} ({num(weather.wind_from, 0)}°)</span></div>}
           </Panel>
         </div>

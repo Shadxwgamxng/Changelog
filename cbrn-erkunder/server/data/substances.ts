@@ -13,6 +13,7 @@ export interface SubstanceSeed {
   lel_vol: number | null; uel_vol: number | null; ie_ev: number | null;
   ims_sim: boolean; // Simulationsannahme, KEINE Aussage über reale Gerätebibliotheken
   methods: string[]; devices: string[]; source_id: string; notes?: string;
+  origins?: string[]; ph?: 'sauer' | 'basisch' | 'neutral'; water_reactive?: boolean; oxidizer?: boolean;
 }
 
 const G = 'Gas', L = 'Flüssigkeit', S = 'Feststoff';

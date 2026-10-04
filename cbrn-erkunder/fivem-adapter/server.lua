@@ -1,5 +1,6 @@
 RegisterNetEvent('cbrn:telemetry', function(d)
   local src = source
+  if type(d) ~= 'table' then return end
   d.vehicle = Config.Vehicle
   d.player = GetPlayerName(src)
   PerformHttpRequest(Config.ApiUrl .. '/api/adapter/fivem/telemetry', function() end, 'POST',

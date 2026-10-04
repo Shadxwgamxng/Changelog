@@ -17,6 +17,14 @@ npm run build && npm run start   # alles auf http://localhost:3001
 
 Die SQLite-Datenbank (`data/cbrn.db`) wird beim ersten Start angelegt und befüllt (`npm run db:reset` setzt zurück). Rollen wechselt man oben rechts (Erkunder / Truppführer / Messleitung / Administrator).
 
+## Funktionen für den Einsatz im Spiel
+
+* **Messfahrt:** „▶ Messfahrt starten“ (Dashboard, Live-Messung, Karte, Fahrzeug). Mit FiveM-Verbindung kommen Position, Geschwindigkeit und Kurs **dauerhaft aus GTA** auf die Karte (Track, Strecke, Messpunkte werden aufgezeichnet); ohne FiveM fährt die Demo-Route. Übersicht unter Historie → Messfahrten.
+* **Probe analysieren:** Probenahme → Probe wählen → „Probe analysieren“ (oder „Schnellanalyse“). Angaben: Herkunft, Aggregatzustand, entflammbar?, Geruch, Farbe, pH, Verhalten mit Wasser, Messwerte (PID/EX/CO/H₂S/O₂/Dosisleistung/Gamma-Linien), IMS-/Prüfröhrchen-Anzeige, UN-Nummer, eigene Vermutung, Symptome. Ergebnis: bewertete Stoffvorschläge (Hinweis / Verdacht / mögliche Identifikation) mit Begründung (✓/✗), nächsten Schritten und Link zu den Handlungsempfehlungen. Eine *bestätigte* Identifikation gibt es nur über das (simulierte) Labor.
+* **Stoff-Wiki:** 90+ Stoffe, filterbar nach Merkmalen (brennbar, giftig, ätzend …) und Herkunft; jede Stoff-/Nuklid-/Agens-Seite hat **Handlungsempfehlungen** (Gefahren, Absperrung, Schutz, Brandbekämpfung, Freisetzung, Dekon, Rettung/Erste Hilfe, Messtechnik). Diese sind **klassenbasierte Richtwerte** (GAMS-Regel, FwDV 500), nicht stoffspezifisch geprüft – bitte mit Einsatzleiter-Wiki/GESTIS/ERG abgleichen und über Import/Administration anpassen.
+* **Wetterdaten kopieren:** Button auf Wetter, Dashboard und Karte (mehrzeilig oder Kurzform). Mit FiveM kommen Wetterlage, Wind (kommt aus …) und Spielzeit aus GTA; Temperatur/Luftfeuchte/Druck werden daraus abgeleitet (GTA kennt sie nicht).
+* **Ohne Spiel testen:** `npm run fivem-sim` sendet simulierte GTA-Telemetrie (Position + Wetter) an das Backend.
+
 ## GTA-5-Karte
 
 In `config.json` `"mapMode": "gta5"` setzen (oder `start-gta.bat` nutzen) Mitgeliefert ist ein neutrales **Platzhalter-Raster** (`public/maps/gta5.png`, 500-m-Gitter, gelb = Achsen X/Y=0, rot = Einsatzzentrum). Für die echte Karte dein eigenes Bild verwenden (Rockstar-Material wird nicht mitgeliefert): als `public/maps/gta5.png` überschreiben oder `gta5.image` (jpg/png/webp) anpassen. `gta5.bounds` sind die Spielkoordinaten (Meter), die das Bild abdeckt – an dein Bild anpassen, sonst sitzen Fahrzeug und Marker versetzt. `gta5.center` ist das Einsatzzentrum (Standard: Legion Square). Im GTA-Modus werden FiveM-Koordinaten (x, y) direkt übernommen und Positionen als X/Y angezeigt. Beim Umschalten des Modus werden die Demo-Daten neu angelegt. Die Demo-Route ist nicht straßengenau. Bei großen Bildern max. 8192×8192 px verwenden.
@@ -49,7 +57,7 @@ WebSocket-Events: `vehicle.position`, `vehicle.status`, `measurement.created|upd
 
 1. Backend starten, `FIVEM_TOKEN` setzen.
 2. `fivem-adapter/` als Ressource einbinden, `config.lua` anpassen (Fahrzeugmodelle, API-URL, Token).
-3. Optional `dist/` nach `fivem-adapter/web/` kopieren und `public/config.js` (`apiBase`, `wsUrl`) auf die Backend-Adresse setzen; `/cbrn` öffnet die NUI.
+3. `Config.WebUrl` auf die vom Spieler erreichbare Adresse der Web-App setzen; `/cbrn` bzw. Taste F7 öffnet die Web-App als NUI-Fenster (ESC schließt). Die Web-App läuft auf dem Server-Rechner (`start.bat`), die Ressource sendet nur Position, Kurs, Speed und GTA-Wetter. Wind-Richtung ggf. über `Config.WindVectorIsTravelDirection` anpassen.
 4. Spielkoordinaten → Demo-Raum: System → Konfiguration (`fivem_origin`: x, y, Meter/Spieleinheit). Sobald Telemetrie eintrifft, zeigt die Kopfzeile **FIVEM CONNECTED**; 10 s ohne Telemetrie → zurück zu **DEMO MODE**.
 
 ## Offene Punkte / Hinweise

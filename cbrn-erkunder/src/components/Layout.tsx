@@ -36,7 +36,7 @@ export default function Layout() {
   const { status, meta, user, switchUser, vehicles, toasts, dismissToast, wsUp } = useLive();
   const nav = useNavigate(); const [clock, setClock] = useState(new Date()); const v = vehicles.find((x) => x.id === 'CBRN-01');
   useEffect(() => { const t = setInterval(() => setClock(new Date()), 1000); return () => clearInterval(t); }, []);
-  const fivem = status?.fivem === 'CONNECTED';
+  const fivem = status?.fivem === 'CONNECTED'; const run = useLive().live['CBRN-01']?.run; const gt = status?.fivem_info?.game_time;
   return (
     <div className="h-full flex flex-col">
       <header className="h-11 shrink-0 flex items-center gap-4 px-3 border-b border-line bg-panel no-print">
@@ -44,6 +44,8 @@ export default function Layout() {
         <Badge color="#4a8fd6">{v?.name ?? 'CBRN-01'}</Badge>
         <Badge color={fivem ? '#4fa86b' : '#d6742a'}>{fivem ? 'FIVEM CONNECTED' : 'DEMO MODE'}</Badge>
         <Badge color="#d6742a">SIMULATION</Badge>
+        {run && <Badge color="#d0503f" solid>● MESSFAHRT</Badge>}
+        {fivem && gt && <Badge color="#4a8fd6">SPIELZEIT {gt}</Badge>}
         <div className="flex-1" />
         <Search />
         <select className="inp" value={user.id} onChange={(e) => switchUser(e.target.value)} title="Benutzer / Rolle (Demo-Umschaltung)">

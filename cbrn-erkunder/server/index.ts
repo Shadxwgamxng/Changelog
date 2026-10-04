@@ -22,10 +22,11 @@ app.setErrorHandler((err: any, _req, rep) => rep.code(err.statusCode ?? 500).sen
   const seeded = getSetting('map_mode', null);
   if (seeded && seeded !== config.mapMode) {
     console.log(`Kartenmodus ${seeded} -> ${config.mapMode}: Demo-Daten werden neu angelegt.`);
-    for (const t of ['sources','substances','radionuclides','biological_agents','measurement_devices','measurement_methods','test_tubes','users','vehicles','crew','scenarios','missions','measurements','samples','sample_events','weather_records','alarms','reports','audit_log','settings']) db.exec(`DELETE FROM ${t}`);
+    for (const t of ['sources','substances','radionuclides','biological_agents','measurement_devices','measurement_methods','test_tubes','users','vehicles','crew','scenarios','missions','measurements','samples','sample_events','weather_records','alarms','reports','audit_log','runs','settings']) db.exec(`DELETE FROM ${t}`);
   }
 }
 seedIfEmpty();
+db.exec("UPDATE runs SET ended_at = COALESCE(ended_at, started_at) WHERE ended_at IS NULL"); // Reste einer unterbrochenen Messfahrt schließen
 setSetting('map_mode', config.mapMode);
 registerRoutes(app);
 registerWs(app);

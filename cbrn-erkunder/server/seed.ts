@@ -1,5 +1,7 @@
 import { db, insert, list, get, now, setSetting, getSetting } from './db.js';
-import { substances } from './data/substances.js';
+import { substances as subs1 } from './data/substances.js';
+import { substances2 } from './data/substances2.js';
+import { deriveTraits, buildResponse, radResponse, bioResponse } from './data/derive.js';
 import { radionuclides, bioAgents } from './data/nuclides.js';
 import { sources, devices, methods, tubes, users, vehicles, crew, scenarios } from './data/misc.js';
 import { offsetToLL, llToOffset, KIEL } from './geo.js';
@@ -17,20 +19,38 @@ function pFor(s: { ghs: string[]; h: string[] }) {
   return [...p];
 }
 
-export function seedIfEmpty() {
-  if ((db.prepare('SELECT COUNT(*) c FROM sources').get() as any).c > 0) return;
+export const REF_VERSION = 3; // erhöhen, wenn sich Referenzdaten (Stoffe, Handlungsempfehlungen …) ändern
+
+// Referenzdaten (fachliche Stammdaten) – werden bei Versionswechsel neu eingespielt (Admin-Änderungen daran gehen dabei verloren).
+export function syncReference() {
+  const tubeCas = new Set(tubes.map((t) => t.cas));
   const tx = db.transaction(() => {
-    for (const s of sources) insert('sources', { ...s, retrieved_at: null, data_stand: null });
-    for (const s of substances) insert('substances', { ...s, p: pFor(s), ims_sim: s.ims_sim ? 1 : 0, quality: 'unverified', last_checked: null });
-    for (const r of radionuclides) insert('radionuclides', { ...r, quality: 'unverified' });
-    for (const b of bioAgents) insert('biological_agents', { ...b, quality: 'unverified' });
-    for (const d of devices) insert('measurement_devices', d);
-    for (const m of methods) insert('measurement_methods', m);
-    for (const t of tubes) insert('test_tubes', t);
+    for (const s of sources) insert('sources', { ...s, retrieved_at: null, data_stand: null }, true);
+    for (const s of [...subs1, ...substances2]) {
+      const methodsAuto = [...(s.ie_ev != null && s.ie_ev < 10.6 ? ['PID-Screening'] : []), ...(tubeCas.has(s.cas) ? ['Prüfröhrchen'] : []), ...(s.lel_vol ? ['Ex-Messung (MGMG)'] : []), ...(s.ph === 'sauer' || s.ph === 'basisch' ? ['pH-Messung'] : []), 'Laboranalytik'];
+      const devicesAuto = [...(s.ie_ev != null && s.ie_ev < 10.6 ? ['PID'] : []), ...(s.lel_vol ? ['MGMG'] : []), ...(s.ims_sim ? ['IMS'] : []), ...(tubeCas.has(s.cas) ? ['Prüfröhrchen'] : [])];
+      const full = { ...s, methods: s.methods.length ? s.methods : methodsAuto, devices: s.methods.length || s.devices.length ? s.devices : devicesAuto };
+      const traits = deriveTraits(full);
+      insert('substances', { ...full, p: pFor(full), ims_sim: s.ims_sim ? 1 : 0, quality: 'unverified', last_checked: null, traits, response: buildResponse(full, traits) }, true);
+    }
+    for (const r of radionuclides) insert('radionuclides', { ...r, quality: 'unverified', response: radResponse(r as any) }, true);
+    for (const b of bioAgents) insert('biological_agents', { ...b, quality: 'unverified', response: bioResponse(b as any) }, true);
+    for (const d of devices) insert('measurement_devices', d, true);
+    for (const m of methods) insert('measurement_methods', m, true);
+    for (const t of tubes) insert('test_tubes', t, true);
+    for (const sc of scenarios) insert('scenarios', sc, true);
+  });
+  tx();
+  setSetting('ref_version', REF_VERSION);
+}
+
+export function seedIfEmpty() {
+  if ((db.prepare('SELECT COUNT(*) c FROM sources').get() as any).c > 0) { if (getSetting('ref_version', 0) < REF_VERSION) syncReference(); return; }
+  syncReference();
+  const tx = db.transaction(() => {
     for (const u of users) insert('users', u);
     for (const v of vehicles) insert('vehicles', { ...v, ...rel(v.lat, v.lon) });
     for (const c of crew) insert('crew', c);
-    for (const s of scenarios) insert('scenarios', s);
     setSetting('active_scenario', 'sc-chlor'); setSetting('source_offset', { x: 160, y: 90 });
     setSetting('mgmg_channels', ['O2', 'CO', 'H2S', 'LEL', 'CH4']); setSetting('fivem_origin', { x: 0, y: 0, scale: 1 });
     const t0 = Date.now();
