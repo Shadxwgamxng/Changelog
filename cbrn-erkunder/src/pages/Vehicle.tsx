@@ -1,0 +1,43 @@
+import { Page, Panel, Field, StatusBadge, Btn, Stat } from '../components/ui';
+import { api } from '../api';
+import { useApi, useLive } from '../store';
+import { num } from '../lib/format';
+
+export default function Vehicle() {
+  const { vehicles, live, drive, status, can } = useLive(); const v = vehicles.find((x) => x.id === 'CBRN-01'); const r = live['CBRN-01']; const crew = useApi<any[]>('/crew?vehicle=CBRN-01');
+  const toggle = () => api('/system/drive', { method: 'POST', body: { on: !drive } });
+  if (!v) return null; const fivem = status?.fivem === 'CONNECTED';
+  return (
+    <Page title={`Fahrzeug ${v.name}`} sub="CBRN-Erkundungswagen (neue Generation – konzeptionelle Grundlage)">
+      <div className="grid grid-cols-6 gap-2 mb-3">
+        <Stat label="Status" value={<StatusBadge s={v.status} />} /><Stat label="GPS" value={<StatusBadge s={v.gps_fix ? 'OK' : 'KEIN FIX'} />} /><Stat label="DFÜ" value={<StatusBadge s={v.link === 'ONLINE' ? 'OK' : 'OFFLINE'} />} />
+        <Stat label="Messgeräte" value={<StatusBadge s="OK" />} /><Stat label="Probenahme" value={<StatusBadge s="VERFÜGBAR" />} /><Stat label="Akku / Strom" value={<StatusBadge s={v.power} />} />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <Panel title="Position / Bewegung">
+          <div className="grid grid-cols-3 gap-3"><Field label="Breite">{num(v.lat, 5)}</Field><Field label="Länge">{num(v.lon, 5)}</Field><Field label="Kurs">{num(v.heading, 0)}°</Field><Field label="Geschwindigkeit">{num(v.speed, 0)} km/h</Field><Field label="Datenquelle">{fivem ? 'FiveM (Telemetrie)' : 'Demo-Fahrt (Simulation)'}</Field>{fivem && <Field label="Spieler">{status?.fivem_info?.player ?? '–'}</Field>}</div>
+          {!fivem && <div className="mt-3 flex items-center gap-3"><Btn onClick={toggle} disabled={!can(1)}>{drive ? 'Demo-Fahrt anhalten' : 'Demo-Fahrt starten'}</Btn><span className="text-dim text-[12px]">Die Demo-Route ist nicht straßengenau.</span></div>}
+        </Panel>
+        <Panel title="Besatzung"><table className="t"><tbody>{(crew.data ?? []).map((c) => <tr key={c.id}><td className="text-dim uppercase text-[11px]">{c.role}</td><td>{c.name}</td></tr>)}</tbody></table></Panel>
+        <Panel title="Aktuelle Anzeigen (simuliert)" className="col-span-2">
+          {r && <div className="grid grid-cols-6 gap-3"><Field label="PID">{num(r.pid.value, 1)} ppm</Field><Field label="IMS">{r.ims.level ? r.ims.result : 'KEIN TREFFER'}</Field><Field label="Dosisleistung">{num(r.dose.value, 3)} µSv/h</Field><Field label="CoMo">{num(r.como.value, 1)} cps</Field><Field label="O₂">{r.mgmg.channels.O2 ?? '–'} %</Field><Field label="CO">{r.mgmg.channels.CO ?? '–'} ppm</Field></div>}
+        </Panel>
+      </div>
+    </Page>
+  );
+}
+
+export function Crew() {
+  const { vehicles } = useLive(); const crew = useApi<any[]>('/crew');
+  return (
+    <Page title="Besatzung" sub="Konfigurierbar (System → Administration → crew). BBK: bisheriger ErkW 2 Trupps à 4; neue Generation: vierköpfige Fahrzeugbesatzung – FiveM-Besatzungsgröße frei konfigurierbar.">
+      <div className="grid grid-cols-2 gap-3">
+        {vehicles.map((v) => (
+          <Panel key={v.id} title={v.id} right={<StatusBadge s={v.status} />}>
+            <table className="t"><tbody>{(crew.data ?? []).filter((c) => c.vehicle_id === v.id).map((c) => <tr key={c.id}><td className="text-dim uppercase text-[11px] w-40">{c.role}</td><td>{c.name}</td></tr>)}
+              {!(crew.data ?? []).some((c) => c.vehicle_id === v.id) && <tr><td className="text-dim">Keine Besatzung hinterlegt</td></tr>}</tbody></table>
+          </Panel>))}
+      </div>
+    </Page>
+  );
+}

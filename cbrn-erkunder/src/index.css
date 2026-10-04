@@ -1,0 +1,33 @@
+@tailwind base; @tailwind components; @tailwind utilities;
+html, body, #root { height: 100%; }
+body { @apply bg-bg text-txt font-sans text-[13px]; margin: 0; overflow: hidden; }
+* { scrollbar-width: thin; scrollbar-color: #38465a #161c23; }
+.panel { @apply bg-panel border border-line rounded-sm; }
+.panel-h { @apply px-3 py-1.5 border-b border-line text-[11px] tracking-wider uppercase text-dim font-semibold flex items-center justify-between gap-2; }
+.lbl { @apply text-[10px] tracking-wider uppercase text-dim; }
+.val { @apply font-mono text-txt; }
+.btn { @apply px-3 py-1 border border-line2 bg-panel2 text-txt rounded-sm hover:bg-line cursor-pointer text-[12px] disabled:opacity-40 disabled:cursor-not-allowed; }
+.btn-primary { @apply border-accent bg-accent/20 hover:bg-accent/40; }
+.btn-danger { @apply border-bad/60 bg-bad/10 hover:bg-bad/30; }
+.inp { @apply bg-bg border border-line2 rounded-sm px-2 py-1 text-txt text-[12px] outline-none focus:border-accent; }
+table.t { @apply w-full border-collapse text-[12px]; }
+table.t th { @apply text-left text-[10px] uppercase tracking-wider text-dim font-semibold px-2 py-1.5 border-b border-line bg-panel2 sticky top-0; }
+table.t td { @apply px-2 py-1.5 border-b border-line/60 align-top; }
+table.t tbody tr:hover { @apply bg-panel2; }
+.maplibregl-ctrl-attrib { font-size: 10px; }
+@media print {
+  body { overflow: visible; background: #fff; color: #000; }
+  .no-print { display: none !important; }
+  .panel { border-color: #999; background: #fff; }
+  .lbl { color: #555; } .val { color: #000; }
+}
+
+/* Reduzierte Tablet-Ansicht */
+@media (max-width: 1100px) {
+  nav { width: 150px !important; }
+  .grid-cols-12 > * { grid-column: span 12 / span 12 !important; }
+  .grid-cols-8, .grid-cols-6 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+  .grid-cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  aside { width: 220px !important; }
+  header .w-72 { width: 12rem !important; }
+}

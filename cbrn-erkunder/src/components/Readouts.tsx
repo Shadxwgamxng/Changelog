@@ -1,0 +1,90 @@
+import { Link } from 'react-router-dom';
+import { Field, Badge, StatusBadge, LevelBadge, CatBadge, SimNote, Panel, Na } from './ui';
+import { useApi, useLive } from '../store';
+import { num, time, NA } from '../lib/format';
+
+export const pidStatus = (v: number) => (v >= 50 ? 'HOCH' : v >= 2 ? 'ERHÖHT' : 'NORMAL');
+export const doseStatus = (v: number) => (v >= 1 ? 'ALARM' : v >= 0.3 ? 'ERHÖHT' : 'NORMAL');
+
+export function useSession() { const { hist } = useLive(); const s = hist[0]?.t ?? Date.now(); const d = Math.max(0, Math.round((Date.now() - s) / 1000)); return `${String(Math.floor(d / 3600)).padStart(2, '0')}:${String(Math.floor(d / 60) % 60).padStart(2, '0')}:${String(d % 60).padStart(2, '0')}`; }
+
+export function ImsPanel({ r, link = true }: { r: any; link?: boolean }) {
+  const sub = useApi<any>(r?.ims?.substance_id ? `/substances/${r.ims.substance_id}` : null, [], [r?.ims?.substance_id]);
+  if (!r) return <Panel title="IMS – Ionenmobilitätsspektrometer">Keine Daten</Panel>;
+  const i = r.ims;
+  return (
+    <Panel title="IMS" right={link && <Link className="text-accent" to="/geraete/ims">Gerätepage →</Link>} className="h-full">
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Status"><StatusBadge s={i.state} /></Field><Field label="Messmodus">{i.mode}</Field>
+        <Field label="Ergebnis">{i.level ? i.result.split(' – ')[0] === 'MÖGLICHER STOFF' ? 'MÖGLICHER STOFF' : i.result : <span className="text-dim">KEIN TREFFER</span>}</Field>
+        <Field label="Konfidenz (simuliert)">{i.confidence != null ? `${i.confidence} %` : '–'}</Field>
+        <Field label="Bibliothek">Stoffdatenbank (lokal)</Field><Field label="Zeit">{time(r.ts)}</Field>
+      </div>
+      <div className="mt-3"><LevelBadge l={i.level} /></div>
+      {i.level === 'moegliche_identifikation' && sub.data && (
+        <div className="mt-3 border border-line2 p-2 bg-bg">
+          <div className="lbl">Mögliche Identifikation</div>
+          <div className="text-[18px] font-semibold">{sub.data.name}</div>
+          <div className="grid grid-cols-2 gap-2 mt-1"><Field label="CAS">{sub.data.cas}</Field><Field label="Kategorie"><CatBadge c={sub.data.cbrn_category} /></Field></div>
+          <Link to={`/stoffe/${sub.data.id}`} className="btn btn-primary mt-2 inline-block">[ STOFFDATEN ÖFFNEN ]</Link>
+          <div className="text-[11px] text-dim mt-1">Datenbankstatus: {sub.data.quality === 'verified' ? 'VERIFIZIERT' : 'UNGEPRÜFT'} · Identifikation nicht bestätigt – weitere Messung/Probe erforderlich.</div>
+        </div>)}
+      {i.level === 'verdacht' && <div className="mt-2 text-[12px]">Mögliche Stoffgruppe: <b>{i.group}</b></div>}
+      {i.level === 'hinweis' && <div className="mt-2 text-[12px]">Stoffklasse (Hinweis): <b>{i.group}</b></div>}
+      <div className="mt-3"><SimNote>SIMULIERT – Treffer basiert auf Szenario, nicht auf echter Messung</SimNote></div>
+    </Panel>
+  );
+}
+
+export function PidPanel({ r, link = true }: { r: any; link?: boolean }) {
+  const dur = useSession(); if (!r) return null; const v = r.pid.value; const st = pidStatus(v);
+  return (
+    <Panel title="PID" right={link && <Link className="text-accent" to="/geraete/pid">Gerätepage →</Link>} className="h-full">
+      <div className="flex items-end gap-2"><span className="text-[34px] font-mono leading-none" style={{ color: st === 'NORMAL' ? undefined : st === 'HOCH' ? '#d0503f' : '#d9a21b' }}>{num(v, 1)}</span><span className="text-dim mb-1">ppm (VOC)</span><span className="ml-auto"><StatusBadge s={st} /></span></div>
+      <div className="grid grid-cols-3 gap-3 mt-3"><Field label="Messdauer">{dur}</Field><Field label="GPS"><StatusBadge s="FIX" /></Field><Field label="Lampe">10,6 eV</Field></div>
+      <div className="mt-3"><div className="lbl">Mögliche Stoffgruppen</div>{r.pid.groups.length ? <ul className="list-disc ml-5">{r.pid.groups.map((g: string) => <li key={g}>{g}</li>)}</ul> : <div className="text-dim">– (kein erhöhter Wert)</div>}</div>
+      <div className="mt-3"><Badge color="#d9a21b">SCREENING / HINWEIS</Badge> <span className="text-[11px] text-dim">PID allein identifiziert keinen Stoff.</span></div>
+    </Panel>
+  );
+}
+
+export function MgmgPanel({ r, link = true }: { r: any; link?: boolean }) {
+  const { meta } = useLive(); if (!r) return null; const ch = r.mgmg.channels as Record<string, number | null>;
+  const U: Record<string, [string, string]> = { O2: ['O₂', '% vol'], CO: ['CO', 'ppm'], H2S: ['H₂S', 'ppm'], LEL: ['EX', '%LEL'], CH4: ['CH₄', 'ppm'] };
+  const warn = (k: string, v: number) => (k === 'O2' ? v < 19.5 : k === 'CO' ? v > 30 : k === 'H2S' ? v > 5 : k === 'LEL' ? v > 10 : false);
+  return (
+    <Panel title="MGMG – Mehrgasmessgerät" right={link && <Link className="text-accent" to="/geraete/mgmg">Gerätepage →</Link>} className="h-full">
+      <div className="grid grid-cols-3 gap-3">
+        {Object.entries(ch).map(([k, v]) => (
+          <div key={k} className={`border p-2 ${v != null && warn(k, v) ? 'border-bad' : 'border-line'}`}>
+            <div className="lbl">{U[k]?.[0] ?? k}</div><div className="font-mono text-[22px]">{num(v, k === 'O2' || k === 'LEL' || k === 'H2S' ? 1 : 0)}</div><div className="text-dim text-[11px]">{U[k]?.[1]}</div>
+          </div>))}
+      </div>
+      <div className="text-[11px] text-dim mt-2">Kanäle konfigurierbar (System). Aktiv: {(meta?.mgmg_channels ?? []).join(', ')}. Demo-Schwellen: O₂ &lt; 19,5 %, CO &gt; 30 ppm, H₂S &gt; 5 ppm, EX &gt; 10 %UEG.</div>
+    </Panel>
+  );
+}
+
+export function RadPanel({ r, link = true }: { r: any; link?: boolean }) {
+  const { hist } = useLive(); if (!r) return null; const st = doseStatus(r.dose.value);
+  return (
+    <Panel title="Radiologische Messung" right={link && <Link className="text-accent" to="/geraete/dlm">Gerätepage →</Link>} className="h-full">
+      <div className="flex items-end gap-2"><span className="text-[34px] font-mono leading-none" style={{ color: st === 'NORMAL' ? undefined : st === 'ALARM' ? '#d0503f' : '#d9a21b' }}>{num(r.dose.value, 3)}</span><span className="text-dim mb-1">µSv/h</span><span className="ml-auto"><StatusBadge s={st} /></span></div>
+      <div className="grid grid-cols-3 gap-3 mt-3"><Field label="CoMo 170 ZS-2">{num(r.como.value, 1)} cps</Field><Field label="GPS"><StatusBadge s="FIX" /></Field><Field label="Trend">{hist.length > 5 ? (hist.at(-1)!.dose > hist.at(-6)!.dose * 1.05 ? '▲ steigend' : hist.at(-1)!.dose < hist.at(-6)!.dose * 0.95 ? '▼ fallend' : '► stabil') : '–'}</Field></div>
+    </Panel>
+  );
+}
+
+export function FmgPanel({ r, link = true }: { r: any; link?: boolean }) {
+  const { trackKm, mpCount, drive } = useLive(); if (!r) return null; const st = doseStatus(r.dose.value);
+  return (
+    <Panel title="FMG – Fahrzeuggesteuertes Messsystem Gamma" right={link && <Link className="text-accent" to="/geraete/fmg">Gerätepage →</Link>} className="h-full">
+      <div className="grid grid-cols-3 gap-3">
+        <Field label="Status"><StatusBadge s="AKTIV" /></Field><Field label="Fahrgeschwindigkeit">{r.speed_kmh} km/h</Field><Field label="GPS"><StatusBadge s="FIX" /></Field>
+        <Field label="Messpunkte">{mpCount.toLocaleString('de-DE')}</Field><Field label="Track">{num(trackKm, 1)} km</Field><Field label="Aktueller Messstatus"><StatusBadge s={st} /></Field>
+      </div>
+      <div className="text-[11px] text-dim mt-2">Messwerte werden georeferenziert gespeichert (kontinuierliche Messdatenerfassung mit GPS-Ortsinformation). {drive ? '' : 'Demo-Fahrt angehalten.'}</div>
+    </Panel>
+  );
+}
+export { Na, NA };
