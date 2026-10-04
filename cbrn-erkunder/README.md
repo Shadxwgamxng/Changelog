@@ -6,7 +6,7 @@ Eigenständige Web-App, die den digitalen Arbeitsplatz eines deutschen CBRN-Erku
 
 ## Start
 
-Einfachster Weg: **`start.bat`** (Windows) bzw. `./start.sh` doppelklicken/ausführen – installiert beim ersten Mal alles, baut die App, startet sie und öffnet den Browser (http://localhost:3001). Voraussetzung: Node.js 22+.
+Einfachster Weg: **`start.bat`** (Windows) bzw. `./start.sh` doppelklicken/ausführen – installiert beim ersten Mal alles (die ZIP enthält die fertig gebaute App), startet und öffnet den Browser (http://localhost:3001). Voraussetzung: Node.js 22+.
 
 ```bash
 npm install
