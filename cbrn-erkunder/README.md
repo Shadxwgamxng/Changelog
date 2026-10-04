@@ -25,6 +25,10 @@ Die SQLite-Datenbank (`data/cbrn.db`) wird beim ersten Start angelegt und befül
 * **Wetterdaten kopieren:** Button auf Wetter, Dashboard und Karte (mehrzeilig oder Kurzform). Mit FiveM kommen Wetterlage, Wind (kommt aus …) und Spielzeit aus GTA; Temperatur/Luftfeuchte/Druck werden daraus abgeleitet (GTA kennt sie nicht).
 * **Ohne Spiel testen:** `npm run fivem-sim` sendet simulierte GTA-Telemetrie (Position + Wetter) an das Backend.
 
+## Geräte-Grafiken
+
+Jede Geräteseite (Messgeräte → Gerät anklicken) zeigt eine **eigene Vektorgrafik** des Geräts mit nummerierten Beschriftungen und den Live-Werten (Display, Sonde/Einlass, Status, GPS, Auftrag …); Zahl anklicken für Details. Die Grafiken sind eigene schematische Zeichnungen typischer Bauformen – keine Herstellerfotos und keine Nachzeichnungen urheberrechtlich geschützter Abbildungen. Quelle: `src/components/DeviceFigure.tsx`.
+
 ## GTA-5-Karte
 
 In `config.json` `"mapMode": "gta5"` setzen (oder `start-gta.bat` nutzen) Mitgeliefert ist ein neutrales **Platzhalter-Raster** (`public/maps/gta5.png`, 500-m-Gitter, gelb = Achsen X/Y=0, rot = Einsatzzentrum). Für die echte Karte dein eigenes Bild verwenden (Rockstar-Material wird nicht mitgeliefert): als `public/maps/gta5.png` überschreiben oder `gta5.image` (jpg/png/webp) anpassen. `gta5.bounds` sind die Spielkoordinaten (Meter), die das Bild abdeckt – an dein Bild anpassen, sonst sitzen Fahrzeug und Marker versetzt. `gta5.center` ist das Einsatzzentrum (Standard: Legion Square). Im GTA-Modus werden FiveM-Koordinaten (x, y) direkt übernommen und Positionen als X/Y angezeigt. Beim Umschalten des Modus werden die Demo-Daten neu angelegt. Die Demo-Route ist nicht straßengenau. Bei großen Bildern max. 8192×8192 px verwenden.

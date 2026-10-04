@@ -4,6 +4,7 @@ import { FmgPanel, ImsPanel, MgmgPanel, PidPanel, RadPanel, doseStatus, pidStatu
 import { SpectrumChart, TimeChart } from '../components/Charts';
 import { useApi, useLive } from '../store';
 import { num, time, dt } from '../lib/format';
+import { DeviceFigure, DeviceThumb } from '../components/DeviceFigure';
 
 const CUR = (id: string, r: any): [string, string, string] => {
   if (!r) return ['–', '', 'OFFLINE'];
@@ -25,6 +26,7 @@ export default function Devices() {
       <div className="grid grid-cols-3 gap-3">
         {(devs.data ?? []).map((d) => { const [v, u, st] = CUR(d.id, r); return (
           <Link key={d.id} to={`/geraete/${d.id}`} className="panel p-3 hover:border-accent block">
+            <DeviceThumb id={d.id} />
             <div className="flex justify-between"><b className="text-[14px]">{d.short}</b><StatusBadge s={d.id === 'tubes' ? 'VERFÜGBAR' : 'ONLINE'} /></div>
             <div className="text-dim text-[12px] mb-2">{d.name}</div>
             <div className="flex items-end gap-2"><span className="font-mono text-[22px]">{v}</span><span className="text-dim">{u}</span><span className="ml-auto"><StatusBadge s={st} /></span></div>
@@ -51,6 +53,7 @@ export function DevicePage() {
         <Field label="Status"><StatusBadge s="ONLINE" /></Field><Field label="Aktueller Messwert">{v}</Field><Field label="Einheit">{u || '–'}</Field>
         <Field label="Messdauer">{dur}</Field><Field label="GPS"><StatusBadge s="FIX" /></Field><Field label="Auftrag">{mission ? `#${mission.id}` : '–'}</Field>
       </div>
+      <DeviceFigure id={id} />
       <div className="grid grid-cols-2 gap-3 mb-3">
         {id === 'ims' && <ImsPanel r={r} link={false} />}{id === 'pid' && <PidPanel r={r} link={false} />}{id === 'mgmg' && <MgmgPanel r={r} link={false} />}
         {(id === 'dlm' || id === 'como') && <RadPanel r={r} link={false} />}{id === 'fmg' && <FmgPanel r={r} link={false} />}
