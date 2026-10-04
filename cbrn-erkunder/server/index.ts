@@ -22,7 +22,9 @@ app.setErrorHandler((err: any, _req, rep) => rep.code(err.statusCode ?? 500).sen
   const seeded = getSetting('map_mode', null);
   if (seeded && seeded !== config.mapMode) {
     console.log(`Kartenmodus ${seeded} -> ${config.mapMode}: Demo-Daten werden neu angelegt.`);
+    db.exec('PRAGMA foreign_keys = OFF'); // Reihenfolge der Tabellen egal (Fremdschlüssel)
     for (const t of ['sources','substances','radionuclides','biological_agents','measurement_devices','measurement_methods','test_tubes','users','vehicles','crew','scenarios','missions','measurements','samples','sample_events','weather_records','alarms','reports','audit_log','runs','settings']) db.exec(`DELETE FROM ${t}`);
+    db.exec('PRAGMA foreign_keys = ON');
   }
 }
 seedIfEmpty();
