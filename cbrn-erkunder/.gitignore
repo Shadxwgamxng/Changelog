@@ -3,5 +3,4 @@ dist
 dist-server
 data/*.db*
 public/maps/*.jpg
-public/maps/*.png
 public/maps/*.webp

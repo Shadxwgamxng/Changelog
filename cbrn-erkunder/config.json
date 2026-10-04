@@ -7,9 +7,9 @@
     "attribution": "© OpenStreetMap-Mitwirkende"
   },
   "gta5": {
-    "_hinweis": "Kartenbild selbst nach public/maps/gta5.jpg legen (Rockstar-Material, wird nicht mitgeliefert). bounds = Spielkoordinaten, die das Bild abdeckt (linker/rechter/unterer/oberer Rand) – an dein Bild anpassen.",
+    "_hinweis": "Mitgeliefert ist nur ein neutrales Platzhalter-Raster (public/maps/gta5.png, 10 m pro Pixel). Eigenes Kartenbild darüber legen bzw. image anpassen. bounds = Spielkoordinaten, die das Bild abdeckt (linker/rechter/unterer/oberer Rand) – an dein Bild anpassen.",
     "center": { "x": 195, "y": -934 },
-    "image": "/maps/gta5.jpg",
+    "image": "/maps/gta5.png",
     "bounds": { "minX": -4000, "maxX": 4500, "minY": -4000, "maxY": 8000 }
   }
 }

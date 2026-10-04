@@ -19,7 +19,7 @@ Die SQLite-Datenbank (`data/cbrn.db`) wird beim ersten Start angelegt und befül
 
 ## GTA-5-Karte
 
-In `config.json` `"mapMode": "gta5"` setzen (oder `start-gta.bat` nutzen) und dein Kartenbild als `public/maps/gta5.jpg` (auch `.png`/`.webp`, dann `gta5.image` anpassen) ablegen. Das Bild wird **nicht mitgeliefert** (Rockstar-Material). `gta5.bounds` sind die Spielkoordinaten (Meter), die das Bild abdeckt – an dein Bild anpassen, sonst sitzen Fahrzeug und Marker versetzt. `gta5.center` ist das Einsatzzentrum (Standard: Legion Square). Im GTA-Modus werden FiveM-Koordinaten (x, y) direkt übernommen und Positionen als X/Y angezeigt. Beim Umschalten des Modus werden die Demo-Daten neu angelegt. Die Demo-Route ist nicht straßengenau. Bei großen Bildern max. 8192×8192 px verwenden.
+In `config.json` `"mapMode": "gta5"` setzen (oder `start-gta.bat` nutzen) Mitgeliefert ist ein neutrales **Platzhalter-Raster** (`public/maps/gta5.png`, 500-m-Gitter, gelb = Achsen X/Y=0, rot = Einsatzzentrum). Für die echte Karte dein eigenes Bild verwenden (Rockstar-Material wird nicht mitgeliefert): als `public/maps/gta5.png` überschreiben oder `gta5.image` (jpg/png/webp) anpassen. `gta5.bounds` sind die Spielkoordinaten (Meter), die das Bild abdeckt – an dein Bild anpassen, sonst sitzen Fahrzeug und Marker versetzt. `gta5.center` ist das Einsatzzentrum (Standard: Legion Square). Im GTA-Modus werden FiveM-Koordinaten (x, y) direkt übernommen und Positionen als X/Y angezeigt. Beim Umschalten des Modus werden die Demo-Daten neu angelegt. Die Demo-Route ist nicht straßengenau. Bei großen Bildern max. 8192×8192 px verwenden.
 
 ## Aufbau
 
