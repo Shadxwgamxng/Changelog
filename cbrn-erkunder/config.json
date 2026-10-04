@@ -1,0 +1,15 @@
+{
+  "mapMode": "geo",
+  "_hinweis": "mapMode: \"geo\" = Demo-Einsatzraum Kiel mit OpenStreetMap | \"gta5\" = GTA-5-Karte (San Andreas). Nach dem Umschalten startet die App mit frischen Demo-Daten (alte Demo-Daten werden verworfen).",
+  "geo": {
+    "center": { "lat": 54.3233, "lon": 10.1228 },
+    "tileUrl": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    "attribution": "© OpenStreetMap-Mitwirkende"
+  },
+  "gta5": {
+    "_hinweis": "Kartenbild selbst nach public/maps/gta5.jpg legen (Rockstar-Material, wird nicht mitgeliefert). bounds = Spielkoordinaten, die das Bild abdeckt (linker/rechter/unterer/oberer Rand) – an dein Bild anpassen.",
+    "center": { "x": 195, "y": -934 },
+    "image": "/maps/gta5.jpg",
+    "bounds": { "minX": -4000, "maxX": 4500, "minY": -4000, "maxY": 8000 }
+  }
+}

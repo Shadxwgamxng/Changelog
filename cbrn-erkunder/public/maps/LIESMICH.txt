@@ -1,0 +1,1 @@
+Hier gta5.jpg (oder .png/.webp) ablegen – siehe README / config.json

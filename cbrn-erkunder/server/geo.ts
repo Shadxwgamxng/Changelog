@@ -1,8 +1,18 @@
-export const CENTER = { lat: 54.3233, lon: 10.1228 }; // Demo-Einsatzraum (Kiel) – rein simuliert
+import { config } from './config.js';
+
+// Zwei Kartenmodi: "geo" (echte Koordinaten, Demo-Raum Kiel) und "gta5" (Spielkoordinaten x/y in Metern,
+// intern als Pseudo-lat/lon = y|x / 111320 geführt, damit MapLibre/Simulation unverändert funktionieren).
+export const MODE = config.mapMode;
+export const KIEL = { lat: 54.3233, lon: 10.1228 };
+export const CENTER = MODE === 'gta5'
+  ? { lat: config.gta5.center.y / 111320, lon: config.gta5.center.x / 111320 }
+  : { ...config.geo.center };
+export const gameToLL = (x: number, y: number) => ({ lat: y / 111320, lon: x / 111320 });
+export const llToGame = (lat: number, lon: number) => ({ x: lon * 111320, y: lat * 111320 });
 const R = 6371000;
 const rad = (d: number) => (d * Math.PI) / 180;
 export const mPerDegLat = 111320;
-export const mPerDegLon = (lat: number) => 111320 * Math.cos(rad(lat));
+export const mPerDegLon = (lat: number) => (MODE === 'gta5' ? 111320 : 111320 * Math.cos(rad(lat)));
 export const offsetToLL = (xEast: number, yNorth: number, c = CENTER) => ({ lat: c.lat + yNorth / mPerDegLat, lon: c.lon + xEast / mPerDegLon(c.lat) });
 export const llToOffset = (lat: number, lon: number, c = CENTER) => ({ x: (lon - c.lon) * mPerDegLon(c.lat), y: (lat - c.lat) * mPerDegLat });
 export function distM(a: { lat: number; lon: number }, b: { lat: number; lon: number }) {

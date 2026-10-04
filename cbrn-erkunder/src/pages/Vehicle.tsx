@@ -4,7 +4,7 @@ import { useApi, useLive } from '../store';
 import { num } from '../lib/format';
 
 export default function Vehicle() {
-  const { vehicles, live, drive, status, can } = useLive(); const v = vehicles.find((x) => x.id === 'CBRN-01'); const r = live['CBRN-01']; const crew = useApi<any[]>('/crew?vehicle=CBRN-01');
+  const { vehicles, live, drive, status, can, meta } = useLive(); const gta = meta?.map?.mode === 'gta5'; const v = vehicles.find((x) => x.id === 'CBRN-01'); const r = live['CBRN-01']; const crew = useApi<any[]>('/crew?vehicle=CBRN-01');
   const toggle = () => api('/system/drive', { method: 'POST', body: { on: !drive } });
   if (!v) return null; const fivem = status?.fivem === 'CONNECTED';
   return (
@@ -15,7 +15,7 @@ export default function Vehicle() {
       </div>
       <div className="grid grid-cols-2 gap-3">
         <Panel title="Position / Bewegung">
-          <div className="grid grid-cols-3 gap-3"><Field label="Breite">{num(v.lat, 5)}</Field><Field label="Länge">{num(v.lon, 5)}</Field><Field label="Kurs">{num(v.heading, 0)}°</Field><Field label="Geschwindigkeit">{num(v.speed, 0)} km/h</Field><Field label="Datenquelle">{fivem ? 'FiveM (Telemetrie)' : 'Demo-Fahrt (Simulation)'}</Field>{fivem && <Field label="Spieler">{status?.fivem_info?.player ?? '–'}</Field>}</div>
+          <div className="grid grid-cols-3 gap-3">{gta ? <><Field label="X (Spielkoord.)">{num(v.lon * 111320, 0)}</Field><Field label="Y (Spielkoord.)">{num(v.lat * 111320, 0)}</Field></> : <><Field label="Breite">{num(v.lat, 5)}</Field><Field label="Länge">{num(v.lon, 5)}</Field></>}<Field label="Kurs">{num(v.heading, 0)}°</Field><Field label="Geschwindigkeit">{num(v.speed, 0)} km/h</Field><Field label="Datenquelle">{fivem ? 'FiveM (Telemetrie)' : 'Demo-Fahrt (Simulation)'}</Field>{fivem && <Field label="Spieler">{status?.fivem_info?.player ?? '–'}</Field>}</div>
           {!fivem && <div className="mt-3 flex items-center gap-3"><Btn onClick={toggle} disabled={!can(1)}>{drive ? 'Demo-Fahrt anhalten' : 'Demo-Fahrt starten'}</Btn><span className="text-dim text-[12px]">Die Demo-Route ist nicht straßengenau.</span></div>}
         </Panel>
         <Panel title="Besatzung"><table className="t"><tbody>{(crew.data ?? []).map((c) => <tr key={c.id}><td className="text-dim uppercase text-[11px]">{c.role}</td><td>{c.name}</td></tr>)}</tbody></table></Panel>

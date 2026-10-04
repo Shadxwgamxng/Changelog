@@ -17,6 +17,10 @@ npm run build && npm run start   # alles auf http://localhost:3001
 
 Die SQLite-Datenbank (`data/cbrn.db`) wird beim ersten Start angelegt und befüllt (`npm run db:reset` setzt zurück). Rollen wechselt man oben rechts (Erkunder / Truppführer / Messleitung / Administrator).
 
+## GTA-5-Karte
+
+In `config.json` `"mapMode": "gta5"` setzen (oder `start-gta.bat` nutzen) und dein Kartenbild als `public/maps/gta5.jpg` (auch `.png`/`.webp`, dann `gta5.image` anpassen) ablegen. Das Bild wird **nicht mitgeliefert** (Rockstar-Material). `gta5.bounds` sind die Spielkoordinaten (Meter), die das Bild abdeckt – an dein Bild anpassen, sonst sitzen Fahrzeug und Marker versetzt. `gta5.center` ist das Einsatzzentrum (Standard: Legion Square). Im GTA-Modus werden FiveM-Koordinaten (x, y) direkt übernommen und Positionen als X/Y angezeigt. Beim Umschalten des Modus werden die Demo-Daten neu angelegt. Die Demo-Route ist nicht straßengenau. Bei großen Bildern max. 8192×8192 px verwenden.
+
 ## Aufbau
 
 | Teil | Inhalt |

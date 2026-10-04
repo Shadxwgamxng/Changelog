@@ -1,7 +1,8 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { db, get, list, insert, update, remove, audit, now, getSetting, setSetting, TABLES, columns } from './db.js';
-import { state, emit, fivemConnected, systemStatus, weatherNow, ingestFivem, spectrumAt, currentSnapshotAt, completeLab, mgmgChannels, ROUTE_LL, levelText } from './sim.js';
-import { SECTORS, sectorPolygon, llToOffset, compass, CENTER } from './geo.js';
+import { state, emit, fivemConnected, systemStatus, weatherNow, ingestFivem, spectrumAt, currentSnapshotAt, completeLab, mgmgChannels, routeLL, levelText } from './sim.js';
+import { SECTORS, sectorPolygon, llToOffset, compass, CENTER, MODE } from './geo.js';
+import { config } from './config.js';
 import { buildReport, reportCsv, reportPdf } from './report.js';
 import { validateImport } from './import.js';
 
@@ -16,7 +17,8 @@ export function registerRoutes(app: FastifyInstance) {
 
   app.get('/api/meta', async () => ({
     app: 'CBRN Erkunder Software', version: '0.1.0', sectors: Object.entries(SECTORS).map(([k, v]) => ({ key: k, name: v.name, polygon: sectorPolygon(k) })),
-    roles: Object.keys(LEVEL), center: CENTER, route: ROUTE_LL, users: list('users'), mgmg_channels: mgmgChannels(),
+    roles: Object.keys(LEVEL), center: CENTER, route: routeLL(),
+    map: MODE === 'gta5' ? { mode: 'gta5', image: config.gta5.image, bounds: config.gta5.bounds } : { mode: 'geo', tileUrl: config.geo.tileUrl, attribution: config.geo.attribution }, users: list('users'), mgmg_channels: mgmgChannels(),
     disclaimer: 'Fachdaten: öffentliche Quellen, ungeprüft (QUELLE ERFORDERLICH). Messwerte, GPS, Einsätze, Identifikationen und Laborergebnisse: SIMULIERT.',
   }));
 

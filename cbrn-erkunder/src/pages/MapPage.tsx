@@ -3,11 +3,11 @@ import { Link } from 'react-router-dom';
 import { MapView, DEFAULT_LAYERS, LAYER_LABELS } from '../components/MapView';
 import { Panel, Field, Badge, StatusBadge, LevelBadge, DataBadge, Page } from '../components/ui';
 import { useApi, useLive } from '../store';
-import { coord, dt } from '../lib/format';
+import { fmtPos, dt } from '../lib/format';
 
 export default function MapPage() {
   const [layers, setLayers] = useState(DEFAULT_LAYERS); const [sel, setSel] = useState<{ type: string; id: string } | null>(null); const [follow, setFollow] = useState(true);
-  const { weather } = useLive();
+  const { weather, meta } = useLive();
   return (
     <div className="h-full flex">
       <div className="flex-1 min-w-0 relative">
@@ -20,7 +20,7 @@ export default function MapPage() {
           <label className="flex items-center gap-2 py-[3px] cursor-pointer"><input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} />Fahrzeug folgen</label>
         </div>
         {weather && <div><div className="lbl">Wind kommt aus</div><div className="val">{weather.wind_from_text} ({weather.wind_from}°) · {weather.wind_speed} m/s</div></div>}
-        {sel?.type === 'points' && <MeasInfo id={sel.id} />}
+        {sel?.type === 'points' && <MeasInfo id={sel.id} mode={meta?.map?.mode} />}
         {sel?.type === 'samples' && <SampleInfo id={sel.id} />}
         {sel?.type === 'others' && <div><div className="lbl">Fahrzeug</div><div className="val">{sel.id}</div></div>}
         {!sel && <div className="text-dim text-[12px]">Messpunkt, Probe oder Fahrzeug auf der Karte anklicken.</div>}
@@ -28,12 +28,12 @@ export default function MapPage() {
     </div>
   );
 }
-function MeasInfo({ id }: { id: string }) {
+function MeasInfo({ id, mode }: { id: string; mode?: string }) {
   const m = useApi<any>(`/measurements/${id}`, ['measurement.updated'], [id]).data; if (!m) return null;
   return (
     <div className="space-y-2">
       <div className="lbl">Messpunkt</div><div className="text-[15px] font-mono">{m.id}</div>
-      <Field label="Zeit">{dt(m.ts)}</Field><Field label="GPS">{coord(m.lat)} / {coord(m.lon)}</Field><Field label="Gerät">{m.device} · {m.vehicle_id}</Field>
+      <Field label="Zeit">{dt(m.ts)}</Field><Field label="GPS">{fmtPos(mode, m.lat, m.lon)}</Field><Field label="Gerät">{m.device} · {m.vehicle_id}</Field>
       <Field label="Ergebnis">{m.value ?? '–'} {m.unit ?? ''} <StatusBadge s={m.status} /></Field><Field label="Einstufung"><LevelBadge l={m.level} /></Field><Field label="Datenherkunft"><DataBadge s={m.data_source === 'MANUAL' ? 'MANUAL' : 'SIMULATED'} /></Field>
       <div className="text-[12px]">{m.headline}</div>
       {m.substance && <Link to={`/stoffe/${m.substance.id}`} className="btn btn-primary inline-block">Stoffdatenbank öffnen: {m.substance.name}</Link>}

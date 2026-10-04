@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Page, Panel, Field, StatusBadge, Badge, Btn, Modal, Tabs, Select, QualityBadge } from '../components/ui';
 import { api } from '../api';
 import { useApi, useLive } from '../store';
-import { coord, dt, time, NA } from '../lib/format';
+import { fmtPos, dt, time, NA } from '../lib/format';
 
 const FLOW = ['ENTNOMMEN', 'VERPACKT', 'ÜBERGEBEN', 'LABOR EINGEGANGEN', 'ANALYSE', 'BEFUND EINGEGANGEN'];
 const KINDS = ['FEST', 'FLÜSSIG', 'LUFT', 'BIOLOGISCH', 'RADIOLOGISCH', 'CHEMISCH'];
@@ -16,11 +16,12 @@ function Chain({ s }: { s: any }) {
 }
 
 export function SampleReport({ id }: { id: string }) {
+  const mode = useLive().meta?.map?.mode;
   const s = useApi<any>(`/samples/${id}`, ['sample.updated'], [id]).data; if (!s) return null; const w = s.weather;
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-3 gap-3">
-        <Field label="Probennummer">{s.id}</Field><Field label="Entnahmezeit">{dt(s.ts)}</Field><Field label="GPS">{coord(s.lat)} / {coord(s.lon)}</Field>
+        <Field label="Probennummer">{s.id}</Field><Field label="Entnahmezeit">{dt(s.ts)}</Field><Field label="GPS">{fmtPos(mode, s.lat, s.lon)}</Field>
         <Field label="Probenart">{s.kind}</Field><Field label="Auftrag">{s.mission_id ? `#${s.mission_id}` : NA}</Field><Field label="Entnehmer">{s.taken_by}</Field>
         <Field label="Entnahmeort" mono={false}>{s.location ?? NA}</Field><Field label="Farbe" mono={false}>{s.color ?? NA}</Field><Field label="Konsistenz" mono={false}>{s.consistency ?? NA}</Field>
         <Field label="Geruch" mono={false}>{s.odor ?? NA}</Field><Field label="Trübung" mono={false}>{s.turbidity ?? NA}</Field><Field label="Einschätzung vor Ort">{s.onsite_assessment}</Field>

@@ -3,16 +3,16 @@ import { Link } from 'react-router-dom';
 import { Page, Panel, Field, StatusBadge, LevelBadge, DataBadge, Btn, Select, Modal } from '../components/ui';
 import { api } from '../api';
 import { useApi, useLive } from '../store';
-import { coord, dt, time } from '../lib/format';
+import { fmtPos, dt, time } from '../lib/format';
 
-function Detail({ id, onClose }: { id: string; onClose: () => void }) {
+function Detail({ id, onClose, mode }: { id: string; onClose: () => void; mode?: string }) {
   const { data: m, reload } = useApi<any>(`/measurements/${id}`, ['measurement.updated'], [id]); const [remark, setRemark] = useState<string | null>(null); const [status, setStatus] = useState<string | null>(null); const [err, setErr] = useState('');
   if (!m) return null;
   const save = async () => { try { await api(`/measurements/${id}`, { method: 'PATCH', body: { ...(remark != null ? { remark } : {}), ...(status ? { status } : {}) } }); setRemark(null); setStatus(null); reload(); } catch (e: any) { setErr(e.message); } };
   return (
     <Modal wide title={`MESSPUNKT ${m.id}`} onClose={onClose}>
       <div className="grid grid-cols-3 gap-3">
-        <Field label="Zeit">{dt(m.ts)}</Field><Field label="GPS">{coord(m.lat)} / {coord(m.lon)}</Field><Field label="Fahrzeug">{m.vehicle_id}</Field>
+        <Field label="Zeit">{dt(m.ts)}</Field><Field label="GPS">{fmtPos(mode, m.lat, m.lon)}</Field><Field label="Fahrzeug">{m.vehicle_id}</Field>
         <Field label="Auftrag">{m.mission_id ? `#${m.mission_id}` : '–'}</Field><Field label="Gerät">{m.device}</Field><Field label="Messwert">{m.value ?? '–'} {m.unit ?? ''}</Field>
         <Field label="Status"><StatusBadge s={m.status} /></Field><Field label="Einstufung"><LevelBadge l={m.level} /></Field><Field label="Datenherkunft"><DataBadge s={m.data_source === 'MANUAL' ? 'MANUAL' : 'SIMULATED'} /></Field>
         <div className="col-span-3"><Field label="Ergebnis" mono={false}>{m.headline}</Field></div>
@@ -31,7 +31,7 @@ function Detail({ id, onClose }: { id: string; onClose: () => void }) {
 }
 
 export default function Measurements() {
-  const { can } = useLive(); const [f, setF] = useState({ device: '', status: '', anomalies: false, vehicle_id: '' }); const [sel, setSel] = useState<string | null>(null); const [nw, setNw] = useState(false);
+  const { can, meta } = useLive(); const [f, setF] = useState({ device: '', status: '', anomalies: false, vehicle_id: '' }); const [sel, setSel] = useState<string | null>(null); const [nw, setNw] = useState(false);
   const qs = `limit=300${f.device ? `&device=${f.device}` : ''}${f.status ? `&status=${encodeURIComponent(f.status)}` : ''}${f.vehicle_id ? `&vehicle_id=${f.vehicle_id}` : ''}${f.anomalies ? '&anomalies=1' : ''}`;
   const { data, reload } = useApi<any[]>('/measurements?' + qs, ['measurement.created', 'measurement.updated', 'poll'], [qs]);
   const [man, setMan] = useState({ device: 'MANUELL', value: '', unit: 'ppm', headline: '', remark: '' });
@@ -47,7 +47,7 @@ export default function Measurements() {
       <Panel body="!p-0"><table className="t"><thead><tr><th>ID</th><th>Zeit</th><th>Fzg.</th><th>Gerät</th><th>Wert</th><th>Ergebnis</th><th>Einstufung</th><th>Status</th><th>Herkunft</th></tr></thead><tbody>
         {(data ?? []).map((m) => <tr key={m.id} className="cursor-pointer" onClick={() => setSel(m.id)}><td className="font-mono">{m.id}</td><td>{time(m.ts)}</td><td>{m.vehicle_id}</td><td>{m.device}</td><td className="font-mono">{m.value ?? '–'} {m.unit ?? ''}</td><td>{m.headline}</td><td><LevelBadge l={m.level} /></td><td><StatusBadge s={m.status} /></td><td><DataBadge s={m.data_source === 'MANUAL' ? 'MANUAL' : 'SIMULATED'} /></td></tr>)}
       </tbody></table></Panel>
-      {sel && <Detail id={sel} onClose={() => setSel(null)} />}
+      {sel && <Detail id={sel} mode={meta?.map?.mode} onClose={() => setSel(null)} />}
       {nw && <Modal title="Manueller Messpunkt (MANUAL ENTRY)" onClose={() => setNw(false)}>
         <div className="grid grid-cols-2 gap-3">
           <div><div className="lbl">Gerät / Quelle</div><input className="inp w-full" value={man.device} onChange={(e) => setMan({ ...man, device: e.target.value })} /></div>

@@ -20,3 +20,7 @@ export const STATUS_COLOR = (s?: string | null) => {
 };
 export const ROLE_LABEL: Record<string, string> = { erkunder: 'Erkunder', truppfuehrer: 'Truppführer', messleitung: 'Messleitung', admin: 'Administrator' };
 export const ROLE_LVL: Record<string, number> = { erkunder: 1, truppfuehrer: 2, messleitung: 3, admin: 4 };
+
+// Positionsanzeige: GTA-5-Modus zeigt Spielkoordinaten (X/Y in Metern), sonst Breite/Länge.
+export const fmtPos = (mode: string | undefined, lat?: number | null, lon?: number | null) =>
+  lat == null || lon == null ? '–' : mode === 'gta5' ? `X ${Math.round(lon * 111320)} / Y ${Math.round(lat * 111320)}` : `${lat.toFixed(5)} / ${lon.toFixed(5)}`;

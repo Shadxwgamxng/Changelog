@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events';
 import { db, get, list, insert, update, now, getSetting, setSetting, audit } from './db.js';
-import { CENTER, offsetToLL, llToOffset, distM, bearing, compass } from './geo.js';
+import { offsetToLL, llToOffset, distM, bearing, compass, MODE, gameToLL } from './geo.js';
 
 // ---------------------------------------------------------------------------------------------
 // Simulationsengine. Stoffdaten stammen aus der (realen) Datenbank, Messereignisse sind SIMULIERT.
@@ -18,7 +18,7 @@ const gauss = () => (Math.random() + Math.random() + Math.random() + Math.random
 const ROUTE = Array.from({ length: 480 }, (_, i) => { const t = (i / 480) * Math.PI * 2; return { x: 750 * Math.sin(t), y: 480 * Math.sin(2 * t) }; });
 ROUTE.push(ROUTE[0]);
 const CUM = [0]; for (let i = 1; i < ROUTE.length; i++) CUM.push(CUM[i - 1] + Math.hypot(ROUTE[i].x - ROUTE[i - 1].x, ROUTE[i].y - ROUTE[i - 1].y));
-export const ROUTE_LL = ROUTE.map((p) => { const l = offsetToLL(p.x, p.y); return [l.lon, l.lat]; });
+export const routeLL = () => ROUTE.map((p) => { const l = offsetToLL(p.x, p.y); return [l.lon, l.lat]; });
 function routePos(s: number) {
   const L = CUM[CUM.length - 1]; s = ((s % L) + L) % L;
   let i = 1; while (CUM[i] < s) i++;
@@ -193,7 +193,10 @@ export function weatherNow() { const w = state.weather; return { ts: now(), temp
 export function ingestFivem(d: { vehicle?: string; lat?: number; lon?: number; x?: number; y?: number; speed_kmh?: number; heading?: number; player?: string; mission?: string }) {
   const id = d.vehicle ?? 'CBRN-01'; const v = get('vehicles', id); if (!v) return false;
   let lat = d.lat, lon = d.lon;
-  if (lat == null || lon == null) { const o = getSetting('fivem_origin', { x: 0, y: 0, scale: 1 }); const p = offsetToLL(((d.x ?? 0) - o.x) * o.scale, ((d.y ?? 0) - o.y) * o.scale); lat = p.lat; lon = p.lon; }
+  if (lat == null || lon == null) {
+    if (MODE === 'gta5') { const p = gameToLL(d.x ?? 0, d.y ?? 0); lat = p.lat; lon = p.lon; } // Spielkoordinaten direkt
+    else { const o = getSetting('fivem_origin', { x: 0, y: 0, scale: 1 }); const p = offsetToLL(((d.x ?? 0) - o.x) * o.scale, ((d.y ?? 0) - o.y) * o.scale); lat = p.lat; lon = p.lon; }
+  }
   update('vehicles', id, { lat, lon, heading: d.heading ?? v.heading, speed: d.speed_kmh ?? 0, online: 1, gps_fix: 1, link: 'ONLINE' });
   if (id === 'CBRN-01') { const was = fivemConnected(); state.fivem = { last: Date.now(), info: { player: d.player ?? null, mission: d.mission ?? null, heading: d.heading ?? null } }; if (!was) emit('system.status', systemStatus()); }
   emit('vehicle.position', get('vehicles', id)); return true;

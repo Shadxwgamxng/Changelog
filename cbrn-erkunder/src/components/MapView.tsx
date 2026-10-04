@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
-import { cfg } from '../api';
+import { cfg, url } from '../api';
 import { useApi, useLive } from '../store';
 import { CAT } from '../lib/format';
 
@@ -25,17 +25,26 @@ export function MapView({ layers, onSelect, follow = true, grid = true, showVehi
   const alarms = useApi<any[]>('/alarms', ['alarm.created']);
   const missions = useApi<any[]>('/missions', ['mission.created', 'mission.updated']);
   const track = useApi<any[]>('/track?vehicle=CBRN-01', ['measurement.created', 'poll']);
+  const [imgMissing, setImgMissing] = useState(false);
+  const mm = meta?.map;
   const onSel = useRef(onSelect); onSel.current = onSelect;
 
   useEffect(() => {
-    if (!el.current || mapRef.current) return;
-    const c = meta?.center ?? { lat: 54.3233, lon: 10.1228 };
-    const map = new maplibregl.Map({ container: el.current, center: [c.lon, c.lat], zoom: 14.3, attributionControl: { compact: true },
+    if (!el.current || mapRef.current || !meta) return;
+    const c = meta.center;
+    const gta = mm?.mode === 'gta5';
+    const map = new maplibregl.Map({ container: el.current, center: [c.lon, c.lat], zoom: gta ? 14.9 : 14.3, maxZoom: gta ? 17.5 : 19, attributionControl: { compact: true },
       style: { version: 8, sources: {}, layers: [{ id: 'bg', type: 'background', paint: { 'background-color': '#10161c' } }] } });
     mapRef.current = map; map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right'); map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
     map.on('load', () => {
-      const t = cfg().tileUrl;
-      if (t) { map.addSource('osm', { type: 'raster', tiles: [t], tileSize: 256, attribution: cfg().tileAttribution ?? '' } as any); map.addLayer({ id: 'basemap', type: 'raster', source: 'osm', paint: { 'raster-brightness-max': 0.45, 'raster-saturation': -0.7, 'raster-contrast': 0.15 } }); }
+      const t = gta ? null : (mm?.tileUrl ?? cfg().tileUrl);
+      if (gta && mm.image) {
+        const b = mm.bounds, k = 111320;
+        map.addSource('gta', { type: 'image', url: url(mm.image), coordinates: [[b.minX / k, b.maxY / k], [b.maxX / k, b.maxY / k], [b.maxX / k, b.minY / k], [b.minX / k, b.minY / k]] } as any);
+        map.addLayer({ id: 'basemap', type: 'raster', source: 'gta', paint: { 'raster-opacity': 0.92, 'raster-saturation': -0.25 } });
+        fetch(url(mm.image), { method: 'HEAD' }).then((r) => setImgMissing(!r.ok)).catch(() => setImgMissing(true));
+      }
+      if (t) { map.addSource('osm', { type: 'raster', tiles: [t], tileSize: 256, attribution: mm?.attribution ?? cfg().tileAttribution ?? '' } as any); map.addLayer({ id: 'basemap', type: 'raster', source: 'osm', paint: { 'raster-brightness-max': 0.45, 'raster-saturation': -0.7, 'raster-contrast': 0.15 } }); }
       const lines: any[] = []; const cc = meta?.center ?? c;
       for (let k = -30; k <= 30; k++) { const dx = k * 100 / (111320 * Math.cos((cc.lat * Math.PI) / 180)), dy = k * 100 / 111320;
         lines.push({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [[cc.lon + dx, cc.lat - 0.03], [cc.lon + dx, cc.lat + 0.03]] } }, { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [[cc.lon - 0.05, cc.lat + dy], [cc.lon + 0.05, cc.lat + dy]] } }); }
@@ -58,7 +67,7 @@ export function MapView({ layers, onSelect, follow = true, grid = true, showVehi
       ready.current = true; mapRef.current!.fire('cbrn-ready' as any);
     });
     return () => { map.remove(); mapRef.current = null; ready.current = false; };
-  }, []); // eslint-disable-line
+  }, [!!meta]); // eslint-disable-line
 
   // Datenupdate
   const upd = () => {
@@ -100,6 +109,10 @@ export function MapView({ layers, onSelect, follow = true, grid = true, showVehi
   return (
     <div className="relative w-full h-full min-h-[200px]">
       <div ref={el} className="absolute inset-0" />
+      {imgMissing && (
+        <div className="absolute inset-x-0 top-12 mx-auto w-[460px] panel p-3 bg-panel/95 text-[12px] z-10">
+          <b>GTA-5-Kartenbild fehlt.</b> Lege dein Kartenbild als <span className="font-mono">public/maps/gta5.jpg</span> ab (Ränder in <span className="font-mono">config.json → gta5.bounds</span>) und lade die Seite neu. Bis dahin: Gitter 100 m, Sektoren und Messpunkte.
+        </div>)}
       {layers.weather && weather && (
         <div className="absolute left-2 top-2 panel px-2 py-1 text-[11px] bg-panel/90 pointer-events-none">
           <div className="lbl">Wind kommt aus</div>

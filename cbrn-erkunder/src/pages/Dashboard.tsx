@@ -3,10 +3,10 @@ import { Page, Panel, Stat, StatusBadge, Badge, CatBadge } from '../components/u
 import { MapView, DEFAULT_LAYERS } from '../components/MapView';
 import { TimeChart } from '../components/Charts';
 import { useApi, useLive } from '../store';
-import { num, time, CAT, STATUS_COLOR } from '../lib/format';
+import { num, time, CAT, STATUS_COLOR, fmtPos } from '../lib/format';
 
 export default function Dashboard() {
-  const { status, vehicles, live, mpCount, hist, weather } = useLive();
+  const { status, vehicles, live, mpCount, hist, weather, meta } = useLive();
   const v = vehicles.find((x) => x.id === 'CBRN-01'); const r = live['CBRN-01'];
   const missions = useApi<any[]>('/missions', ['mission.created', 'mission.updated']);
   const samples = useApi<any[]>('/samples', ['sample.created', 'sample.updated']);
@@ -20,7 +20,7 @@ export default function Dashboard() {
     <Page title="Dashboard" sub="Einsatzübersicht – Fahrzeug CBRN-01 (Messwerte simuliert)">
       <div className="grid grid-cols-8 gap-2 mb-3">
         <Stat label="Fahrzeug" value={v?.name ?? '–'} sub={<StatusBadge s={v?.status} />} />
-        <Stat label="GPS" value={<span style={{ color: STATUS_COLOR(v?.gps_fix ? 'FIX' : 'KEIN') }}>{v?.gps_fix ? 'FIX' : 'KEIN FIX'}</span>} sub={r ? `${r.lat.toFixed(4)} / ${r.lon.toFixed(4)}` : ''} />
+        <Stat label="GPS" value={<span style={{ color: STATUS_COLOR(v?.gps_fix ? 'FIX' : 'KEIN') }}>{v?.gps_fix ? 'FIX' : 'KEIN FIX'}</span>} sub={r ? fmtPos(meta?.map?.mode, r.lat, r.lon) : ''} />
         <Stat label="DFÜ" value={<span style={{ color: STATUS_COLOR(v?.link) }}>{v?.link ?? '–'}</span>} />
         <Stat label="Messgeräte" value={`${devices.data?.length ?? 7} / ${devices.data?.length ?? 7}`} sub="alle betriebsbereit (Demo)" />
         <Stat label="Aktive Aufträge" value={activeM.length} />

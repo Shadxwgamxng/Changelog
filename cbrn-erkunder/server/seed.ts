@@ -2,7 +2,10 @@ import { db, insert, list, get, now, setSetting, getSetting } from './db.js';
 import { substances } from './data/substances.js';
 import { radionuclides, bioAgents } from './data/nuclides.js';
 import { sources, devices, methods, tubes, users, vehicles, crew, scenarios } from './data/misc.js';
-import { offsetToLL } from './geo.js';
+import { offsetToLL, llToOffset, KIEL } from './geo.js';
+
+// Seed-Positionen sind relativ zum Kieler Demo-Zentrum notiert und werden auf das aktive Kartenzentrum übertragen.
+const rel = (lat: number, lon: number) => { const o = llToOffset(lat, lon, KIEL); return offsetToLL(o.x, o.y); };
 
 // Abgeleitete P-Sätze (GHS-Standardtexte, nur Einstufungsinformation – keine Einsatzanweisung)
 function pFor(s: { ghs: string[]; h: string[] }) {
@@ -25,7 +28,7 @@ export function seedIfEmpty() {
     for (const m of methods) insert('measurement_methods', m);
     for (const t of tubes) insert('test_tubes', t);
     for (const u of users) insert('users', u);
-    for (const v of vehicles) insert('vehicles', v);
+    for (const v of vehicles) insert('vehicles', { ...v, ...rel(v.lat, v.lon) });
     for (const c of crew) insert('crew', c);
     for (const s of scenarios) insert('scenarios', s);
     setSetting('active_scenario', 'sc-chlor'); setSetting('source_offset', { x: 160, y: 90 });
@@ -53,8 +56,8 @@ export function seedIfEmpty() {
     mk('P-2026-00422', 45, 'FEST', 'Bodenprobe', 'VERDACHT', 'BEFUND EINGEGANGEN', null, { finding: 'KEIN CBRN-RELEVANTER BEFUND', text: 'KEIN CBRN-RELEVANTER BEFUND', simulated: true }, [[45, 'ENTNOMMEN'], [41, 'VERPACKT'], [36, 'ÜBERGEBEN'], [30, 'LABOR EINGEGANGEN'], [24, 'ANALYSE'], [15, 'BEFUND EINGEGANGEN']]);
     mk('P-2026-00423', 20, 'LUFT', 'Luftprobe (Adsorberröhrchen)', 'UNBEKANNT', 'LABOR EINGEGANGEN', { type: 'substance', id: 'toluol' }, null, [[20, 'ENTNOMMEN'], [17, 'VERPACKT'], [12, 'ÜBERGEBEN'], [6, 'LABOR EINGEGANGEN']]);
     db.prepare('INSERT INTO alarms(id,ts,source,lat,lon,category,status,description,vehicle_id,measurement_id) VALUES(?,?,?,?,?,?,?,?,?,?)').run('ALM-00001', iso(55), 'PID', hp.lat, hp.lon, 'CHEMISCH', 'QUITTIERT', 'PID-Screening erhöht (12,4 ppm)', 'CBRN-03', 'MP-000421');
-    db.prepare('INSERT INTO alarms(id,ts,source,lat,lon,category,status,description,vehicle_id,measurement_id) VALUES(?,?,?,?,?,?,?,?,?,?)').run('ALM-00002', iso(30), 'DFÜ', 54.29, 10.17, 'NETZWERK', 'OFFEN', 'CBRN-04: Datenverbindung unterbrochen', 'CBRN-04', null);
-    db.prepare('INSERT INTO alarms(id,ts,source,lat,lon,category,status,description,vehicle_id,measurement_id) VALUES(?,?,?,?,?,?,?,?,?,?)').run('ALM-00003', iso(8), 'SYSTEM', 54.3233, 10.1228, 'SYSTEM', 'OFFEN', 'DEMO MODE aktiv – alle Daten sind simuliert', 'CBRN-01', null);
+    db.prepare('INSERT INTO alarms(id,ts,source,lat,lon,category,status,description,vehicle_id,measurement_id) VALUES(?,?,?,?,?,?,?,?,?,?)').run('ALM-00002', iso(30), 'DFÜ', rel(54.29, 10.17).lat, rel(54.29, 10.17).lon, 'NETZWERK', 'OFFEN', 'CBRN-04: Datenverbindung unterbrochen', 'CBRN-04', null);
+    db.prepare('INSERT INTO alarms(id,ts,source,lat,lon,category,status,description,vehicle_id,measurement_id) VALUES(?,?,?,?,?,?,?,?,?,?)').run('ALM-00003', iso(8), 'SYSTEM', rel(54.3233, 10.1228).lat, rel(54.3233, 10.1228).lon, 'SYSTEM', 'OFFEN', 'DEMO MODE aktiv – alle Daten sind simuliert', 'CBRN-01', null);
     const aud = db.prepare('INSERT INTO audit_log(ts,user_id,action,entity,entity_id,detail) VALUES(?,?,?,?,?,?)');
     aud.run(iso(55), 'u-erk', 'create', 'measurement', 'MP-000421', null); aud.run(iso(50), 'u-erk', 'create', 'sample', 'P-2026-00421', null);
     aud.run(iso(20), 'SYSTEM', 'lab_result', 'sample', 'P-2026-00421', null);
