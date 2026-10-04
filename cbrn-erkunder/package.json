@@ -15,7 +15,8 @@
     "start": "node dist-server/index.js",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.server.json",
     "db:reset": "tsx server/reset.ts",
-    "fivem-sim": "node tools/fivem-sim.mjs"
+    "fivem-sim": "node tools/fivem-sim.mjs",
+    "gestis-check": "tsx tools/gestis-index-check.ts"
   },
   "dependencies": {
     "@fastify/cors": "^11.3.0",

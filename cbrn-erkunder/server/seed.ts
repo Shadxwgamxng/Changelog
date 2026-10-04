@@ -4,6 +4,8 @@ import { substances2 } from './data/substances2.js';
 import { deriveTraits, buildResponse, radResponse, bioResponse } from './data/derive.js';
 import { radionuclides, bioAgents } from './data/nuclides.js';
 import { sources, devices, methods, tubes, users, vehicles, crew, scenarios } from './data/misc.js';
+import fs from 'node:fs';
+import path from 'node:path';
 import { offsetToLL, llToOffset, KIEL } from './geo.js';
 
 // Seed-Positionen sind relativ zum Kieler Demo-Zentrum notiert und werden auf das aktive Kartenzentrum übertragen.
@@ -19,19 +21,26 @@ function pFor(s: { ghs: string[]; h: string[] }) {
   return [...p];
 }
 
-export const REF_VERSION = 3; // erhöhen, wenn sich Referenzdaten (Stoffe, Handlungsempfehlungen …) ändern
+export const REF_VERSION = 4; // erhöhen, wenn sich Referenzdaten (Stoffe, Handlungsempfehlungen …) ändern
 
 // Referenzdaten (fachliche Stammdaten) – werden bei Versionswechsel neu eingespielt (Admin-Änderungen daran gehen dabei verloren).
+// Ergebnis von tools/gestis-index-check.ts: CAS-Nummer/Name mit dem öffentlichen GESTIS-Stoffindex abgeglichen (nur Index, keine Artikeldaten)
+function gestisIndex(): Record<string, { zvg: string; gestis_name: string; cas_match: boolean }> {
+  try { return JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'server', 'data', 'gestis-index.json'), 'utf8')); } catch { return {}; }
+}
+const CHECK_DATE = '2026-10-04';
+
 export function syncReference() {
+  const gi = gestisIndex();
   const tubeCas = new Set(tubes.map((t) => t.cas));
   const tx = db.transaction(() => {
-    for (const s of sources) insert('sources', { ...s, retrieved_at: null, data_stand: null }, true);
+    for (const s of sources) insert('sources', { ...s, retrieved_at: s.id === 'gestis' && Object.keys(gi).length ? CHECK_DATE : null, data_stand: s.id === 'gestis' && Object.keys(gi).length ? 'Stoffindex (CAS, Name, ZVG-Nr.)' : null }, true);
     for (const s of [...subs1, ...substances2]) {
       const methodsAuto = [...(s.ie_ev != null && s.ie_ev < 10.6 ? ['PID-Screening'] : []), ...(tubeCas.has(s.cas) ? ['Prüfröhrchen'] : []), ...(s.lel_vol ? ['Ex-Messung (MGMG)'] : []), ...(s.ph === 'sauer' || s.ph === 'basisch' ? ['pH-Messung'] : []), 'Laboranalytik'];
       const devicesAuto = [...(s.ie_ev != null && s.ie_ev < 10.6 ? ['PID'] : []), ...(s.lel_vol ? ['MGMG'] : []), ...(s.ims_sim ? ['IMS'] : []), ...(tubeCas.has(s.cas) ? ['Prüfröhrchen'] : [])];
       const full = { ...s, methods: s.methods.length ? s.methods : methodsAuto, devices: s.methods.length || s.devices.length ? s.devices : devicesAuto };
       const traits = deriveTraits(full);
-      insert('substances', { ...full, p: pFor(full), ims_sim: s.ims_sim ? 1 : 0, quality: 'unverified', last_checked: null, traits, response: buildResponse(full, traits) }, true);
+      insert('substances', { ...full, p: pFor(full), ims_sim: s.ims_sim ? 1 : 0, quality: gi[s.id]?.cas_match ? 'identity' : 'unverified', last_checked: gi[s.id]?.cas_match ? CHECK_DATE : null, gestis_zvg: gi[s.id]?.zvg ?? null, traits, response: buildResponse(full, traits) }, true);
     }
     for (const r of radionuclides) insert('radionuclides', { ...r, quality: 'unverified', response: radResponse(r as any) }, true);
     for (const b of bioAgents) insert('biological_agents', { ...b, quality: 'unverified', response: bioResponse(b as any) }, true);

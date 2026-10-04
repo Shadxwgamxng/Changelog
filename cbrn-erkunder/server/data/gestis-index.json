@@ -1,0 +1,457 @@
+{
+ "ammoniak": {
+  "zvg": "001100",
+  "gestis_name": "Ammoniak, wasserfrei",
+  "cas_match": true
+ },
+ "chlor": {
+  "zvg": "007170",
+  "gestis_name": "Chlor",
+  "cas_match": true
+ },
+ "schwefeldioxid": {
+  "zvg": "001020",
+  "gestis_name": "Schwefeldioxid",
+  "cas_match": true
+ },
+ "kohlenmonoxid": {
+  "zvg": "001110",
+  "gestis_name": "Kohlenmonoxid",
+  "cas_match": true
+ },
+ "kohlendioxid": {
+  "zvg": "001121",
+  "gestis_name": "Kohlendioxid, tiefkalt verflüssigt",
+  "cas_match": true
+ },
+ "schwefelwasserstoff": {
+  "zvg": "001130",
+  "gestis_name": "Schwefelwasserstoff",
+  "cas_match": true
+ },
+ "phosgen": {
+  "zvg": "001340",
+  "gestis_name": "Phosgen",
+  "cas_match": true
+ },
+ "cyanwasserstoff": {
+  "zvg": "530373",
+  "gestis_name": "Cyanwasserstoff, wässrige Lösung",
+  "cas_match": true
+ },
+ "benzol": {
+  "zvg": "010060",
+  "gestis_name": "Benzol",
+  "cas_match": true
+ },
+ "toluol": {
+  "zvg": "010070",
+  "gestis_name": "Toluol",
+  "cas_match": true
+ },
+ "xylol": {
+  "zvg": "010080",
+  "gestis_name": "Xylol, Isomerengemisch",
+  "cas_match": true
+ },
+ "aceton": {
+  "zvg": "011230",
+  "gestis_name": "Aceton",
+  "cas_match": true
+ },
+ "methanol": {
+  "zvg": "011240",
+  "gestis_name": "Methanol",
+  "cas_match": true
+ },
+ "ethanol": {
+  "zvg": "010420",
+  "gestis_name": "Ethanol",
+  "cas_match": true
+ },
+ "isopropanol": {
+  "zvg": "011190",
+  "gestis_name": "2-Propanol",
+  "cas_match": true
+ },
+ "acetonitril": {
+  "zvg": "013660",
+  "gestis_name": "Acetonitril",
+  "cas_match": true
+ },
+ "formaldehyd": {
+  "zvg": "010520",
+  "gestis_name": "Formaldehyd",
+  "cas_match": true
+ },
+ "salpetersaeure": {
+  "zvg": "001370",
+  "gestis_name": "Salpetersäure",
+  "cas_match": true
+ },
+ "schwefelsaeure": {
+  "zvg": "001160",
+  "gestis_name": "Schwefelsäure",
+  "cas_match": true
+ },
+ "salzsaeure": {
+  "zvg": "520030",
+  "gestis_name": "Salzsäure",
+  "cas_match": true
+ },
+ "natriumhydroxid": {
+  "zvg": "001270",
+  "gestis_name": "Natriumhydroxid",
+  "cas_match": true
+ },
+ "sarin": {
+  "zvg": "490140",
+  "gestis_name": "Sarin",
+  "cas_match": true
+ },
+ "soman": {
+  "zvg": "570179",
+  "gestis_name": "Soman",
+  "cas_match": true
+ },
+ "tabun": {
+  "zvg": "490089",
+  "gestis_name": "Tabun",
+  "cas_match": true
+ },
+ "schwefellost": {
+  "zvg": "510748",
+  "gestis_name": "Bis(2-chlorethyl)sulfid",
+  "cas_match": true
+ },
+ "stickstofflost": {
+  "zvg": "490230",
+  "gestis_name": "Tris(2-chlorethyl)amin",
+  "cas_match": true
+ },
+ "lewisit": {
+  "zvg": "570100",
+  "gestis_name": "Chlorvinyldichlorarsin",
+  "cas_match": true
+ },
+ "propan": {
+  "zvg": "010020",
+  "gestis_name": "Propan",
+  "cas_match": true
+ },
+ "butan": {
+  "zvg": "010030",
+  "gestis_name": "Butan",
+  "cas_match": true
+ },
+ "methan": {
+  "zvg": "010000",
+  "gestis_name": "Methan",
+  "cas_match": true
+ },
+ "wasserstoff": {
+  "zvg": "535601",
+  "gestis_name": "Formiergas mit einem Wasserstoffanteil > 5 %",
+  "cas_match": true
+ },
+ "acetylen": {
+  "zvg": "013570",
+  "gestis_name": "Acetylen",
+  "cas_match": true
+ },
+ "ethylen": {
+  "zvg": "012710",
+  "gestis_name": "Ethylen",
+  "cas_match": true
+ },
+ "dimethylether": {
+  "zvg": "025460",
+  "gestis_name": "Dimethylether",
+  "cas_match": true
+ },
+ "stickstoff": {
+  "zvg": "007071",
+  "gestis_name": "Stickstoff, tiefkalt verflüssigt",
+  "cas_match": true
+ },
+ "argon": {
+  "zvg": "007181",
+  "gestis_name": "Argon, tiefkalt verflüssigt",
+  "cas_match": true
+ },
+ "helium": {
+  "zvg": "007021",
+  "gestis_name": "Helium, tiefkalt verflüssigt",
+  "cas_match": true
+ },
+ "sauerstoff": {
+  "zvg": "007080",
+  "gestis_name": "Sauerstoff",
+  "cas_match": true
+ },
+ "lachgas": {
+  "zvg": "004231",
+  "gestis_name": "Distickstoffmonoxid, tiefkalt verflüssigt",
+  "cas_match": true
+ },
+ "stickstoffdioxid": {
+  "zvg": "001090",
+  "gestis_name": "Stickstoffdioxid",
+  "cas_match": true
+ },
+ "stickstoffmonoxid": {
+  "zvg": "001080",
+  "gestis_name": "Stickstoffmonoxid",
+  "cas_match": true
+ },
+ "fluorwasserstoff": {
+  "zvg": "001040",
+  "gestis_name": "Fluorwasserstoff, wasserfrei",
+  "cas_match": true
+ },
+ "ethylenoxid": {
+  "zvg": "012000",
+  "gestis_name": "Ethylenoxid",
+  "cas_match": true
+ },
+ "vinylchlorid": {
+  "zvg": "013290",
+  "gestis_name": "Vinylchlorid",
+  "cas_match": true
+ },
+ "phosphin": {
+  "zvg": "003530",
+  "gestis_name": "Phosphin",
+  "cas_match": true
+ },
+ "arsin": {
+  "zvg": "004900",
+  "gestis_name": "Arsenwasserstoff",
+  "cas_match": true
+ },
+ "r134a": {
+  "zvg": "491009",
+  "gestis_name": "1,1,1,2-Tetrafluorethan",
+  "cas_match": true
+ },
+ "benzin": {
+  "zvg": "531390",
+  "gestis_name": "Ottokraftstoff",
+  "cas_match": true
+ },
+ "diesel": {
+  "zvg": "536303",
+  "gestis_name": "Dieselkraftstoff",
+  "cas_match": true
+ },
+ "heizoel": {
+  "zvg": "536302",
+  "gestis_name": "Heizöl EL",
+  "cas_match": true
+ },
+ "kerosin": {
+  "zvg": "090150",
+  "gestis_name": "Kerosin",
+  "cas_match": true
+ },
+ "nhexan": {
+  "zvg": "510789",
+  "gestis_name": "Hexan",
+  "cas_match": true
+ },
+ "cyclohexan": {
+  "zvg": "013790",
+  "gestis_name": "Cyclohexan",
+  "cas_match": true
+ },
+ "styrol": {
+  "zvg": "010110",
+  "gestis_name": "Styrol",
+  "cas_match": true
+ },
+ "ethylacetat": {
+  "zvg": "012040",
+  "gestis_name": "Ethylacetat",
+  "cas_match": true
+ },
+ "butylacetat": {
+  "zvg": "013320",
+  "gestis_name": "Butylacetat",
+  "cas_match": true
+ },
+ "butanon": {
+  "zvg": "013330",
+  "gestis_name": "Butanon",
+  "cas_match": true
+ },
+ "diethylether": {
+  "zvg": "013600",
+  "gestis_name": "Diethylether",
+  "cas_match": true
+ },
+ "thf": {
+  "zvg": "025400",
+  "gestis_name": "Tetrahydrofuran",
+  "cas_match": true
+ },
+ "propylenoxid": {
+  "zvg": "012010",
+  "gestis_name": "Propylenoxid",
+  "cas_match": true
+ },
+ "dichlormethan": {
+  "zvg": "012630",
+  "gestis_name": "Dichlormethan",
+  "cas_match": true
+ },
+ "chloroform": {
+  "zvg": "012870",
+  "gestis_name": "Trichlormethan",
+  "cas_match": true
+ },
+ "tetrachlorethen": {
+  "zvg": "013680",
+  "gestis_name": "Tetrachlorethen",
+  "cas_match": true
+ },
+ "trichlorethen": {
+  "zvg": "010720",
+  "gestis_name": "Trichlorethylen",
+  "cas_match": true
+ },
+ "kohlenstoffdisulfid": {
+  "zvg": "001430",
+  "gestis_name": "Kohlendisulfid",
+  "cas_match": true
+ },
+ "pyridin": {
+  "zvg": "013850",
+  "gestis_name": "Pyridin",
+  "cas_match": true
+ },
+ "ethylenglykol": {
+  "zvg": "012060",
+  "gestis_name": "Ethylenglykol",
+  "cas_match": true
+ },
+ "phenol": {
+  "zvg": "010430",
+  "gestis_name": "Phenol",
+  "cas_match": true
+ },
+ "anilin": {
+  "zvg": "011860",
+  "gestis_name": "Anilin",
+  "cas_match": true
+ },
+ "nitrobenzol": {
+  "zvg": "015890",
+  "gestis_name": "Nitrobenzol",
+  "cas_match": true
+ },
+ "acrylnitril": {
+  "zvg": "011410",
+  "gestis_name": "Acrylnitril",
+  "cas_match": true
+ },
+ "acrolein": {
+  "zvg": "013480",
+  "gestis_name": "Acrylaldehyd",
+  "cas_match": true
+ },
+ "hydrazin": {
+  "zvg": "002010",
+  "gestis_name": "Hydrazin",
+  "cas_match": true
+ },
+ "kaliumcyanid": {
+  "zvg": "001970",
+  "gestis_name": "Kaliumcyanid",
+  "cas_match": true
+ },
+ "natriumcyanid": {
+  "zvg": "002420",
+  "gestis_name": "Natriumcyanid",
+  "cas_match": true
+ },
+ "quecksilber": {
+  "zvg": "008490",
+  "gestis_name": "Quecksilber",
+  "cas_match": true
+ },
+ "essigsaeure": {
+  "zvg": "011400",
+  "gestis_name": "Essigsäure",
+  "cas_match": true
+ },
+ "ameisensaeure": {
+  "zvg": "011490",
+  "gestis_name": "Ameisensäure",
+  "cas_match": true
+ },
+ "phosphorsaeure": {
+  "zvg": "001800",
+  "gestis_name": "Phosphorsäure",
+  "cas_match": true
+ },
+ "kaliumhydroxid": {
+  "zvg": "001420",
+  "gestis_name": "Kaliumhydroxid",
+  "cas_match": true
+ },
+ "ammoniaklosung": {
+  "zvg": "001750",
+  "gestis_name": "Ammoniak, wässrige Lösung",
+  "cas_match": true
+ },
+ "natriumhypochlorit": {
+  "zvg": "001410",
+  "gestis_name": "Natriumhypochlorit, wässrige Lösung mit Anteilen an aktivem Chlor",
+  "cas_match": true
+ },
+ "wasserstoffperoxid": {
+  "zvg": "002430",
+  "gestis_name": "Wasserstoffperoxid ab 60 %",
+  "cas_match": true
+ },
+ "ammoniumnitrat": {
+  "zvg": "003750",
+  "gestis_name": "Ammoniumnitrat",
+  "cas_match": true
+ },
+ "natriumchlorat": {
+  "zvg": "003910",
+  "gestis_name": "Natriumchlorat",
+  "cas_match": true
+ },
+ "kaliumpermanganat": {
+  "zvg": "004070",
+  "gestis_name": "Kaliumpermanganat",
+  "cas_match": true
+ },
+ "brom": {
+  "zvg": "001000",
+  "gestis_name": "Brom",
+  "cas_match": true
+ },
+ "calciumcarbid": {
+  "zvg": "001980",
+  "gestis_name": "Calciumcarbid",
+  "cas_match": true
+ },
+ "natrium": {
+  "zvg": "008080",
+  "gestis_name": "Natrium",
+  "cas_match": true
+ },
+ "calciumoxid": {
+  "zvg": "001200",
+  "gestis_name": "Calciumoxid",
+  "cas_match": true
+ },
+ "schwefel": {
+  "zvg": "008130",
+  "gestis_name": "Schwefel",
+  "cas_match": true
+ }
+}

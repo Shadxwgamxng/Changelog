@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS substances (
   substance_group TEXT, cbrn_category TEXT NOT NULL, subcategory TEXT, un_number TEXT, ghs TEXT, signal_word TEXT, h TEXT, p TEXT,
   vapor_pressure TEXT, density TEXT, water_solubility TEXT, melting_point TEXT, boiling_point TEXT, fire_info TEXT,
   lel_vol REAL, uel_vol REAL, ie_ev REAL, ims_sim INTEGER DEFAULT 0, methods TEXT, devices TEXT,
-  source_id TEXT REFERENCES sources(id), quality TEXT DEFAULT 'unverified', last_checked TEXT, notes TEXT, traits TEXT, response TEXT);
+  source_id TEXT REFERENCES sources(id), quality TEXT DEFAULT 'unverified', last_checked TEXT, notes TEXT, traits TEXT, response TEXT, gestis_zvg TEXT);
 CREATE TABLE IF NOT EXISTS radionuclides (
   id TEXT PRIMARY KEY, name TEXT NOT NULL, element TEXT, z INTEGER, a INTEGER, half_life TEXT, half_life_s REAL, decay TEXT, radiation TEXT, gamma_kev TEXT,
   applications TEXT, occurrence TEXT, measurability TEXT, cbrn_category TEXT, source_id TEXT REFERENCES sources(id), quality TEXT DEFAULT 'unverified', last_checked TEXT, notes TEXT, response TEXT);
@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS runs (id TEXT PRIMARY KEY, vehicle_id TEXT, name TEXT
 `;
 db.exec(SCHEMA);
 // Migration älterer Datenbanken: fehlende Spalten ergänzen
-for (const [t, c] of [['substances', 'traits'], ['substances', 'response'], ['radionuclides', 'response'], ['biological_agents', 'response'], ['measurements', 'run_id'], ['samples', 'analysis']] as const) {
+for (const [t, c] of [['substances', 'traits'], ['substances', 'response'], ['substances', 'gestis_zvg'], ['radionuclides', 'response'], ['biological_agents', 'response'], ['measurements', 'run_id'], ['samples', 'analysis']] as const) {
   const cols = (db.prepare(`PRAGMA table_info(${t})`).all() as { name: string }[]).map((x) => x.name);
   if (!cols.includes(c)) db.exec(`ALTER TABLE ${t} ADD COLUMN ${c} TEXT`);
 }

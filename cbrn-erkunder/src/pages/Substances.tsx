@@ -22,9 +22,9 @@ export function SourceBlock({ rec }: { rec: any }) {
         <Field label="Datenstand">{s?.data_stand ?? 'NICHT DOKUMENTIERT'}</Field>
         <Field label="Abruf">{s?.retrieved_at ?? 'NICHT DOKUMENTIERT'}</Field>
         <Field label="Letzte Prüfung">{rec.last_checked ?? 'NICHT GEPRÜFT'}</Field>
-        <div className="col-span-3"><div className="lbl">URL</div><div className="font-mono break-all">{s?.url ? <a className="text-accent" href={s.url} target="_blank" rel="noreferrer">{s.url}</a> : NA}</div></div>
+        <div className="col-span-3"><div className="lbl">URL</div><div className="font-mono break-all">{rec.gestis_zvg ? <a className="text-accent" href={`https://gestis.dguv.de/data?name=${rec.gestis_zvg}&lang=de`} target="_blank" rel="noreferrer">GESTIS-Eintrag (ZVG {rec.gestis_zvg}) öffnen →</a> : s?.url ? <a className="text-accent" href={s.url} target="_blank" rel="noreferrer">{s.url}</a> : NA}</div></div>
       </div>
-      <div className="text-[11px] text-dim mt-2">Der Datensatz wurde noch nicht gegen die Primärquelle geprüft. Vor fachlicher Nutzung gegen Quelle verifizieren (Prio: BBK → BAuA/GESTIS → ECHA → BfR → IAEA → WHO → NIST).</div>
+      <div className="text-[11px] text-dim mt-2">{rec.quality === 'identity' ? 'CAS-Nummer und Stoffname wurden gegen den GESTIS-Stoffindex abgeglichen; die Stoffeigenschaften (Einstufung, physikalische Daten) sind noch nicht gegen den GESTIS-Eintrag geprüft – bitte über den Link nachprüfen. ' : 'Der Datensatz wurde noch nicht gegen die Primärquelle geprüft. '}Vor fachlicher Nutzung gegen Quelle verifizieren (Prio: BBK → BAuA/GESTIS → ECHA → BfR → IAEA → WHO → NIST).</div>
     </Panel>
   );
 }

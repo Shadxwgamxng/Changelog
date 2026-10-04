@@ -60,6 +60,10 @@ WebSocket-Events: `vehicle.position`, `vehicle.status`, `measurement.created|upd
 3. `Config.WebUrl` auf die vom Spieler erreichbare Adresse der Web-App setzen; `/cbrn` bzw. Taste F7 öffnet die Web-App als NUI-Fenster (ESC schließt). Die Web-App läuft auf dem Server-Rechner (`start.bat`), die Ressource sendet nur Position, Kurs, Speed und GTA-Wetter. Wind-Richtung ggf. über `Config.WindVectorIsTravelDirection` anpassen.
 4. Spielkoordinaten → Demo-Raum: System → Konfiguration (`fivem_origin`: x, y, Meter/Spieleinheit). Sobald Telemetrie eintrifft, zeigt die Kopfzeile **FIVEM CONNECTED**; 10 s ohne Telemetrie → zurück zu **DEMO MODE**.
 
+## GESTIS-Abgleich
+
+`npm run gestis-check` (Internet nötig) gleicht CAS-Nummer und Stoffname aller Stoffe mit dem **öffentlichen GESTIS-Stoffindex** ab (nur CAS, Name, ZVG-Nr.; Ergebnis in `server/data/gestis-index.json`). Bestätigte Stoffe erhalten den Status „CAS/NAME GEPRÜFT" und einen Link auf ihren GESTIS-Eintrag. Die Stoffeigenschaften selbst (Einstufung, physikalische Daten) sind **nicht** übernommen, weil die GESTIS-Artikel nur über eine geschützte Schnittstelle erreichbar sind – dafür ist eine Lizenz/Zugang der DGUV nötig. Stand: 91 von 93 Stoffen im Index gefunden (VX und Flüssiggas nicht).
+
 ## Offene Punkte / Hinweise
 
 * Fachdaten gegen GESTIS/ECHA/NIOSH/NIST/IAEA/OPCW/RKI prüfen und `quality`, `last_checked`, Quellen-`retrieved_at`/`data_stand` pflegen (Import- und Admin-Funktion vorhanden).

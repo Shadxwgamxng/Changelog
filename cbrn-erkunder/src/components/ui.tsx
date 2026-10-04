@@ -18,7 +18,7 @@ export const StatusBadge = ({ s }: { s?: string | null }) => <Badge color={STATU
 export const CatBadge = ({ c }: { c?: string | null }) => { const k = CAT[c ?? 'U'] ?? CAT.U; return <Badge color={k.color}>{k.short} · {k.label}</Badge>; };
 export const LevelBadge = ({ l }: { l?: string | null }) => (l ? <Badge color={l === 'hinweis' ? '#8896a6' : l === 'verdacht' ? '#d9a21b' : l === 'moegliche_identifikation' ? '#d6742a' : '#4fa86b'}>{LEVELS[l]}</Badge> : <span className="text-dim">–</span>);
 export const DataBadge = ({ s = 'SIMULATED' }: { s?: string }) => <Badge color={s === 'REAL' ? '#4fa86b' : s === 'MANUAL' ? '#4a8fd6' : s === 'DATABASE' ? '#8896a6' : '#d6742a'}>{DATA_SRC[s] ?? s}</Badge>;
-export const QualityBadge = ({ q }: { q?: string }) => <Badge color={q === 'verified' ? '#4fa86b' : q === 'outdated' ? '#d0503f' : '#d9a21b'}>{q === 'verified' ? 'VERIFIZIERT' : q === 'outdated' ? 'VERALTET' : 'UNGEPRÜFT'}</Badge>;
+export const QualityBadge = ({ q }: { q?: string }) => <Badge color={q === 'verified' ? '#4fa86b' : q === 'identity' ? '#4a8fd6' : q === 'outdated' ? '#d0503f' : '#d9a21b'}>{q === 'verified' ? 'VERIFIZIERT' : q === 'identity' ? 'CAS/NAME GEPRÜFT' : q === 'outdated' ? 'VERALTET' : 'UNGEPRÜFT'}</Badge>;
 export const Btn = ({ children, onClick, kind = '', disabled, title }: { children: ReactNode; onClick?: () => void; kind?: 'primary' | 'danger' | ''; disabled?: boolean; title?: string }) => (
   <button className={`btn ${kind === 'primary' ? 'btn-primary' : kind === 'danger' ? 'btn-danger' : ''}`} onClick={onClick} disabled={disabled} title={title}>{children}</button>
 );
