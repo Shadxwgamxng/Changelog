@@ -1,33 +1,75 @@
 @tailwind base; @tailwind components; @tailwind utilities;
+
+:root {
+  --bg: #0b0b0b; --bg-2: #101010; --surface: #151515; --surface-2: #1b1b1b; --border: #272727; --border-strong: #363636;
+  --text: #ebe9e6; --text-2: #b7b4b0; --text-3: #817d78; --accent: #f0500a; --accent-rgb: 240, 80, 10;
+  --fill-1: rgba(255,255,255,.03); --fill-2: rgba(255,255,255,.06); --fill-3: rgba(255,255,255,.1);
+  --ease: cubic-bezier(.16, 1, .3, 1);
+  --sidebar-w: 236px; --sidebar-w-collapsed: 60px; --topbar-h: 48px;
+}
 html, body, #root { height: 100%; }
-body { @apply bg-bg text-txt font-sans text-[13px]; margin: 0; overflow: hidden; }
-* { scrollbar-width: thin; scrollbar-color: #38465a #161c23; }
-.panel { @apply bg-panel border border-line rounded-sm; }
-.panel-h { @apply px-3 py-1.5 border-b border-line text-[11px] tracking-wider uppercase text-dim font-semibold flex items-center justify-between gap-2; }
-.lbl { @apply text-[10px] tracking-wider uppercase text-dim; }
+body { @apply bg-bg text-txt font-sans text-[13px]; margin: 0; overflow: hidden; -webkit-font-smoothing: antialiased; font-feature-settings: 'cv11', 'ss01'; }
+* { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.14) transparent; }
+::selection { background: rgba(var(--accent-rgb), .35); }
+
+/* Karten */
+.panel { @apply bg-panel border border-line rounded-lg; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+.panel-h { @apply px-4 py-2.5 border-b border-line text-[13px] font-semibold text-txt flex items-center justify-between gap-2; }
+.lbl { @apply text-[11.5px] text-dim font-medium; }
 .val { @apply font-mono text-txt; }
-.btn { @apply px-3 py-1 border border-line2 bg-panel2 text-txt rounded-sm hover:bg-line cursor-pointer text-[12px] disabled:opacity-40 disabled:cursor-not-allowed; }
-.btn-primary { @apply border-accent bg-accent/20 hover:bg-accent/40; }
-.btn-danger { @apply border-bad/60 bg-bad/10 hover:bg-bad/30; }
-.inp { @apply bg-bg border border-line2 rounded-sm px-2 py-1 text-txt text-[12px] outline-none focus:border-accent; }
-table.t { @apply w-full border-collapse text-[12px]; }
-table.t th { @apply text-left text-[10px] uppercase tracking-wider text-dim font-semibold px-2 py-1.5 border-b border-line bg-panel2 sticky top-0; }
-table.t td { @apply px-2 py-1.5 border-b border-line/60 align-top; }
-table.t tbody tr:hover { @apply bg-panel2; }
+
+/* Buttons */
+.btn { @apply inline-flex items-center gap-1.5 px-3 h-8 border border-line2 bg-white/[.06] text-txt rounded-md cursor-pointer text-[12.5px] font-medium transition-colors; }
+.btn:hover { @apply bg-white/[.1]; }
+.btn:disabled { @apply opacity-40 cursor-not-allowed; }
+.btn-primary { @apply border-accent bg-accent text-[#fff7f2]; }
+.btn-primary:hover { @apply bg-accent-hover border-accent-hover; }
+.btn-danger { @apply border-bad/50 bg-bad/10 text-bad; }
+.btn-danger:hover { @apply bg-bad/20; }
+.inp { @apply bg-bg2 border border-line2 rounded-md px-2.5 h-8 text-txt text-[12.5px] outline-none transition-colors; }
+textarea.inp { height: auto; padding-top: .4rem; padding-bottom: .4rem; }
+.inp:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(var(--accent-rgb), .18); }
+.inp::placeholder { color: var(--text-3); }
+select.inp { padding-right: 1.4rem; }
+
+/* Tabellen */
+table.t { @apply w-full border-collapse text-[12.5px]; }
+table.t th { @apply text-left text-[11.5px] text-dim font-medium px-3 py-2 border-b border-line bg-panel2 sticky top-0 whitespace-nowrap; }
+table.t td { @apply px-3 py-2 border-b border-line/70 align-top; }
+table.t tbody tr { transition: background-color .12s; }
+table.t tbody tr:hover { background: var(--fill-2); }
+table.t tbody tr:last-child td { border-bottom: 0; }
+
+/* Hülle: Topbar, Sidebar */
+.shell { display: grid; height: 100%; grid-template-columns: var(--sidebar-w) minmax(0, 1fr); grid-template-rows: var(--topbar-h) minmax(0, 1fr) auto; transition: grid-template-columns .18s var(--ease); }
+html.is-collapsed .shell { grid-template-columns: var(--sidebar-w-collapsed) minmax(0, 1fr); }
+.topbar { grid-column: 1 / -1; display: flex; align-items: center; gap: .75rem; padding: 0 .75rem; background: var(--bg-2); border-bottom: 1px solid var(--border); }
+.sidebar { background: var(--bg-2); border-right: 1px solid var(--border); overflow-y: auto; overflow-x: hidden; padding: .5rem; }
+.nav-group { margin: .9rem 0 .25rem; padding: 0 .65rem; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); white-space: nowrap; }
+html.is-collapsed .nav-group { visibility: hidden; height: 1px; margin: .6rem 0; }
+.nav-item { display: flex; align-items: center; gap: .65rem; height: 34px; padding: 0 .65rem; border-radius: 6px; color: var(--text-2); font-size: 13px; white-space: nowrap; transition: background-color .12s, color .12s; }
+.nav-item:hover { background: var(--fill-2); color: var(--text); }
+.nav-item.active { background: rgba(var(--accent-rgb), .16); color: #ff8a52; }
+.nav-item svg { flex: none; }
+html.is-collapsed .nav-item span { display: none; }
+.icon-btn { @apply inline-flex items-center justify-center w-8 h-8 rounded-md text-txt2 hover:bg-white/[.08] hover:text-txt cursor-pointer; }
+.eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+
 .maplibregl-ctrl-attrib { font-size: 10px; }
+.maplibregl-ctrl-group { background: var(--surface) !important; border: 1px solid var(--border); }
+.maplibregl-ctrl-group button + button { border-top: 1px solid var(--border) !important; }
+.maplibregl-ctrl-icon { filter: invert(1); }
+
 @media print {
   body { overflow: visible; background: #fff; color: #000; }
   .no-print { display: none !important; }
-  .panel { border-color: #999; background: #fff; }
+  .panel { border-color: #999; background: #fff; box-shadow: none; }
   .lbl { color: #555; } .val { color: #000; }
 }
-
-/* Reduzierte Tablet-Ansicht */
 @media (max-width: 1100px) {
-  nav { width: 150px !important; }
+  :root { --sidebar-w: 200px; }
   .grid-cols-12 > * { grid-column: span 12 / span 12 !important; }
   .grid-cols-8, .grid-cols-6 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
   .grid-cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
   aside { width: 220px !important; }
-  header .w-72 { width: 12rem !important; }
 }

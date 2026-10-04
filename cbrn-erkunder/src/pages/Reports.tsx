@@ -8,13 +8,13 @@ function TrackSvg({ track }: { track: number[][] }) {
   if (track.length < 2) return <div className="text-dim">{NA}</div>;
   const xs = track.map((p) => p[0]), ys = track.map((p) => p[1]); const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
   const px = (x: number) => 8 + ((x - x0) / (x1 - x0 || 1)) * 584, py = (y: number) => 192 - ((y - y0) / (y1 - y0 || 1)) * 184;
-  return <svg viewBox="0 0 600 200" className="w-full bg-bg border border-line"><polyline fill="none" stroke="#4a8fd6" strokeWidth="2" points={track.map((p) => `${px(p[0])},${py(p[1])}`).join(' ')} /></svg>;
+  return <svg viewBox="0 0 600 200" className="w-full bg-bg border border-line"><polyline fill="none" stroke="#58a6ff" strokeWidth="2" points={track.map((p) => `${px(p[0])},${py(p[1])}`).join(' ')} /></svg>;
 }
 
 export function ReportView({ r }: { r: any }) {
   return (
     <div className="space-y-3">
-      <div className="text-[11px] text-[#d6742a] border border-[#d6742a]/50 px-2 py-1">{r.notice}</div>
+      <div className="text-[11px] text-[#f0500a] border border-[#f0500a]/50 px-2 py-1">{r.notice}</div>
       <div className="grid grid-cols-4 gap-3"><Field label="Einsatznummer">{r.number}</Field><Field label="Fahrzeug">{r.vehicle?.name}</Field><Field label="Start">{dt(r.start)}</Field><Field label="Ende">{r.end ? dt(r.end) : 'laufend'}</Field>
         <Field label="Auftrag">#{r.mission.id} · {r.mission.priority}</Field><Field label="Gebiet">{r.mission.sector_name}</Field><Field label="Messprofil">{r.mission.profile}</Field><Field label="Erstellt von">{r.author}</Field></div>
       <div><div className="lbl">Besatzung</div>{r.crew.map((c: any) => `${c.role}: ${c.name}`).join(' · ')}</div>
@@ -43,7 +43,7 @@ export default function Reports() {
       <div className="grid grid-cols-12 gap-3">
         <Panel title="Berichte" className="col-span-3" body="!p-0"><table className="t"><tbody>{(reports.data ?? []).map((r) => <tr key={r.id} className="cursor-pointer" onClick={() => open(r.id)}><td className="font-mono">{r.id}</td><td>{dt(r.created_at)}</td></tr>)}
           {!(reports.data ?? []).length && <tr><td className="text-dim">Noch keine Berichte</td></tr>}</tbody></table></Panel>
-        <div className="col-span-9">{cur ? <Panel title={`Einsatzbericht ${cur.number}`} right={<span className="no-print flex gap-2"><Badge color="#d6742a">SIMULATION</Badge><Btn onClick={() => dl(cur.id, 'pdf')}>PDF</Btn><Btn onClick={() => dl(cur.id, 'csv')}>CSV</Btn><Btn onClick={() => { const b = new Blob([JSON.stringify(cur, null, 2)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `${cur.id}.json`; a.click(); }}>JSON</Btn><Btn onClick={() => window.print()}>Drucken</Btn></span>}><ReportView r={cur} /></Panel>
+        <div className="col-span-9">{cur ? <Panel title={`Einsatzbericht ${cur.number}`} right={<span className="no-print flex gap-2"><Badge color="#f0500a">SIMULATION</Badge><Btn onClick={() => dl(cur.id, 'pdf')}>PDF</Btn><Btn onClick={() => dl(cur.id, 'csv')}>CSV</Btn><Btn onClick={() => { const b = new Blob([JSON.stringify(cur, null, 2)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `${cur.id}.json`; a.click(); }}>JSON</Btn><Btn onClick={() => window.print()}>Drucken</Btn></span>}><ReportView r={cur} /></Panel>
           : <Panel><div className="text-dim py-8 text-center">Bericht auswählen oder erstellen</div></Panel>}</div>
       </div>
     </Page>

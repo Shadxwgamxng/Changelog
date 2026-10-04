@@ -7,39 +7,39 @@ import { fmtPos, num, time } from '../lib/format';
 import { doseStatus, pidStatus, useSession } from './Readouts';
 
 export interface Spot { n: number; x: number; y: number; side: 'l' | 'r'; ly: number; title: string; v: string; sub?: string; color?: string; lines: [string, string][] }
-const COL = { body: '#2b3643', body2: '#1b232c', edge: '#4a5a6d', screen: '#0b1a14', ok: '#4fa86b', warn: '#d9a21b', bad: '#d0503f', acc: '#4a8fd6', dim: '#8896a6', txt: '#d5dde6', yellow: '#d9a21b' };
+const COL = { body: '#2a2a2a', body2: '#1a1a1a', edge: '#4a4a4a', screen: '#0b1a14', ok: '#3fb950', warn: '#d29922', bad: '#e5534b', acc: '#58a6ff', dim: '#817d78', txt: '#ebe9e6', yellow: '#d29922' };
 const stCol = (s: string) => (/ALARM|HOCH/.test(s) ? COL.bad : /ERHÖHT|VERDACHT|HINWEIS/.test(s) ? COL.warn : COL.ok);
 
 function Defs() {
   return (
     <defs>
-      <linearGradient id="gBody" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#222c37" /><stop offset=".5" stopColor="#334150" /><stop offset="1" stopColor="#1d2630" /></linearGradient>
-      <linearGradient id="gMetal" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#58677a" /><stop offset=".5" stopColor="#8b9bae" /><stop offset="1" stopColor="#4d5b6c" /></linearGradient>
+      <linearGradient id="gBody" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#202020" /><stop offset=".5" stopColor="#333333" /><stop offset="1" stopColor="#1a1a1a" /></linearGradient>
+      <linearGradient id="gMetal" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#5a5a5a" /><stop offset=".5" stopColor="#9a9a9a" /><stop offset="1" stopColor="#4d5b6c" /></linearGradient>
       <linearGradient id="gGlass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#0f2a20" /><stop offset="1" stopColor="#07140f" /></linearGradient>
       <radialGradient id="gUV" cx=".5" cy=".5" r=".5"><stop offset="0" stopColor="#d9b3ff" /><stop offset=".5" stopColor="#8a4fd6" /><stop offset="1" stopColor="#8a4fd600" /></radialGradient>
       <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="6" stdDeviation="6" floodColor="#000" floodOpacity=".55" /></filter>
     </defs>
   );
 }
-const Screen = ({ x, y, w, h, children }: { x: number; y: number; w: number; h: number; children?: ReactNode }) => (<g><rect x={x - 3} y={y - 3} width={w + 6} height={h + 6} rx={5} fill="#0a0f14" stroke={COL.edge} /><rect x={x} y={y} width={w} height={h} rx={3} fill="url(#gGlass)" />{children}</g>);
-const T = ({ x, y, s = 12, c = '#7be0a4', w = 'normal', a = 'start', children }: { x: number; y: number; s?: number; c?: string; w?: string; a?: 'start' | 'middle' | 'end'; children: ReactNode }) => (<text x={x} y={y} fontSize={s} fill={c} fontWeight={w} textAnchor={a} fontFamily="Consolas, 'DejaVu Sans Mono', monospace">{children}</text>);
-const Key = ({ x, y, r = 9, c = '#3b4a5b' }: { x: number; y: number; r?: number; c?: string }) => (<g><circle cx={x} cy={y + 2} r={r} fill="#10161d" /><circle cx={x} cy={y} r={r} fill={c} stroke="#5d6f84" /></g>);
+const Screen = ({ x, y, w, h, children }: { x: number; y: number; w: number; h: number; children?: ReactNode }) => (<g><rect x={x - 3} y={y - 3} width={w + 6} height={h + 6} rx={5} fill="#0a0a0a" stroke={COL.edge} /><rect x={x} y={y} width={w} height={h} rx={3} fill="url(#gGlass)" />{children}</g>);
+const T = ({ x, y, s = 12, c = '#7be0a4', w = 'normal', a = 'start', children }: { x: number; y: number; s?: number; c?: string; w?: string; a?: 'start' | 'middle' | 'end'; children: ReactNode }) => (<text x={x} y={y} fontSize={s} fill={c} fontWeight={w} textAnchor={a} fontFamily="'Geist Mono Variable', 'Geist Mono', ui-monospace, monospace">{children}</text>);
+const Key = ({ x, y, r = 9, c = '#3a3a3a' }: { x: number; y: number; r?: number; c?: string }) => (<g><circle cx={x} cy={y + 2} r={r} fill="#0e0e0e" /><circle cx={x} cy={y} r={r} fill={c} stroke="#5a5a5a" /></g>);
 const Led = ({ x, y, c }: { x: number; y: number; c: string }) => (<g><circle cx={x} cy={y} r={7} fill={c} opacity=".25" /><circle cx={x} cy={y} r={4} fill={c} /></g>);
 
 /* ------------------------------------------------------------------ Zeichnungen */
 function PidArt({ r }: { r: any }) {
   const v = r?.pid.value ?? 0; const st = pidStatus(v);
   return (<g filter="url(#shadow)">
-    <rect x={362} y={10} width={36} height={52} rx={6} fill="url(#gMetal)" stroke={COL.edge} /><rect x={372} y={4} width={16} height={14} rx={3} fill="#7a8899" /><circle cx={380} cy={36} r={5} fill="#222" />
+    <rect x={362} y={10} width={36} height={52} rx={6} fill="url(#gMetal)" stroke={COL.edge} /><rect x={372} y={4} width={16} height={14} rx={3} fill="#8a8a8a" /><circle cx={380} cy={36} r={5} fill="#222" />
     <rect x={318} y={56} width={124} height={344} rx={26} fill="url(#gBody)" stroke={COL.edge} strokeWidth={2} />
-    <rect x={318} y={332} width={124} height={68} rx={26} fill="#caa21f" opacity=".9" /><rect x={318} y={332} width={124} height={20} fill="#caa21f" opacity=".9" />
+    <rect x={318} y={332} width={124} height={68} rx={26} fill="#d29922" opacity=".9" /><rect x={318} y={332} width={124} height={20} fill="#d29922" opacity=".9" />
     <Screen x={336} y={84} w={88} h={118}>
       <T x={346} y={104} s={10} c="#5aa981">PID · VOC</T><T x={346} y={146} s={30} c={stCol(st)} w="bold">{num(v, 1)}</T><T x={346} y={166} s={12}>ppm</T><T x={346} y={190} s={11} c={stCol(st)}>{st}</T>
     </Screen>
-    <Key x={350} y={238} /><Key x={380} y={238} r={11} c="#4a8fd6" /><Key x={410} y={238} />
+    <Key x={350} y={238} /><Key x={380} y={238} r={11} c="#58a6ff" /><Key x={410} y={238} />
     <Led x={338} y={72} c={COL.ok} />
     <circle cx={380} cy={290} r={20} fill="#16101d" stroke={COL.edge} /><circle cx={380} cy={290} r={18} fill="url(#gUV)" />
-    <rect x={352} y={346} width={56} height={14} rx={3} fill="#10161d" /><rect x={355} y={349} width={44} height={8} rx={2} fill={COL.ok} />
+    <rect x={352} y={346} width={56} height={14} rx={3} fill="#0e0e0e" /><rect x={355} y={349} width={44} height={8} rx={2} fill={COL.ok} />
     <path d="M452 96 q12 -14 24 0 M458 104 q6 -8 12 0" stroke={COL.acc} strokeWidth={2} fill="none" /><circle cx={464} cy={112} r={3} fill={COL.acc} />
   </g>);
 }
@@ -48,17 +48,17 @@ function ImsArt({ r }: { r: any }) {
   return (<g filter="url(#shadow)">
     <rect x={226} y={100} width={308} height={250} rx={18} fill="url(#gBody)" stroke={COL.edge} strokeWidth={2} />
     <rect x={226} y={100} width={308} height={14} rx={7} fill="#1f5fa8" />
-    <rect x={262} y={58} width={22} height={46} rx={4} fill="url(#gMetal)" stroke={COL.edge} /><rect x={256} y={48} width={34} height={14} rx={4} fill="#7a8899" stroke={COL.edge} />
+    <rect x={262} y={58} width={22} height={46} rx={4} fill="url(#gMetal)" stroke={COL.edge} /><rect x={256} y={48} width={34} height={14} rx={4} fill="#8a8a8a" stroke={COL.edge} />
     <Screen x={244} y={128} w={156} h={96}>
       <T x={252} y={146} s={9} c="#5aa981">IMS · {i?.mode ?? '–'}</T><T x={252} y={174} s={13} c={c} w="bold">{lv ? (lv === 'moegliche_identifikation' ? 'MÖGL. STOFF' : lv.toUpperCase()) : 'KEIN TREFFER'}</T>
       <T x={252} y={196} s={10}>{i?.confidence != null ? `Konfidenz ${i.confidence} %` : 'Konfidenz –'}</T><T x={252} y={214} s={10} c="#5aa981">{time(r?.ts)}</T>
     </Screen>
-    <rect x={414} y={130} width={102} height={94} rx={6} fill="#0d1319" stroke={COL.edge} />
-    <rect x={244} y={252} width={272} height={44} rx={22} fill="#0d1319" stroke={COL.edge} strokeWidth={2} />
-    <rect x={258} y={264} width={22} height={20} fill="#8a4fd6" opacity=".7" /><rect x={316} y={258} width={4} height={32} fill="#d5dde6" opacity=".6" /><rect x={396} y={258} width={4} height={32} fill="#d5dde6" opacity=".2" /><rect x={482} y={258} width={20} height={32} fill="#4a8fd6" opacity=".7" />
-    {[0, 1, 2, 3, 4].map((k) => <circle key={k} cx={332 + k * 30} cy={274 + (k % 2) * 6} r={3.5} fill={k % 2 ? '#4a8fd6' : '#d9a21b'} opacity=".85" />)}
+    <rect x={414} y={130} width={102} height={94} rx={6} fill="#0e0e0e" stroke={COL.edge} />
+    <rect x={244} y={252} width={272} height={44} rx={22} fill="#0e0e0e" stroke={COL.edge} strokeWidth={2} />
+    <rect x={258} y={264} width={22} height={20} fill="#8a4fd6" opacity=".7" /><rect x={316} y={258} width={4} height={32} fill="#ebe9e6" opacity=".6" /><rect x={396} y={258} width={4} height={32} fill="#ebe9e6" opacity=".2" /><rect x={482} y={258} width={20} height={32} fill="#58a6ff" opacity=".7" />
+    {[0, 1, 2, 3, 4].map((k) => <circle key={k} cx={332 + k * 30} cy={274 + (k % 2) * 6} r={3.5} fill={k % 2 ? '#58a6ff' : '#d29922'} opacity=".85" />)}
     <T x={244} y={316} s={9} c={COL.dim}>Ionenquelle → Gate → Driftregion → Kollektor</T>
-    <Led x={430} y={146} c={COL.ok} /><T x={442} y={150} s={9} c={COL.dim}>ONLINE</T><Led x={430} y={170} c={lv ? c : '#2a3541'} /><T x={442} y={174} s={9} c={COL.dim}>ALARM</T><Key x={436} y={206} r={8} /><Key x={466} y={206} r={8} /><Key x={496} y={206} r={8} c="#4a8fd6" />
+    <Led x={430} y={146} c={COL.ok} /><T x={442} y={150} s={9} c={COL.dim}>ONLINE</T><Led x={430} y={170} c={lv ? c : '#272727'} /><T x={442} y={174} s={9} c={COL.dim}>ALARM</T><Key x={436} y={206} r={8} /><Key x={466} y={206} r={8} /><Key x={496} y={206} r={8} c="#58a6ff" />
   </g>);
 }
 function MgmgArt({ r, channels }: { r: any; channels: string[] }) {
@@ -66,63 +66,63 @@ function MgmgArt({ r, channels }: { r: any; channels: string[] }) {
   const warn = (k: string, v: number) => (k === 'O2' ? v < 19.5 : k === 'CO' ? v > 30 : k === 'H2S' ? v > 5 : k === 'LEL' ? v > 10 : false);
   const bad = Object.entries(ch).some(([k, v]) => v != null && warn(k, v as number));
   return (<g filter="url(#shadow)">
-    <rect x={296} y={34} width={168} height={374} rx={28} fill="url(#gBody)" stroke={COL.edge} strokeWidth={2} /><rect x={296} y={356} width={168} height={52} rx={26} fill="#caa21f" opacity=".9" /><rect x={296} y={356} width={168} height={14} fill="#caa21f" opacity=".9" />
-    {[0, 1, 2, 3, 4].map((k) => <g key={k}><circle cx={324 + k * 28} cy={60} r={8} fill="#10161d" stroke={COL.edge} /><circle cx={324 + k * 28} cy={60} r={4} fill="#58677a" /></g>)}
+    <rect x={296} y={34} width={168} height={374} rx={28} fill="url(#gBody)" stroke={COL.edge} strokeWidth={2} /><rect x={296} y={356} width={168} height={52} rx={26} fill="#d29922" opacity=".9" /><rect x={296} y={356} width={168} height={14} fill="#d29922" opacity=".9" />
+    {[0, 1, 2, 3, 4].map((k) => <g key={k}><circle cx={324 + k * 28} cy={60} r={8} fill="#0e0e0e" stroke={COL.edge} /><circle cx={324 + k * 28} cy={60} r={4} fill="#5a5a5a" /></g>)}
     <Led x={316} y={92} c={bad ? COL.bad : COL.ok} />
     <Screen x={314} y={108} w={132} h={190}>
       {channels.slice(0, 5).map((k, idx) => { const v = ch[k]; const w = v != null && warn(k, v as number); return (<g key={k}><T x={324} y={134 + idx * 36} s={12} c="#5aa981">{U[k]?.[0] ?? k}</T><T x={440} y={134 + idx * 36} s={20} c={w ? COL.bad : '#7be0a4'} w="bold" a="end">{v == null ? '–' : num(v as number, k === 'O2' || k === 'LEL' || k === 'H2S' ? 1 : 0)}</T><T x={440} y={146 + idx * 36} s={9} c={COL.dim} a="end">{U[k]?.[1]}</T></g>); })}
     </Screen>
-    <Key x={338} y={330} /><Key x={380} y={330} r={12} c="#4a8fd6" /><Key x={422} y={330} />
-    <rect x={338} y={378} width={84} height={8} rx={3} fill="#10161d" />
+    <Key x={338} y={330} /><Key x={380} y={330} r={12} c="#58a6ff" /><Key x={422} y={330} />
+    <rect x={338} y={378} width={84} height={8} rx={3} fill="#0e0e0e" />
   </g>);
 }
 function DlmArt({ r }: { r: any }) {
   const v = r?.dose.value ?? 0; const st = doseStatus(v); const frac = Math.min(1, Math.log10(Math.max(v, 0.01) / 0.01) / 4);
   return (<g filter="url(#shadow)">
-    <rect x={250} y={70} width={260} height={260} rx={22} fill="url(#gBody)" stroke={COL.edge} strokeWidth={2} /><rect x={250} y={70} width={260} height={16} rx={8} fill="#caa21f" />
+    <rect x={250} y={70} width={260} height={260} rx={22} fill="url(#gBody)" stroke={COL.edge} strokeWidth={2} /><rect x={250} y={70} width={260} height={16} rx={8} fill="#d29922" />
     <Screen x={274} y={104} w={212} h={104}>
       <T x={286} y={124} s={10} c="#5aa981">DOSISLEISTUNG</T><T x={286} y={170} s={36} c={stCol(st)} w="bold">{num(v, 3)}</T><T x={480} y={170} s={12} a="end">µSv/h</T>
       <rect x={286} y={184} width={188} height={10} rx={3} fill="#10261c" /><rect x={286} y={184} width={188 * frac} height={10} rx={3} fill={stCol(st)} />
     </Screen>
-    <Key x={310} y={256} /><Key x={380} y={256} r={13} c="#4a8fd6" /><Key x={450} y={256} /><Led x={280} y={304} c={st === 'NORMAL' ? COL.ok : stCol(st)} />
+    <Key x={310} y={256} /><Key x={380} y={256} r={13} c="#58a6ff" /><Key x={450} y={256} /><Led x={280} y={304} c={st === 'NORMAL' ? COL.ok : stCol(st)} />
     <path d="M380 330 C 380 345, 380 345, 380 356" stroke="#222" strokeWidth={7} fill="none" /><rect x={326} y={354} width={108} height={44} rx={8} fill="url(#gMetal)" stroke={COL.edge} /><rect x={334} y={362} width={92} height={6} fill="#222" opacity=".4" />
   </g>);
 }
 function ComoArt({ r }: { r: any }) {
   const v = r?.como.value ?? 0;
   return (<g filter="url(#shadow)">
-    <rect x={280} y={50} width={200} height={230} rx={20} fill="url(#gBody)" stroke={COL.edge} strokeWidth={2} /><rect x={280} y={50} width={200} height={14} rx={7} fill="#d6742a" />
+    <rect x={280} y={50} width={200} height={230} rx={20} fill="url(#gBody)" stroke={COL.edge} strokeWidth={2} /><rect x={280} y={50} width={200} height={14} rx={7} fill="#f0500a" />
     <Screen x={300} y={84} w={160} h={90}><T x={310} y={104} s={10} c="#5aa981">KONTAMINATION</T><T x={310} y={146} s={30} c="#7be0a4" w="bold">{num(v, 1)}</T><T x={452} y={146} s={12} a="end">cps</T></Screen>
-    <Key x={320} y={214} /><Key x={380} y={214} r={12} c="#4a8fd6" /><Key x={440} y={214} /><Led x={300} y={262} c={COL.ok} />
+    <Key x={320} y={214} /><Key x={380} y={214} r={12} c="#58a6ff" /><Key x={440} y={214} /><Led x={300} y={262} c={COL.ok} />
     <path d="M380 280 C 380 340, 520 330, 560 372" stroke="#222" strokeWidth={7} fill="none" />
-    <rect x={520} y={348} width={170} height={56} rx={10} fill="url(#gMetal)" stroke={COL.edge} /><rect x={532} y={358} width={146} height={36} rx={5} fill="#1d2630" stroke="#58677a" /><T x={605} y={381} s={10} c={COL.dim} a="middle">Flächensonde</T>
+    <rect x={520} y={348} width={170} height={56} rx={10} fill="url(#gMetal)" stroke={COL.edge} /><rect x={532} y={358} width={146} height={36} rx={5} fill="#1a1a1a" stroke="#5a5a5a" /><T x={605} y={381} s={10} c={COL.dim} a="middle">Flächensonde</T>
   </g>);
 }
 function FmgArt({ r, drive }: { r: any; drive: boolean }) {
   return (<g filter="url(#shadow)">
-    <rect x={110} y={250} width={540} height={26} fill="#10161d" opacity=".8" />
+    <rect x={110} y={250} width={540} height={26} fill="#0e0e0e" opacity=".8" />
     <path d="M130 250 V170 q0 -24 24 -24 H270 L318 100 H520 q36 0 52 30 L640 188 V250 Z" fill="url(#gBody)" stroke={COL.edge} strokeWidth={2} />
     <path d="M330 112 H506 q20 0 30 18 L560 170 H318 Z" fill="#0f1c26" stroke={COL.edge} />
-    <rect x={150} y={176} width={110} height={40} rx={4} fill="#caa21f" opacity=".85" />
-    <circle cx={218} cy={260} r={34} fill="#10161d" stroke={COL.edge} strokeWidth={3} /><circle cx={218} cy={260} r={16} fill="#58677a" /><circle cx={556} cy={260} r={34} fill="#10161d" stroke={COL.edge} strokeWidth={3} /><circle cx={556} cy={260} r={16} fill="#58677a" />
+    <rect x={150} y={176} width={110} height={40} rx={4} fill="#d29922" opacity=".85" />
+    <circle cx={218} cy={260} r={34} fill="#0e0e0e" stroke={COL.edge} strokeWidth={3} /><circle cx={218} cy={260} r={16} fill="#5a5a5a" /><circle cx={556} cy={260} r={34} fill="#0e0e0e" stroke={COL.edge} strokeWidth={3} /><circle cx={556} cy={260} r={16} fill="#5a5a5a" />
     {/* Dach: Gamma-Detektor + GPS + DFÜ */}
-    <rect x={380} y={70} width={110} height={30} rx={6} fill="url(#gMetal)" stroke={COL.edge} /><rect x={392} y={78} width={86} height={14} rx={3} fill="#1d2630" />
-    <circle cx={540} cy={96} r={9} fill="#4a8fd6" stroke="#fff" strokeWidth={1.5} /><path d="M522 82 q18 -22 36 0" stroke={COL.acc} strokeWidth={2} fill="none" />
-    <line x1={332} y1={100} x2={332} y2={52} stroke="#8b9bae" strokeWidth={3} /><circle cx={332} cy={50} r={4} fill="#8b9bae" />
+    <rect x={380} y={70} width={110} height={30} rx={6} fill="url(#gMetal)" stroke={COL.edge} /><rect x={392} y={78} width={86} height={14} rx={3} fill="#1a1a1a" />
+    <circle cx={540} cy={96} r={9} fill="#58a6ff" stroke="#fff" strokeWidth={1.5} /><path d="M522 82 q18 -22 36 0" stroke={COL.acc} strokeWidth={2} fill="none" />
+    <line x1={332} y1={100} x2={332} y2={52} stroke="#9a9a9a" strokeWidth={3} /><circle cx={332} cy={50} r={4} fill="#9a9a9a" />
     <Screen x={352} y={126} w={92} h={34}><T x={358} y={141} s={9} c="#5aa981">FMG</T><T x={358} y={154} s={10} c="#7be0a4" w="bold">{num(r?.dose.value ?? 0, 3)} µSv/h</T></Screen>
-    <path d="M30 330 q60 -20 140 0 M470 330 q80 -20 160 0" stroke="#2a3541" strokeWidth={2} fill="none" opacity={drive ? 1 : .3} />
+    <path d="M30 330 q60 -20 140 0 M470 330 q80 -20 160 0" stroke="#272727" strokeWidth={2} fill="none" opacity={drive ? 1 : .3} />
   </g>);
 }
 function TubesArt({ tube }: { tube: any }) {
   return (<g filter="url(#shadow)">
     {/* Balgpumpe */}
     <rect x={220} y={186} width={190} height={112} rx={34} fill="url(#gBody)" stroke={COL.edge} strokeWidth={2} />
-    {[0, 1, 2, 3, 4, 5].map((k) => <line key={k} x1={246 + k * 26} y1={190} x2={246 + k * 26} y2={294} stroke="#4a5a6d" strokeWidth={3} opacity=".7" />)}
-    <rect x={410} y={214} width={60} height={56} rx={8} fill="url(#gMetal)" stroke={COL.edge} /><rect x={412} y={236} width={56} height={12} fill="#caa21f" opacity=".9" />
-    <circle cx={440} cy={192} r={12} fill="#caa21f" stroke={COL.edge} />
+    {[0, 1, 2, 3, 4, 5].map((k) => <line key={k} x1={246 + k * 26} y1={190} x2={246 + k * 26} y2={294} stroke="#4a4a4a" strokeWidth={3} opacity=".7" />)}
+    <rect x={410} y={214} width={60} height={56} rx={8} fill="url(#gMetal)" stroke={COL.edge} /><rect x={412} y={236} width={56} height={12} fill="#d29922" opacity=".9" />
+    <circle cx={440} cy={192} r={12} fill="#d29922" stroke={COL.edge} />
     {/* Röhrchen mit Anzeigezone */}
-    <rect x={470} y={233} width={176} height={18} rx={9} fill="#e8edf2" opacity=".12" stroke="#e8edf2" />
-    <rect x={486} y={237} width={78} height={10} fill="#e9d36a" opacity=".85" /><rect x={564} y={237} width={34} height={10} fill="#a9772a" opacity=".9" /><rect x={598} y={237} width={42} height={10} fill="#e8edf2" opacity=".35" />
+    <rect x={470} y={233} width={176} height={18} rx={9} fill="#ebe9e6" opacity=".12" stroke="#ebe9e6" />
+    <rect x={486} y={237} width={78} height={10} fill="#e9d36a" opacity=".85" /><rect x={564} y={237} width={34} height={10} fill="#a9772a" opacity=".9" /><rect x={598} y={237} width={42} height={10} fill="#ebe9e6" opacity=".35" />
     {[0, 1, 2, 3, 4, 5, 6].map((k) => <line key={k} x1={500 + k * 20} y1={225} x2={500 + k * 20} y2={k % 2 ? 231 : 229} stroke={COL.dim} />)}
     <T x={558} y={216} s={9} c={COL.dim} a="middle">Skala</T>
     <T x={315} y={248} s={11} c={COL.txt} a="middle">{tube?.product ?? '–'}</T>
@@ -221,17 +221,17 @@ export function DeviceFigure({ id }: { id: string }) {
         {id === 'tubes' && <select className="inp absolute left-3 top-3 z-10" value={ctx.tube?.id ?? ''} onChange={(e) => setTubeId(e.target.value)}>{ctx.tubes.map((t: any) => <option key={t.id} value={t.id}>{t.product}</option>)}</select>}
         <svg viewBox="0 0 760 440" className="w-full" style={{ maxHeight: 560 }}>
           <Defs />
-          <rect x={0} y={0} width={760} height={440} fill="#10161c" /><g stroke="#1a232c">{Array.from({ length: 16 }, (_, k) => <line key={k} x1={k * 50} y1={0} x2={k * 50} y2={440} />)}{Array.from({ length: 9 }, (_, k) => <line key={k} x1={0} y1={k * 50} x2={760} y2={k * 50} />)}</g>
+          <rect x={0} y={0} width={760} height={440} fill="#0b0b0b" /><g stroke="#1a1a1a">{Array.from({ length: 16 }, (_, k) => <line key={k} x1={k * 50} y1={0} x2={k * 50} y2={440} />)}{Array.from({ length: 9 }, (_, k) => <line key={k} x1={0} y1={k * 50} x2={760} y2={k * 50} />)}</g>
           <Art id={id} ctx={ctx} />
           {spots.map((s) => {
             const lx = s.side === 'l' ? 8 : 752; const ax = s.side === 'l' ? 196 : 564; const on = s.n === sel; const c = s.color ?? COL.txt;
             return (
               <g key={s.n} onClick={() => setSel(s.n)} style={{ cursor: 'pointer' }}>
-                <polyline points={`${ax},${s.ly + 20} ${ax + (s.side === 'l' ? 10 : -10)},${s.ly + 20} ${s.x},${s.y}`} fill="none" stroke={on ? COL.acc : '#5d6f84'} strokeWidth={on ? 1.6 : 1} strokeDasharray={on ? '' : '3 3'} />
-                <circle cx={s.x} cy={s.y} r={on ? 11 : 9} fill={on ? COL.acc : '#10161c'} stroke={on ? '#fff' : COL.acc} strokeWidth={1.5} />
+                <polyline points={`${ax},${s.ly + 20} ${ax + (s.side === 'l' ? 10 : -10)},${s.ly + 20} ${s.x},${s.y}`} fill="none" stroke={on ? COL.acc : '#5a5a5a'} strokeWidth={on ? 1.6 : 1} strokeDasharray={on ? '' : '3 3'} />
+                <circle cx={s.x} cy={s.y} r={on ? 11 : 9} fill={on ? COL.acc : '#0b0b0b'} stroke={on ? '#fff' : COL.acc} strokeWidth={1.5} />
                 <text x={s.x} y={s.y + 4} fontSize={11} fontWeight="bold" fill={on ? '#fff' : COL.acc} textAnchor="middle">{s.n}</text>
                 <text x={lx} y={s.ly + 8} fontSize={9.5} fill={COL.dim} textAnchor={s.side === 'l' ? 'start' : 'end'} style={{ textTransform: 'uppercase', letterSpacing: '.06em' }}>{s.n}. {s.title}</text>
-                <text x={lx} y={s.ly + 27} fontSize={15} fontWeight="bold" fill={c} textAnchor={s.side === 'l' ? 'start' : 'end'} fontFamily="Consolas, 'DejaVu Sans Mono', monospace">{s.v.length > 20 ? s.v.slice(0, 19) + '…' : s.v}</text>
+                <text x={lx} y={s.ly + 27} fontSize={15} fontWeight="bold" fill={c} textAnchor={s.side === 'l' ? 'start' : 'end'} fontFamily="'Geist Mono Variable', 'Geist Mono', ui-monospace, monospace">{s.v.length > 20 ? s.v.slice(0, 19) + '…' : s.v}</text>
                 {s.sub && <text x={lx} y={s.ly + 42} fontSize={10} fill={COL.dim} textAnchor={s.side === 'l' ? 'start' : 'end'}>{s.sub.length > 34 ? s.sub.slice(0, 33) + '…' : s.sub}</text>}
               </g>);
           })}

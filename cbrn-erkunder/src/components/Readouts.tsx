@@ -40,10 +40,10 @@ export function PidPanel({ r, link = true }: { r: any; link?: boolean }) {
   const dur = useSession(); if (!r) return null; const v = r.pid.value; const st = pidStatus(v);
   return (
     <Panel title="PID" right={link && <Link className="text-accent" to="/geraete/pid">Gerätepage →</Link>} className="h-full">
-      <div className="flex items-end gap-2"><span className="text-[34px] font-mono leading-none" style={{ color: st === 'NORMAL' ? undefined : st === 'HOCH' ? '#d0503f' : '#d9a21b' }}>{num(v, 1)}</span><span className="text-dim mb-1">ppm (VOC)</span><span className="ml-auto"><StatusBadge s={st} /></span></div>
+      <div className="flex items-end gap-2"><span className="text-[34px] font-mono leading-none" style={{ color: st === 'NORMAL' ? undefined : st === 'HOCH' ? '#e5534b' : '#d29922' }}>{num(v, 1)}</span><span className="text-dim mb-1">ppm (VOC)</span><span className="ml-auto"><StatusBadge s={st} /></span></div>
       <div className="grid grid-cols-3 gap-3 mt-3"><Field label="Messdauer">{dur}</Field><Field label="GPS"><StatusBadge s="FIX" /></Field><Field label="Lampe">10,6 eV</Field></div>
       <div className="mt-3"><div className="lbl">Mögliche Stoffgruppen</div>{r.pid.groups.length ? <ul className="list-disc ml-5">{r.pid.groups.map((g: string) => <li key={g}>{g}</li>)}</ul> : <div className="text-dim">– (kein erhöhter Wert)</div>}</div>
-      <div className="mt-3"><Badge color="#d9a21b">SCREENING / HINWEIS</Badge> <span className="text-[11px] text-dim">PID allein identifiziert keinen Stoff.</span></div>
+      <div className="mt-3"><Badge color="#d29922">SCREENING / HINWEIS</Badge> <span className="text-[11px] text-dim">PID allein identifiziert keinen Stoff.</span></div>
     </Panel>
   );
 }
@@ -69,7 +69,7 @@ export function RadPanel({ r, link = true }: { r: any; link?: boolean }) {
   const { hist } = useLive(); if (!r) return null; const st = doseStatus(r.dose.value);
   return (
     <Panel title="Radiologische Messung" right={link && <Link className="text-accent" to="/geraete/dlm">Gerätepage →</Link>} className="h-full">
-      <div className="flex items-end gap-2"><span className="text-[34px] font-mono leading-none" style={{ color: st === 'NORMAL' ? undefined : st === 'ALARM' ? '#d0503f' : '#d9a21b' }}>{num(r.dose.value, 3)}</span><span className="text-dim mb-1">µSv/h</span><span className="ml-auto"><StatusBadge s={st} /></span></div>
+      <div className="flex items-end gap-2"><span className="text-[34px] font-mono leading-none" style={{ color: st === 'NORMAL' ? undefined : st === 'ALARM' ? '#e5534b' : '#d29922' }}>{num(r.dose.value, 3)}</span><span className="text-dim mb-1">µSv/h</span><span className="ml-auto"><StatusBadge s={st} /></span></div>
       <div className="grid grid-cols-3 gap-3 mt-3"><Field label="CoMo 170 ZS-2">{num(r.como.value, 1)} cps</Field><Field label="GPS"><StatusBadge s="FIX" /></Field><Field label="Trend">{hist.length > 5 ? (hist.at(-1)!.dose > hist.at(-6)!.dose * 1.05 ? '▲ steigend' : hist.at(-1)!.dose < hist.at(-6)!.dose * 0.95 ? '▼ fallend' : '► stabil') : '–'}</Field></div>
     </Panel>
   );

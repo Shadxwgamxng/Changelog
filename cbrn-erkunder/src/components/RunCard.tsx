@@ -13,8 +13,8 @@ export function RunCard({ compact }: { compact?: boolean }) {
   const body = (
     <>
       <div className="flex items-center gap-3 flex-wrap">
-        {run ? <Badge color="#d0503f" solid>● MESSFAHRT LÄUFT</Badge> : <Badge>KEINE MESSFAHRT</Badge>}
-        <Badge color={fivem ? '#4fa86b' : '#d6742a'}>{fivem ? 'POSITION AUS GTA' : 'DEMO-FAHRT'}</Badge>
+        {run ? <Badge color="#e5534b" solid>● MESSFAHRT LÄUFT</Badge> : <Badge>KEINE MESSFAHRT</Badge>}
+        <Badge color={fivem ? '#3fb950' : '#f0500a'}>{fivem ? 'POSITION AUS GTA' : 'DEMO-FAHRT'}</Badge>
         {!run ? <Btn kind="primary" onClick={() => go('start')} disabled={!can(1)}>▶ Messfahrt starten</Btn> : <Btn kind="danger" onClick={() => go('stop')}>■ Messfahrt beenden</Btn>}
         {err && <span className="text-bad">{err}</span>}
       </div>

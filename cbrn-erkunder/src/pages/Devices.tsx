@@ -60,9 +60,9 @@ export function DevicePage() {
         <Panel title="Beschreibung"><div>{dev.description}</div><div className="text-dim text-[11px] mt-2">Quelle: BBK (Gerätebezeichnung/Funktion) – Detailparameter einzelner Geräte NICHT VERFÜGBAR / QUELLE ERFORDERLICH.</div></Panel>
       </div>
       {(id === 'pid' || id === 'dlm' || id === 'fmg') && (
-        <Panel title="Verlauf (Live, Simulation)" className="mb-3"><TimeChart data={hist} series={[id === 'pid' ? { key: 'pid', color: '#d9a21b', name: 'PID' } : { key: 'dose', color: '#d6742a', name: 'Dosisleistung' }]} unit={id === 'pid' ? 'ppm' : 'µSv/h'} height={190} /></Panel>)}
+        <Panel title="Verlauf (Live, Simulation)" className="mb-3"><TimeChart data={hist} series={[id === 'pid' ? { key: 'pid', color: '#d29922', name: 'PID' } : { key: 'dose', color: '#f0500a', name: 'Dosisleistung' }]} unit={id === 'pid' ? 'ppm' : 'µSv/h'} height={190} /></Panel>)}
       {(id === 'dlm' || id === 'como') && spec.data && (
-        <Panel title="Gamma-Spektrum" right={<Badge color="#d6742a">SIMULIERTE AUSWERTUNG</Badge>} className="mb-3">
+        <Panel title="Gamma-Spektrum" right={<Badge color="#f0500a">SIMULIERTE AUSWERTUNG</Badge>} className="mb-3">
           <SpectrumChart counts={spec.data.counts} kev={spec.data.kev_per_channel} />
           <div className="grid grid-cols-2 gap-3 mt-2">
             <div><div className="lbl mb-1">Mögliche Identifikationen (Linienzuordnung)</div>

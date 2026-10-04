@@ -3,6 +3,8 @@ import ReactDOM from 'react-dom/client';
 import { HashRouter } from 'react-router-dom';
 import App from './App';
 import { LiveProvider } from './store';
+import '@fontsource-variable/geist';
+import '@fontsource-variable/geist-mono';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './index.css';
 

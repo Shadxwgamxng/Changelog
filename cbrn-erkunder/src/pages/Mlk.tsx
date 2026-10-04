@@ -19,7 +19,7 @@ export default function Mlk() {
       <div className="grid grid-cols-12 gap-3">
         <Panel title="Fahrzeuge" className="col-span-3">
           {vehicles.map((v) => { const busy = (missions.data ?? []).some((m) => m.vehicle_id === v.id && m.status === 'IN BEARBEITUNG'); const st = !v.online ? 'OFFLINE' : busy ? 'MESSUNG' : 'ONLINE'; const r = live[v.id];
-            return (<div key={v.id} className="py-1.5 border-b border-line/60 last:border-0"><div className="flex justify-between"><b>{v.id}</b><span style={{ color: st === 'MESSUNG' ? '#4a8fd6' : STATUS_COLOR(st) }} className="font-mono text-[12px]">● {dis(st)}</span></div>
+            return (<div key={v.id} className="py-1.5 border-b border-line/60 last:border-0"><div className="flex justify-between"><b>{v.id}</b><span style={{ color: st === 'MESSUNG' ? '#58a6ff' : STATUS_COLOR(st) }} className="font-mono text-[12px]">● {dis(st)}</span></div>
               {r && v.online && <div className="text-[11px] text-dim font-mono">{num(r.speed_kmh, 0)} km/h · PID {num(r.pid.value, 1)} ppm · {num(r.dose.value, 2)} µSv/h</div>}</div>); })}
           <div className="mt-3 lbl">Datenverbindung</div>{vehicles.map((v) => <div key={v.id} className="flex justify-between text-[12px]"><span>{v.id}</span><StatusBadge s={v.link} /></div>)}
         </Panel>
@@ -27,10 +27,10 @@ export default function Mlk() {
         <div className="col-span-3 space-y-3">
           <Panel title="CBRN-Lage">
             {[['C', 'CHEMISCH', L.CHEMISCH], ['R', 'RADIOLOGISCH', L.RADIOLOGISCH], ['B', 'BIOLOGISCH', L.BIOLOGISCH], ['N', 'NUKLEAR', L.NUKLEAR], ['U', 'UNBEKANNT', L.UNBEKANNT]].map(([k, l, n]) => (
-              <div key={k as string} className="flex items-center justify-between py-0.5"><span className="flex items-center gap-2"><i className="w-3 h-3 rounded-full inline-block" style={{ background: n ? CAT[k as string].color : '#2a3541' }} />{l}</span><span className="font-mono">{n ?? 0}</span></div>))}
+              <div key={k as string} className="flex items-center justify-between py-0.5"><span className="flex items-center gap-2"><i className="w-3 h-3 rounded-full inline-block" style={{ background: n ? CAT[k as string].color : '#272727' }} />{l}</span><span className="font-mono">{n ?? 0}</span></div>))}
           </Panel>
           <Panel title="Szenario (Simulation)">
-            <div className="text-[12px] mb-1">Aktiv: <b>{active.data?.name}</b> <Badge color="#d6742a">SIMULIERT</Badge></div>
+            <div className="text-[12px] mb-1">Aktiv: <b>{active.data?.name}</b> <Badge color="#f0500a">SIMULIERT</Badge></div>
             <Select className="w-full" value={status?.scenario ?? ''} onChange={(id) => api('/system/scenario', { method: 'POST', body: { id } })} options={(scen.data ?? []).map((s) => [s.id, `${s.name} (${s.category})`] as [string, string])} />
             {!can(3) && <div className="text-dim text-[11px] mt-1">Umschalten: Messleitung/Administrator</div>}
           </Panel>

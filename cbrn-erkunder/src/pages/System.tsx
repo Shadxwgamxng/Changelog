@@ -55,7 +55,7 @@ function Admin() {
 function Scenarios() {
   const sc = useApi<any[]>('/scenarios'); const { status, can } = useLive(); const act = useApi<any>('/scenario/active', ['system.status'], [status?.scenario]);
   return (<Panel title="Simulationsszenarien (reale Stoff-/Nuklidreferenzen, simulierte Messereignisse)" body="!p-0"><table className="t"><thead><tr><th>Name</th><th>Kat.</th><th>Referenz</th><th>Gebiet</th><th>Geräte</th><th>Wetter</th><th></th></tr></thead><tbody>
-    {(sc.data ?? []).map((s) => <tr key={s.id}><td><b>{s.name}</b></td><td>{s.category}</td><td className="font-mono">{s.ref_type}:{s.ref_id}</td><td>{s.radius_m} m</td><td>{s.devices.join(', ')}</td><td>{s.weather}</td><td>{act.data?.id === s.id ? <Badge color="#4fa86b">AKTIV</Badge> : <Btn disabled={!can(3)} onClick={() => api('/system/scenario', { method: 'POST', body: { id: s.id } })}>Aktivieren</Btn>}</td></tr>)}</tbody></table>
+    {(sc.data ?? []).map((s) => <tr key={s.id}><td><b>{s.name}</b></td><td>{s.category}</td><td className="font-mono">{s.ref_type}:{s.ref_id}</td><td>{s.radius_m} m</td><td>{s.devices.join(', ')}</td><td>{s.weather}</td><td>{act.data?.id === s.id ? <Badge color="#3fb950">AKTIV</Badge> : <Btn disabled={!can(3)} onClick={() => api('/system/scenario', { method: 'POST', body: { id: s.id } })}>Aktivieren</Btn>}</td></tr>)}</tbody></table>
     <div className="p-2 text-[11px] text-dim">Neue Szenarien: Administration → Szenarien. Das Szenario „Verdächtige biologische Probe“ erzeugt keine Gerätemesswerte; Proben vom Typ BIOLOGISCH liefern ein simuliertes Laborergebnis.</div></Panel>);
 }
 

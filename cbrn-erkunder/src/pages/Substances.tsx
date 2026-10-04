@@ -8,7 +8,7 @@ import { NA, orNA } from '../lib/format';
 export const Ghs = ({ list }: { list: string[] }) => (
   <div className="flex gap-2 flex-wrap">{list.length ? list.map((g) => (
     <div key={g} title={GHS_PICT[g]?.name} className="w-12 h-12 flex flex-col items-center justify-center" >
-      <div className="w-9 h-9 rotate-45 border-[3px] border-[#d0503f] bg-white flex items-center justify-center"><span className="-rotate-45 text-black text-[16px] leading-none">{GHS_PICT[g]?.sym ?? g}</span></div>
+      <div className="w-9 h-9 rotate-45 border-[3px] border-[#e5534b] bg-white flex items-center justify-center"><span className="-rotate-45 text-black text-[16px] leading-none">{GHS_PICT[g]?.sym ?? g}</span></div>
       <span className="text-[9px] text-dim mt-1">{g}</span></div>)) : <span className="text-dim">{NA}</span>}</div>
 );
 
@@ -33,18 +33,18 @@ const SEC: [string, string][] = [['gefahren', 'Gefahren'], ['absperrung', 'Abspe
 export function ResponsePanel({ r, id = 'handlung' }: { r: any; id?: string }) {
   if (!r) return null;
   return (
-    <Panel title="Handlungsempfehlungen (Einsatz-Wiki)" right={<Badge color="#d9a21b">RICHTWERTE – QUELLE ERFORDERLICH</Badge>} className="col-span-12">
+    <Panel title="Handlungsempfehlungen (Einsatz-Wiki)" right={<Badge color="#d29922">RICHTWERTE – QUELLE ERFORDERLICH</Badge>} className="col-span-12">
       <div id={id} className="grid grid-cols-2 gap-x-8 gap-y-4">
         {SEC.filter(([k]) => r[k]?.length).map(([k, t]) => (
-          <div key={k} className={k === 'hinweise' ? 'col-span-2' : ''}><div className="lbl mb-1" style={{ color: k === 'gefahren' ? '#d0503f' : undefined }}>{t}</div><ul className="list-disc ml-5 space-y-0.5">{r[k].map((x: string, i: number) => <li key={i}>{x}</li>)}</ul></div>))}
+          <div key={k} className={k === 'hinweise' ? 'col-span-2' : ''}><div className="lbl mb-1" style={{ color: k === 'gefahren' ? '#e5534b' : undefined }}>{t}</div><ul className="list-disc ml-5 space-y-0.5">{r[k].map((x: string, i: number) => <li key={i}>{x}</li>)}</ul></div>))}
       </div>
     </Panel>
   );
 }
 export const TraitChips = ({ t }: { t: any }) => !t ? null : (
   <div className="flex gap-1.5 flex-wrap">
-    {t.flammable && <Badge color="#d0503f">brennbar</Badge>}{t.toxic && <Badge color="#d9a21b">giftig</Badge>}{t.corrosive && <Badge color="#d6742a">ätzend</Badge>}{t.oxidizer && <Badge color="#d6742a">brandfördernd</Badge>}
-    {t.water_reactive && <Badge color="#4a8fd6">wasserreaktiv</Badge>}{t.asphyxiant && <Badge>erstickend</Badge>}{t.cmr && <Badge color="#d0503f">CMR</Badge>}{t.aquatic && <Badge color="#4fa86b">wassergefährdend</Badge>}
+    {t.flammable && <Badge color="#e5534b">brennbar</Badge>}{t.toxic && <Badge color="#d29922">giftig</Badge>}{t.corrosive && <Badge color="#f0500a">ätzend</Badge>}{t.oxidizer && <Badge color="#f0500a">brandfördernd</Badge>}
+    {t.water_reactive && <Badge color="#58a6ff">wasserreaktiv</Badge>}{t.asphyxiant && <Badge>erstickend</Badge>}{t.cmr && <Badge color="#e5534b">CMR</Badge>}{t.aquatic && <Badge color="#3fb950">wassergefährdend</Badge>}
     {t.gas && t.vapor_heavier === true && <Badge>schwerer als Luft</Badge>}{t.gas && t.vapor_heavier === false && <Badge>leichter als Luft</Badge>}
     {t.floats === true && !t.gas && <Badge>schwimmt auf Wasser</Badge>}{t.floats === false && !t.gas && <Badge>sinkt in Wasser</Badge>}
     {t.ph && t.ph !== 'neutral' && <Badge>pH {t.ph}</Badge>}
@@ -81,7 +81,7 @@ export default function Substances() {
         <table className="t"><thead><tr><th>Stoff</th><th>CAS</th><th>UN</th><th>Formel</th><th>Kategorie</th><th>Zustand</th><th>Stoffgruppe</th><th>Merkmale</th><th>Daten</th></tr></thead><tbody>
           {(data ?? []).map((s) => (
             <tr key={s.id} className="cursor-pointer" onClick={() => nav(`/stoffe/${s.id}`)}>
-              <td><b>{s.name}</b>{s.subcategory === 'CWA' && <span className="ml-2"><Badge color="#d0503f">Kampfstoff</Badge></span>}</td><td className="font-mono">{s.cas}</td><td className="font-mono">{orNA(s.un_number)}</td><td className="font-mono">{s.formula}</td>
+              <td><b>{s.name}</b>{s.subcategory === 'CWA' && <span className="ml-2"><Badge color="#e5534b">Kampfstoff</Badge></span>}</td><td className="font-mono">{s.cas}</td><td className="font-mono">{orNA(s.un_number)}</td><td className="font-mono">{s.formula}</td>
               <td><CatBadge c={s.cbrn_category} /></td><td>{s.state}</td><td>{s.substance_group}</td><td><TraitChips t={s.traits} /></td><td><QualityBadge q={s.quality} /></td></tr>))}
         </tbody></table>
         {data && !data.length && <Empty>Keine Treffer</Empty>}
@@ -97,7 +97,7 @@ export function SubstanceDetail() {
   const cwa = s.subcategory === 'CWA';
   return (
     <Page title={s.name} sub={<span className="font-mono">{s.formula} · CAS {s.cas}</span>} right={<Link className="btn" to="/stoffe">← Stoffliste</Link>}>
-      <div className="flex gap-2 mb-3 items-center"><CatBadge c={s.cbrn_category} /><Badge>{s.state?.toUpperCase()}</Badge><Badge>{s.substance_group}</Badge>{cwa && <Badge color="#d0503f">Chemischer Kampfstoff (Identifikationsdaten)</Badge>}<QualityBadge q={s.quality} /></div>
+      <div className="flex gap-2 mb-3 items-center"><CatBadge c={s.cbrn_category} /><Badge>{s.state?.toUpperCase()}</Badge><Badge>{s.substance_group}</Badge>{cwa && <Badge color="#e5534b">Chemischer Kampfstoff (Identifikationsdaten)</Badge>}<QualityBadge q={s.quality} /></div>
       <div className="mb-3 flex items-center gap-3 flex-wrap"><TraitChips t={s.traits} />{s.traits?.origins?.length > 0 && <span className="text-dim text-[12px]">Typische Herkunft: {s.traits.origins.join(', ')}</span>}</div>
       <div className="grid grid-cols-12 gap-3">
         <Panel title="Gefahr" className="col-span-7">
@@ -120,7 +120,7 @@ export function SubstanceDetail() {
         </Panel>
         <Panel title="Nachweis / Messtechnik" className="col-span-12">
           <div className="grid grid-cols-2 gap-6">
-            <div><div className="lbl mb-1">Relevante Messgeräte</div><div className="flex gap-2 flex-wrap">{s.devices.length ? s.devices.map((d: string) => <Link key={d} to={`/geraete/${d === 'Prüfröhrchen' ? 'tubes' : d.toLowerCase()}`}><Badge color="#4a8fd6">{d}</Badge></Link>) : <span className="text-dim">{NA}</span>}</div></div>
+            <div><div className="lbl mb-1">Relevante Messgeräte</div><div className="flex gap-2 flex-wrap">{s.devices.length ? s.devices.map((d: string) => <Link key={d} to={`/geraete/${d === 'Prüfröhrchen' ? 'tubes' : d.toLowerCase()}`}><Badge color="#58a6ff">{d}</Badge></Link>) : <span className="text-dim">{NA}</span>}</div></div>
             <div><div className="lbl mb-1">Relevante Messverfahren</div><ul className="list-disc ml-5">{s.methods.map((m: string) => <li key={m}>{m}</li>)}</ul></div>
           </div>
           <div className="text-[11px] text-dim mt-2">Hinweis: Screeninggeräte liefern Hinweis/Verdacht; eine bestätigte Identifikation erfordert weitere Messung/Probe und Laborbefund. Die IMS-Zuordnung in der Simulation ist eine Szenarioannahme ({s.ims_sim ? 'Treffer simulierbar' : 'kein IMS-Treffer simuliert'}).</div>

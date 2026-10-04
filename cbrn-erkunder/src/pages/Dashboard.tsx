@@ -28,7 +28,7 @@ export default function Dashboard() {
         <Stat label="Aktive Aufträge" value={activeM.length} />
         <Stat label="Messpunkte" value={mpCount.toLocaleString('de-DE')} />
         <Stat label="Proben" value={samples.data?.length ?? 0} />
-        <Stat label="Warnungen" value={open.length} color={open.length ? '#d9a21b' : undefined} />
+        <Stat label="Warnungen" value={open.length} color={open.length ? '#d29922' : undefined} />
       </div>
       <RunCard />
       <div className="grid grid-cols-12 gap-3">
@@ -39,7 +39,7 @@ export default function Dashboard() {
           <Panel title="CBRN-Lage">
             {[['C', 'CHEMISCH', L.CHEMISCH], ['R', 'RADIOLOGISCH', L.RADIOLOGISCH], ['B', 'BIOLOGISCH', L.BIOLOGISCH], ['N', 'NUKLEAR', L.NUKLEAR], ['U', 'UNBEKANNT', L.UNBEKANNT]].map(([k, l, n]) => (
               <div key={k as string} className="flex items-center justify-between py-1 border-b border-line/50 last:border-0">
-                <span className="flex items-center gap-2"><i className="w-3 h-3 rounded-full inline-block" style={{ background: n ? CAT[k as string].color : '#2a3541' }} />{l}</span>
+                <span className="flex items-center gap-2"><i className="w-3 h-3 rounded-full inline-block" style={{ background: n ? CAT[k as string].color : '#272727' }} />{l}</span>
                 <span className="font-mono">{n ? `${n} Auffälligkeit${n > 1 ? 'en' : ''}` : '0'}</span>
               </div>))}
           </Panel>
@@ -47,18 +47,18 @@ export default function Dashboard() {
             {weather && <div className="grid grid-cols-2 gap-2 font-mono"><span>{num(weather.temperature, 1)} °C</span><span>{num(weather.humidity, 0)} % rF</span><span>{num(weather.pressure, 0)} hPa</span><span>{num(weather.wind_speed, 1)} m/s</span><span className="col-span-2">Wind kommt aus {weather.wind_from_text} ({num(weather.wind_from, 0)}°)</span></div>}
           </Panel>
         </div>
-        <Panel title="PID – VOC" right={<Badge color="#d9a21b">SCREENING</Badge>} className="col-span-4">
-          <TimeChart data={hist} series={[{ key: 'pid', color: '#d9a21b', name: 'PID' }]} unit="ppm" height={150} />
+        <Panel title="PID – VOC" right={<Badge color="#d29922">SCREENING</Badge>} className="col-span-4">
+          <TimeChart data={hist} series={[{ key: 'pid', color: '#d29922', name: 'PID' }]} unit="ppm" height={150} />
         </Panel>
-        <Panel title="Dosisleistung" className="col-span-4"><TimeChart data={hist} series={[{ key: 'dose', color: '#d6742a', name: 'Dosisleistung' }]} unit="µSv/h" height={150} /></Panel>
+        <Panel title="Dosisleistung" className="col-span-4"><TimeChart data={hist} series={[{ key: 'dose', color: '#f0500a', name: 'Dosisleistung' }]} unit="µSv/h" height={150} /></Panel>
         <Panel title="Letzte Warnungen / Alarme" className="col-span-4" right={<Link to="/historie" className="text-accent">alle →</Link>}>
           <table className="t"><tbody>
-            {(alarms.data ?? []).slice(0, 6).map((a) => <tr key={a.id}><td className="font-mono">{time(a.ts)}</td><td><Badge color={CAT[a.category[0]]?.color ?? '#8896a6'}>{a.category}</Badge></td><td>{a.description}</td></tr>)}
+            {(alarms.data ?? []).slice(0, 6).map((a) => <tr key={a.id}><td className="font-mono">{time(a.ts)}</td><td><Badge color={CAT[a.category[0]]?.color ?? '#817d78'}>{a.category}</Badge></td><td>{a.description}</td></tr>)}
           </tbody></table>
         </Panel>
         <Panel title="Aktive Aufträge" className="col-span-12" right={<Link to="/auftraege" className="text-accent">Aufträge →</Link>}>
           <table className="t"><thead><tr><th>Auftrag</th><th>Fahrzeug</th><th>Priorität</th><th>Gebiet</th><th>Messprofil</th><th>Status</th></tr></thead><tbody>
-            {activeM.map((m) => <tr key={m.id}><td className="font-mono">#{m.id}</td><td>{m.vehicle_id}</td><td><Badge color={m.priority === 'HOCH' ? '#d0503f' : '#8896a6'}>{m.priority}</Badge></td><td>{m.sector_name}</td><td>{m.profile}</td><td><StatusBadge s={m.status} /></td></tr>)}
+            {activeM.map((m) => <tr key={m.id}><td className="font-mono">#{m.id}</td><td>{m.vehicle_id}</td><td><Badge color={m.priority === 'HOCH' ? '#e5534b' : '#817d78'}>{m.priority}</Badge></td><td>{m.sector_name}</td><td>{m.profile}</td><td><StatusBadge s={m.status} /></td></tr>)}
             {!activeM.length && <tr><td colSpan={6} className="text-dim">Keine aktiven Aufträge</td></tr>}
           </tbody></table>
         </Panel>

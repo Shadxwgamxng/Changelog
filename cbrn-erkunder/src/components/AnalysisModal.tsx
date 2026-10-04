@@ -29,13 +29,13 @@ export function AnalysisModal({ sample, onClose, onSaved }: { sample?: any; onCl
     <Modal wide title={sample ? `Probe analysieren – ${sample.id}` : 'Schnellanalyse (ohne Probe)'} onClose={onClose}>
       {!res ? null : (
         <div className="border border-line2 bg-bg p-3 mb-3">
-          <div className="flex items-center gap-3 flex-wrap"><b className="text-[15px]">{res.label ?? res.summary}</b>{res.candidates[0] && <LevelBadge l={res.candidates[0].score >= 3 ? res.candidates[0].level : 'hinweis'} />}{saved && <Badge color="#4fa86b">IN PROBE ÜBERNOMMEN</Badge>}</div>
+          <div className="flex items-center gap-3 flex-wrap"><b className="text-[15px]">{res.label ?? res.summary}</b>{res.candidates[0] && <LevelBadge l={res.candidates[0].score >= 3 ? res.candidates[0].level : 'hinweis'} />}{saved && <Badge color="#3fb950">IN PROBE ÜBERNOMMEN</Badge>}</div>
           {res.hint && <div className="text-warn text-[12px] mt-1">{res.hint}</div>}
           <div className="mt-2 space-y-2">
             {res.candidates.filter((c: any) => c.score > 0).slice(0, 5).map((c: any, i: number) => (
               <div key={c.id} className={`border p-2 ${i === 0 ? 'border-accent' : 'border-line'}`}>
                 <div className="flex items-center gap-2 flex-wrap"><span className="text-dim font-mono">{i + 1}.</span><Link to={`/stoffe/${c.id}`} onClick={onClose} className="font-semibold text-accent">{c.name}</Link><span className="font-mono text-dim text-[11px]">CAS {c.cas}</span>
-                  <CatBadge c={c.category} />{c.subcategory === 'CWA' && <Badge color="#d0503f">Kampfstoff</Badge>}<LevelBadge l={c.level} /><span className="ml-auto font-mono text-[12px]">Übereinstimmung ≈ {c.confidence} %</span></div>
+                  <CatBadge c={c.category} />{c.subcategory === 'CWA' && <Badge color="#e5534b">Kampfstoff</Badge>}<LevelBadge l={c.level} /><span className="ml-auto font-mono text-[12px]">Übereinstimmung ≈ {c.confidence} %</span></div>
                 <div className="h-1.5 bg-line mt-1"><div className="h-full bg-accent" style={{ width: `${Math.min(100, c.confidence)}%` }} /></div>
                 <ul className="mt-1 text-[12px] columns-2 gap-4">{c.reasons.filter((r: any) => r.ok !== null).slice(0, 8).map((r: any, k: number) => <li key={k} className={r.ok ? 'text-ok' : 'text-bad'}>{r.ok ? '✓' : '✗'} <span className="text-txt">{r.text}</span></li>)}</ul>
                 {i === 0 && <div className="text-[12px] mt-1"><span className="lbl">Nächste Schritte:</span> {c.next.join(' · ')}</div>}
@@ -43,7 +43,7 @@ export function AnalysisModal({ sample, onClose, onSaved }: { sample?: any; onCl
               </div>))}
           </div>
           {res.extras?.map((x: any) => (
-            <div key={x.title} className="mt-2 border border-warn/60 p-2 text-[12px]"><b>{x.title}</b> – {x.text}{x.refs?.length > 0 && <div className="mt-1 flex gap-2 flex-wrap">{x.refs.map((r: any) => <Link key={r.id} onClick={onClose} to={x.type === 'radiologisch' ? `/radionuklide/${r.id}` : `/bio/${r.id}`}><Badge color="#d6742a">{r.name}{r.hint ? ` (${r.hint})` : ''}</Badge></Link>)}</div>}</div>))}
+            <div key={x.title} className="mt-2 border border-warn/60 p-2 text-[12px]"><b>{x.title}</b> – {x.text}{x.refs?.length > 0 && <div className="mt-1 flex gap-2 flex-wrap">{x.refs.map((r: any) => <Link key={r.id} onClick={onClose} to={x.type === 'radiologisch' ? `/radionuklide/${r.id}` : `/bio/${r.id}`}><Badge color="#f0500a">{r.name}{r.hint ? ` (${r.hint})` : ''}</Badge></Link>)}</div>}</div>))}
           <div className="mt-2"><SimNote>ENTSCHEIDUNGSHILFE – keine bestätigte Identifikation. Bestätigung nur durch weitere Messung und Laborbefund.</SimNote></div>
         </div>)}
       <div className="grid grid-cols-3 gap-3">

@@ -1,14 +1,16 @@
 /** @type {import('tailwindcss').Config} */
+// Optik: dunkle, neutrale Oberfläche mit orangem Akzent (Anlehnung an das Erscheinungsbild von ignis/EmergencyForge).
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
       colors: {
-        bg: '#0f1318', panel: '#161c23', panel2: '#1c242d', line: '#2a3541', line2: '#38465a',
-        txt: '#d5dde6', dim: '#8896a6', accent: '#4a8fd6',
-        ok: '#4fa86b', warn: '#d9a21b', bad: '#d0503f',
+        bg: '#0b0b0b', bg2: '#101010', panel: '#151515', panel2: '#1b1b1b', panel3: '#222222', line: '#272727', line2: '#363636',
+        txt: '#ebe9e6', txt2: '#b7b4b0', dim: '#817d78', accent: '#f0500a', 'accent-hover': '#d84507',
+        ok: '#3fb950', warn: '#d29922', bad: '#e5534b', info: '#58a6ff',
       },
-      fontFamily: { sans: ['"Segoe UI"', 'Roboto', 'Arial', 'sans-serif'], mono: ['Consolas', '"DejaVu Sans Mono"', 'monospace'] },
+      fontFamily: { sans: ['"Geist Variable"', 'Geist', 'ui-sans-serif', 'system-ui', 'Segoe UI', 'sans-serif'], mono: ['"Geist Mono Variable"', '"Geist Mono"', 'ui-monospace', 'Consolas', 'monospace'] },
+      borderRadius: { DEFAULT: '6px', sm: '4px', md: '6px', lg: '8px', xl: '10px' },
     },
   },
   plugins: [],

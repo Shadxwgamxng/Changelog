@@ -29,7 +29,7 @@ export function MissionTable({ missions, reload }: { missions: any[]; reload?: (
     {err && <div className="text-bad mb-2">{err}</div>}
     <table className="t"><thead><tr><th>Auftrag</th><th>Fahrzeug</th><th>Priorität</th><th>Gebiet</th><th>Messprofil</th><th>Status</th><th>Erstellt</th><th></th></tr></thead><tbody>
       {missions.map((m) => (
-        <tr key={m.id}><td className="font-mono">#{m.id}</td><td>{m.vehicle_id}</td><td><Badge color={m.priority === 'HOCH' || m.priority === 'DRINGEND' ? '#d0503f' : '#8896a6'}>{m.priority}</Badge></td><td>{m.sector_name}</td><td>{m.profile}</td><td><StatusBadge s={m.status} /></td><td>{dt(m.created_at)}</td>
+        <tr key={m.id}><td className="font-mono">#{m.id}</td><td>{m.vehicle_id}</td><td><Badge color={m.priority === 'HOCH' || m.priority === 'DRINGEND' ? '#e5534b' : '#817d78'}>{m.priority}</Badge></td><td>{m.sector_name}</td><td>{m.profile}</td><td><StatusBadge s={m.status} /></td><td>{dt(m.created_at)}</td>
           <td className="whitespace-nowrap space-x-1">
             {m.status === 'ÜBERMITTELT' && <Btn onClick={() => act(m.id, 'ANGENOMMEN')}>Annehmen</Btn>}
             {['ÜBERMITTELT', 'ANGENOMMEN'].includes(m.status) && <Btn onClick={() => act(m.id, 'IN BEARBEITUNG')}>Starten</Btn>}

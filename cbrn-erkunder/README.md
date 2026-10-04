@@ -17,6 +17,10 @@ npm run build && npm run start   # alles auf http://localhost:3001
 
 Die SQLite-Datenbank (`data/cbrn.db`) wird beim ersten Start angelegt und befüllt (`npm run db:reset` setzt zurück). Rollen wechselt man oben rechts (Erkunder / Truppführer / Messleitung / Administrator).
 
+## Optik
+
+Dunkle, neutrale Oberfläche mit orangem Akzent, Geist-Schrift (lokal eingebunden, SIL OFL), einklappbare Seitenleiste mit Symbolen (lucide, ISC) und Karten/Chips in der Art moderner Fraktionsverwaltungs-Tools wie ignis (EmergencyForge). Es wurde nur die Gestaltungsidee nachempfunden – kein Code, keine Grafiken und keine Markenzeichen aus ignis (GPL-3.0) übernommen. Die Farb-Token stehen in `tailwind.config.js` und `src/index.css`.
+
 ## Funktionen für den Einsatz im Spiel
 
 * **Messfahrt:** „▶ Messfahrt starten“ (Dashboard, Live-Messung, Karte, Fahrzeug). Mit FiveM-Verbindung kommen Position, Geschwindigkeit und Kurs **dauerhaft aus GTA** auf die Karte (Track, Strecke, Messpunkte werden aufgezeichnet); ohne FiveM fährt die Demo-Route. Übersicht unter Historie → Messfahrten.

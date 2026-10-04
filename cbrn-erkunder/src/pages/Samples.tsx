@@ -36,7 +36,7 @@ export function SampleReport({ id }: { id: string }) {
         <div><div className="lbl mb-1">Laborergebnis</div>{s.lab_result ? (
           <div className="border border-line2 p-2"><div className="text-[11px] text-dim">Vor-Ort: {s.onsite_assessment}</div><div className="font-semibold mt-1">{s.lab_result.text}</div>
             {s.lab_result.substance_id && <a className="text-accent" href={`#/stoffe/${s.lab_result.substance_id}`}>Stoffdaten öffnen →</a>}
-            <div className="mt-1"><StatusBadge s="BEFUND EINGEGANGEN" /> <Badge color="#d6742a">SIMULIERTES LABORERGEBNIS</Badge></div></div>) : <div className="text-dim">Noch kein Befund – Status: {s.lab_status}</div>}</div>
+            <div className="mt-1"><StatusBadge s="BEFUND EINGEGANGEN" /> <Badge color="#f0500a">SIMULIERTES LABORERGEBNIS</Badge></div></div>) : <div className="text-dim">Noch kein Befund – Status: {s.lab_status}</div>}</div>
       </div>
     </div>
   );
