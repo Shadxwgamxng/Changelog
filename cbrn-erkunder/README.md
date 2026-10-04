@@ -6,7 +6,7 @@ Eigenständige Web-App, die den digitalen Arbeitsplatz eines deutschen CBRN-Erku
 
 ## Start
 
-Einfachster Weg: **`start.bat`** (Windows) bzw. `./start.sh` doppelklicken/ausführen – installiert beim ersten Mal alles, baut die App, startet sie und öffnet den Browser (http://localhost:3001). Voraussetzung: Node.js 20+.
+Einfachster Weg: **`start.bat`** (Windows) bzw. `./start.sh` doppelklicken/ausführen – installiert beim ersten Mal alles, baut die App, startet sie und öffnet den Browser (http://localhost:3001). Voraussetzung: Node.js 22+.
 
 ```bash
 npm install
@@ -21,7 +21,7 @@ Die SQLite-Datenbank (`data/cbrn.db`) wird beim ersten Start angelegt und befül
 
 | Teil | Inhalt |
 |---|---|
-| `server/` | Fastify + better-sqlite3 (relationales Schema, portables SQL → PostgreSQL), REST-API, WebSocket `/ws`, Simulationsengine, Berichte (PDF/CSV/JSON), Import (CSV/JSON mit CAS-Prüfziffer), Audit-Log |
+| `server/` | Fastify + node:sqlite (relationales Schema, portables SQL → PostgreSQL), REST-API, WebSocket `/ws`, Simulationsengine, Berichte (PDF/CSV/JSON), Import (CSV/JSON mit CAS-Prüfziffer), Audit-Log |
 | `server/data/` | Seed: 28 Stoffe (inkl. 7 Kampfstoffe, nur Identifikationsdaten), 13 Radionuklide, 9 biologische Agenzien, Geräte, Verfahren, Prüfröhrchen, Quellen, Szenarien |
 | `src/` | React + TypeScript + Vite + Tailwind, MapLibre GL, Recharts, HashRouter (NUI-tauglich) |
 | `fivem-adapter/` | Optionale FiveM-Ressource (Lua): sendet Position/Speed/Heading an die API |

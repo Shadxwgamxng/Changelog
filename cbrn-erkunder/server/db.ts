@@ -1,12 +1,20 @@
-import Database from 'better-sqlite3';
+import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
 import path from 'node:path';
 
 const dbFile = process.env.DB_FILE ?? path.resolve(process.cwd(), 'data', 'cbrn.db');
 fs.mkdirSync(path.dirname(dbFile), { recursive: true });
-export const db = new Database(dbFile);
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+// node:sqlite (in Node ab 22.5 eingebaut) – kein nativer Build/Python/Compiler nötig, läuft auch unter Windows.
+const raw = new DatabaseSync(dbFile);
+raw.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
+export const db = Object.assign(raw, {
+  transaction<A extends unknown[], R>(fn: (...a: A) => R) {
+    return (...a: A): R => {
+      raw.exec('BEGIN');
+      try { const r = fn(...a); raw.exec('COMMIT'); return r; } catch (e) { raw.exec('ROLLBACK'); throw e; }
+    };
+  },
+});
 
 // Schema ist bewusst portables SQL (TEXT/INTEGER/REAL) – Umstieg auf PostgreSQL = Treiber + Typnamen anpassen.
 export const SCHEMA = `
