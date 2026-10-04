@@ -11,3 +11,6 @@ SH Airsoft Kommando - Team Panel (lokal testen)
 
 Daten (Datenbank, Bilder) liegen im Ordner "data". Zuruecksetzen: Panel beenden, Ordner "data" loeschen, neu starten.
 Hinweis: Nur zum lokalen Testen. Fuer den Betrieb im Internet siehe README.md (Deployment).
+
+Als Handy-App: siehe README.md, Abschnitt "Als Handy-App nutzen (PWA)".
+Im selben WLAN: am PC ipconfig -> IPv4-Adresse, am Handy http://<IPv4>:3000 oeffnen (Firewall: privates Netzwerk zulassen).

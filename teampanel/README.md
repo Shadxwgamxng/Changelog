@@ -61,6 +61,23 @@ Nur Node.js (≥ 20.9) wird benötigt. Das Startskript startet eine **eingebette
 
 Danach läuft das Panel auf <http://localhost:3000> (Login `admin@example.local`, Passwort siehe [Demo-Zugänge](#demo-zugänge)). Beenden mit Strg+C. Zurücksetzen: Panel beenden und den Ordner `data` löschen. Nur zum lokalen Testen gedacht; der Datenbankprozess läuft nicht als Administrator/root (PostgreSQL verweigert das).
 
+## Als Handy-App nutzen (PWA)
+
+Das Panel ist eine **installierbare Web-App**: eigenes Icon auf dem Startbildschirm, Vollbild ohne Browserleiste, Offline-Hinweisseite. Es gibt keine Store-App; dafür muss der Server vom Handy aus erreichbar sein.
+
+**Installieren**
+
+- **Android (Chrome):** Seite öffnen → Menü ⋮ → „App installieren“ bzw. „Zum Startbildschirm hinzufügen“.
+- **iPhone (Safari):** Seite öffnen → Teilen-Symbol → „Zum Home-Bildschirm“.
+
+**Erreichbarkeit**
+
+- *Echter Betrieb (empfohlen):* Panel auf einem Server hinter **HTTPS** betreiben (siehe Deployment). Nur dann bieten Android/iOS die Installation an.
+- *Test im Heim-WLAN:* Mit `start.bat` läuft das Panel auf deinem PC auch für andere Geräte im selben WLAN: auf dem PC `ipconfig` → IPv4-Adresse, am Handy `http://<IPv4>:3000` öffnen. Bei der Windows-Firewall-Abfrage „Privates Netzwerk“ zulassen. Per HTTP kann man das Panel am Handy nutzen und als Lesezeichen/Verknüpfung ablegen, die echte Installation als App braucht aber HTTPS.
+- *Schnelles HTTPS ohne Server:* ein Tunnel wie Cloudflare Tunnel oder Tailscale Funnel auf `localhost:3000`; danach `APP_URL` auf die Tunnel-Adresse setzen und `AUTH_COOKIE_SECURE="true"`.
+
+Der Service Worker (`public/sw.js`) speichert nur Build-Dateien und Icons, **keine angemeldeten Seiten oder Daten**.
+
 ## Schnellstart mit eigener Datenbank (Entwicklung)
 
 ```bash

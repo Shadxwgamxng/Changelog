@@ -5,7 +5,7 @@ import { NextResponse, type NextRequest } from "next/server";
  * Die eigentliche Authentifizierung und Rechteprüfung erfolgt serverseitig
  * (Layout, Seiten, Server Actions, API-Routen) gegen die Datenbank.
  */
-const PUBLIC_PREFIXES = ["/login", "/forgot-password", "/reset-password", "/register", "/api/health", "/_next", "/logo", "/icon", "/apple-icon", "/favicon"];
+const PUBLIC_PREFIXES = ["/login", "/forgot-password", "/reset-password", "/register", "/api/health", "/_next", "/logo", "/icon", "/apple-icon", "/favicon", "/manifest.webmanifest", "/sw.js", "/offline.html", "/icons"];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
