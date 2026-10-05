@@ -171,8 +171,8 @@ function useSpots(id: string, ctx: any): Spot[] {
     P(...C(), 'l', 40, 'Display · Messwert', `${num(v, 1)} ppm`, st, stCol(st), [['Messwert', `${num(v, 1)}`], ['Einheit', 'ppm (VOC)'], ['Status', st], ['Einordnung', 'SCREENING / HINWEIS – keine sichere Stoffidentifikation']]);
     P(...A('antenna'), 'r', 20, 'Probeneinlass (Sonde)', 'Gasprobe', 'Staubfilter', undefined, [['Funktion', 'Ansaugen der Luftprobe zum Detektor'], ['Hinweis', 'Messung im Gasraum, nicht in Flüssigkeiten']]);
     P(...A('inlet'), 'r', 110, 'UV-Lampe (Photoionisation)', '10,6 eV', 'Ansprechen: IE < 10,6 eV', '#b784f0', [['Lampe', '10,6 eV'], ['Prinzip', 'Photoionisation flüchtiger Verbindungen'], ['Kein Ansprechen', 'z. B. Chlor (IE 11,48 eV), CO, CO₂, Acetonitril']]);
-    P(...A('leds'), 'l', 150, 'Alarm-LEDs · Status', 'ONLINE', `Messdauer ${dur}`, COL.ok, [['Status', 'ONLINE'], ['Messdauer', dur], ['Alarmanzeige', 'LED/Signalton bei Überschreitung (Simulation)']]);
-    P(...A('keys'), 'r', 200, 'Tasten', 'Bedienung', 'Start/Stopp, Nullabgleich, Quittieren', undefined, [['Bedienung', 'Start/Stopp, Nullabgleich, Quittieren (Simulation)']]);
+    P(...A('leds'), 'l', 150, 'Alarm-LEDs · Status', 'ONLINE', `Messdauer ${dur}`, COL.ok, [['Status', 'ONLINE'], ['Messdauer', dur], ['Alarmanzeige', 'LED/Signalton bei Überschreitung']]);
+    P(...A('keys'), 'r', 200, 'Tasten', 'Bedienung', 'Start/Stopp, Nullabgleich, Quittieren', undefined, [['Bedienung', 'Start/Stopp, Nullabgleich, Quittieren']]);
     P(...A('battery'), 'l', 260, 'Mögliche Stoffgruppen', r?.pid.groups.length ? r.pid.groups[0] : '–', r?.pid.groups.slice(1, 3).join(' · '), undefined, [['Stoffgruppen', r?.pid.groups.length ? r.pid.groups.join(', ') : '– (kein erhöhter Wert)']]);
     common(...A('conn'), 300);
   }
@@ -194,17 +194,17 @@ function useSpots(id: string, ctx: any): Spot[] {
     common(...A('keys'), 300, 'l');
   }
   if (id === 'dlm') { const v = r?.dose.value ?? 0; const st = doseStatus(v); const g = lcd(id); const t = hist.length > 5 ? (hist.at(-1).dose > hist.at(-6).dose * 1.05 ? '▲ steigend' : hist.at(-1).dose < hist.at(-6).dose * 0.95 ? '▼ fallend' : '► stabil') : '–';
-    P(...C(), 'l', 40, 'Anzeige · Dosisleistung', `${num(v, 3)} µSv/h`, st, stCol(st), [['Messwert', num(v, 3)], ['Einheit', 'µSv/h'], ['Status', st], ['Alarm (Simulation)', '≥ 1 µSv/h'], ['Hinweis (Simulation)', '≥ 0,3 µSv/h']]);
+    P(...C(), 'l', 40, 'Anzeige · Dosisleistung', `${num(v, 3)} µSv/h`, st, stCol(st), [['Messwert', num(v, 3)], ['Einheit', 'µSv/h'], ['Status', st], ['Alarm', '≥ 1 µSv/h'], ['Hinweis', '≥ 0,3 µSv/h']]);
     P(g.x + g.w - 6, g.y + g.h - 6, 'r', 20, 'Balkenanzeige (log.)', t, 'Trend', undefined, [['Trend', t]]);
     P(...A('conn'), 'r', 160, 'Sondenanschluss (Detektor)', 'Gamma', 'externe Sonde möglich', COL.acc, [['Messgröße', 'Ortsdosisleistung'], ['Detektor', 'NICHT VERFÜGBAR (Gerätedaten: QUELLE ERFORDERLICH)']]);
     P(...A('led'), 'l', 140, 'Status-LED', st === 'NORMAL' ? 'OK' : st, undefined, stCol(st), [['Status', st]]);
-    P(...A('keys'), 'r', 250, 'Tasten', 'Menü · Info · Mute', undefined, undefined, [['Bedienung', 'Menü, Info, Alarm stumm, Display (Simulation)']]);
+    P(...A('keys'), 'r', 250, 'Tasten', 'Menü · Info · Mute', undefined, undefined, [['Bedienung', 'Menü, Info, Alarm stumm, Display']]);
     common(...A('brand'), 240, 'l');
   }
   if (id === 'como') { const v = r?.como.value ?? 0;
     P(...C(), 'l', 40, 'Anzeige · Zählrate', `${num(v, 1)} cps`, 'Kontaminationsnachweis', undefined, [['Messwert', num(v, 1)], ['Einheit', 'cps (Zählrate)'], ['Hinweis', 'Umrechnung in Bq/cm² benötigt Kalibrierdaten – NICHT VERFÜGBAR']]);
     P(...A('plate'), 'r', 150, 'Messfläche (Sonde)', 'Kontamination', 'Abstand zur Oberfläche beachten', COL.acc, [['Funktion', 'Nachweis von Oberflächenkontamination'], ['Gerät', 'CoMo 170 ZS-2 (Bezeichnung nach BBK)']]);
-    P(...A('keypad'), 'l', 150, 'Tasten · Status', 'ONLINE', undefined, COL.ok, [['Status', 'ONLINE'], ['Bedienung', 'Nullpunkt, Lautstärke, Messbereich (Simulation)']]);
+    P(...A('keypad'), 'l', 150, 'Tasten · Status', 'ONLINE', undefined, COL.ok, [['Status', 'ONLINE'], ['Bedienung', 'Nullpunkt, Lautstärke, Messbereich']]);
     P(...A('speaker'), 'r', 40, 'Akustik (Zählrate)', 'Lautsprecher', undefined, undefined, [['Funktion', 'Hörbare Zählrate / Alarmton']]);
     common(...A('handle'), 260, 'l');
   }
@@ -274,7 +274,6 @@ export function DeviceFigure({ id }: { id: string }) {
               </g>);
           })}
         </svg>
-        <div className="text-[11px] text-dim px-2 pb-1">{IMG[id] ? 'Grafik: vom Betreiber bereitgestellt (Display-Anzeige und Beschriftungen von der App ergänzt).' : 'Schematische Eigen-Illustration (keine Herstellerabbildung).'} Werte: SIMULIERT. Zahl anklicken für Details.</div>
       </div>
       <div className="panel col-span-4 p-0 overflow-auto" style={{ maxHeight: 600 }}>
         <div className="panel-h">Gerätedaten</div>

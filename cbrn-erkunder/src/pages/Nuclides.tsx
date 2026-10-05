@@ -16,7 +16,7 @@ function Master({ rows, cols, sel, base }: { rows: any[]; cols: [string, (r: any
 export function Radionuclides() {
   const { id } = useParams(); const list = useApi<any[]>('/radionuclides'); const d = useApi<any>(id ? `/radionuclides/${id}` : null, [], [id]).data;
   return (
-    <Page title="Radionuklid-Datenbank" sub="Fachliche Anzeige und Simulation – keine Anleitung zum Umgang mit radioaktiven Quellen">
+    <Page title="Radionuklid-Datenbank" sub="Nuklide, Strahlung, Messbarkeit und Handlungsempfehlungen">
       <div className="grid grid-cols-12 gap-3">
         <Panel title="Nuklide" className="col-span-5" body="!p-0">
           <Master base="/radionuklide" sel={id} rows={list.data ?? []} cols={[['Isotop', (r) => <b>{r.name}</b>], ['Element', (r) => r.element], ['Z', (r) => r.z], ['A', (r) => r.a], ['T½', (r) => r.half_life], ['Zerfall', (r) => r.decay.split(' ')[0]], ['Kat.', (r) => <CatBadge c={r.cbrn_category} />]]} />
@@ -60,7 +60,6 @@ export function Bio() {
                 <div className="col-span-2"><Field label="Labor-/Probenbezug" mono={false}>{d.lab_relevance}</Field></div>
                 {d.notes && <div className="col-span-2 text-[12px] border-l-2 border-accent pl-2">{d.notes}</div>}
               </div>
-              <div className="text-[11px] text-dim mt-3">Vor-Ort-Geräte der ErkW liefern bei biologischen Gefahren allenfalls Screening; Bestätigung ausschließlich im zuständigen Labor.</div>
             </Panel>
             <ResponsePanel r={d.response} id="handlung" />
             <SourceBlock rec={d} /></>)}

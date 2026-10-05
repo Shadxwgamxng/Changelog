@@ -72,7 +72,7 @@ export default function Layout() {
         {toasts.map((a, i) => (
           <div key={a.id + i} className="panel !border-bad/60 p-3 cursor-pointer shadow-2xl" onClick={() => { dismissToast(i); nav('/historie'); }}>
             <div className="flex justify-between items-center"><Badge color="#e5534b">ALARM {a.category}</Badge><span className="text-dim font-mono text-[11.5px]">{time(a.ts)}</span></div>
-            <div className="mt-1.5 font-medium">{a.description}</div><div className="text-[11.5px] text-dim">{a.vehicle_id} · {a.source} · simuliert</div>
+            <div className="mt-1.5 font-medium">{a.description}</div><div className="text-[11.5px] text-dim">{a.vehicle_id} · {a.source}</div>
           </div>))}
       </div>
     </div>

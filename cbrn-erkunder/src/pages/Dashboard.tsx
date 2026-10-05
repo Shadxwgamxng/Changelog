@@ -22,7 +22,7 @@ export default function Dashboard() {
   const open = (alarms.data ?? []).filter((a) => a.status === 'OFFEN');
   const L = lage.data ?? {};
   return (
-    <Page title="Dashboard" sub={`Einsatzübersicht – ${v?.name ?? ""} (Messwerte simuliert)`}>
+    <Page title="Dashboard" sub={`Einsatzübersicht – ${v?.name ?? ""}`}>
       <div className="grid grid-cols-8 gap-2 mb-3">
         <Stat label="Fahrzeug" value={<span className="text-[15px]">{v?.name ?? '–'}</span>} sub={<StatusBadge s={v?.status} />} />
         <Stat label="GPS" value={<span style={{ color: STATUS_COLOR(v?.gps_fix ? 'FIX' : 'KEIN') }}>{v?.gps_fix ? 'FIX' : 'KEIN FIX'}</span>} sub={r ? fmtPos(meta?.map?.mode, r.lat, r.lon) : ''} />

@@ -54,7 +54,7 @@ export default function IncidentSetup({ embedded, onDone }: { embedded?: boolean
           {fivem && <button className="text-[12px] text-accent mt-1" onClick={() => setPos(fivem)}>Einsatzstelle = aktuelle Fahrzeugposition</button>}</div>
       </div>
       <div className="mt-4 flex items-center gap-3"><Btn kind="primary" onClick={submit} disabled={!ok || busy}>Einsatz anlegen</Btn>{err && <span className="text-bad">{err}</span>}
-        <span className="text-dim text-[11.5px] ml-auto">Aus diesen Angaben wird die Lage simuliert (Ausbreitung nach Wind, Messwerte, Probenergebnisse). Stoffdaten stammen aus der Referenzdatenbank, Messwerte sind Simulation.</span></div>
+        </div>
     </div>
   );
   if (embedded) return body;

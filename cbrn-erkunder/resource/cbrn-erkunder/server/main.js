@@ -4650,22 +4650,22 @@ function evaluateAndStore(v, pos, r, mission, forceRoutine) {
   const base = { lat: pos.lat, lon: pos.lon, vehicle_id: v.id, mission_id: (mission == null ? void 0 : mission.id) ?? null, run_id: ((_a = state.runs[v.id]) == null ? void 0 : _a.id) ?? null, incident_id: ((_b = activeIncident()) == null ? void 0 : _b.id) ?? null };
   const rows = [];
   const throttle = state.tick % 3 === 0;
-  if (r.pid.value >= 2 && throttle) rows.push({ ...base, device: "PID", value: r.pid.value, unit: "ppm", status: r.pid.value >= 50 ? "HOCH" : "ERH\xD6HT", level: "hinweis", headline: "Erh\xF6hte VOC-Anzeige (Screening)", candidates: r.pid.groups, remark: "PID allein identifiziert keinen Stoff." });
-  if (r.ims.level && throttle) rows.push({ ...base, device: "IMS", value: r.ims.confidence, unit: r.ims.confidence != null ? "%" : null, status: r.ims.level === "moegliche_identifikation" ? "AUSWERTUNG ERFORDERLICH" : "ERH\xD6HT", level: r.ims.level, headline: r.ims.result, substance_id: r.ims.level === "moegliche_identifikation" ? r.ims.substance_id : null, candidates: r.ims.candidates, remark: "Simulierte IMS-Auswertung; Best\xE4tigung durch weitere Messung/Probe erforderlich." });
+  if (r.pid.value >= 2 && throttle) rows.push({ ...base, device: "PID", value: r.pid.value, unit: "ppm", status: r.pid.value >= 50 ? "HOCH" : "ERH\xD6HT", level: "hinweis", headline: "Erh\xF6hte VOC-Anzeige (Screening)", candidates: r.pid.groups, remark: null });
+  if (r.ims.level && throttle) rows.push({ ...base, device: "IMS", value: r.ims.confidence, unit: r.ims.confidence != null ? "%" : null, status: r.ims.level === "moegliche_identifikation" ? "AUSWERTUNG ERFORDERLICH" : "ERH\xD6HT", level: r.ims.level, headline: r.ims.result, substance_id: r.ims.level === "moegliche_identifikation" ? r.ims.substance_id : null, candidates: r.ims.candidates, remark: null });
   const ch = r.mgmg.channels;
   const bad = ch.O2 != null && ch.O2 < 19.5 || (ch.CO ?? 0) > 30 || (ch.H2S ?? 0) > 5 || (ch.LEL ?? 0) > 10;
   const raised = (ch.CO ?? 0) > 5 || (ch.H2S ?? 0) > 0.5 || (ch.LEL ?? 0) > 1;
-  if ((bad || raised) && throttle) rows.push({ ...base, device: "MGMG", value: ch.LEL ?? null, unit: "%LEL", channels: ch, status: bad ? "ALARM" : "ERH\xD6HT", level: "hinweis", headline: bad ? "Grenzwert-/Alarmschwelle \xFCberschritten (Schwelle, Simulation)" : "Kanalanzeige erh\xF6ht", remark: "Alarmschwellen (Simulation): O\u2082 < 19,5 %, CO > 30 ppm, H\u2082S > 5 ppm, EX > 10 %UEG \u2013 konfigurierbar." });
-  if (r.dose.value >= 0.3 && throttle) rows.push({ ...base, device: "DLM", value: r.dose.value, unit: "\xB5Sv/h", status: r.dose.value >= 1 ? "ALARM" : "ERH\xD6HT", level: "hinweis", headline: "Erh\xF6hte Dosisleistung", remark: "Nuklidzuordnung \xFCber Gammaspektrum (simuliert)." });
+  if ((bad || raised) && throttle) rows.push({ ...base, device: "MGMG", value: ch.LEL ?? null, unit: "%LEL", channels: ch, status: bad ? "ALARM" : "ERH\xD6HT", level: "hinweis", headline: bad ? "Grenzwert-/Alarmschwelle \xFCberschritten" : "Kanalanzeige erh\xF6ht", remark: null });
+  if (r.dose.value >= 0.3 && throttle) rows.push({ ...base, device: "DLM", value: r.dose.value, unit: "\xB5Sv/h", status: r.dose.value >= 1 ? "ALARM" : "ERH\xD6HT", level: "hinweis", headline: "Erh\xF6hte Dosisleistung", remark: null });
   if (forceRoutine) rows.push({ ...base, device: "FMG", value: r.dose.value, unit: "\xB5Sv/h", status: "NORMAL", level: null, headline: "FMG-Routinemesspunkt", remark: null });
   const saved = rows.map((row) => storeMeasurement(row));
   for (const m of saved) {
     if (m.device === "IMS" && m.level === "moegliche_identifikation") {
       const s = get("substances", m.substance_id);
-      createAlarm({ source: "IMS", category: "CHEMISCH", description: `IMS: m\xF6gliche Identifikation ${(s == null ? void 0 : s.name) ?? "?"} (simuliert)`, lat: m.lat, lon: m.lon, vehicle_id: v.id, measurement_id: m.id }, `${v.id}-ims`);
+      createAlarm({ source: "IMS", category: "CHEMISCH", description: `IMS: m\xF6gliche Identifikation ${(s == null ? void 0 : s.name) ?? "?"}`, lat: m.lat, lon: m.lon, vehicle_id: v.id, measurement_id: m.id }, `${v.id}-ims`);
     }
-    if (m.device === "MGMG" && m.status === "ALARM") createAlarm({ source: "MGMG", category: "CHEMISCH", description: "MGMG: Alarmschwelle \xFCberschritten (Schwelle, Simulation)", lat: m.lat, lon: m.lon, vehicle_id: v.id, measurement_id: m.id }, `${v.id}-mgmg`);
-    if (m.device === "DLM" && m.status === "ALARM") createAlarm({ source: "DLM", category: ((_c = activeScenario()) == null ? void 0 : _c.sc.category) === "N" ? "NUKLEAR" : "RADIOLOGISCH", description: `Dosisleistung ${m.value} \xB5Sv/h (Schwelle 1 \xB5Sv/h, Simulation)`, lat: m.lat, lon: m.lon, vehicle_id: v.id, measurement_id: m.id }, `${v.id}-dlm`);
+    if (m.device === "MGMG" && m.status === "ALARM") createAlarm({ source: "MGMG", category: "CHEMISCH", description: "MGMG: Alarmschwelle \xFCberschritten", lat: m.lat, lon: m.lon, vehicle_id: v.id, measurement_id: m.id }, `${v.id}-mgmg`);
+    if (m.device === "DLM" && m.status === "ALARM") createAlarm({ source: "DLM", category: ((_c = activeScenario()) == null ? void 0 : _c.sc.category) === "N" ? "NUKLEAR" : "RADIOLOGISCH", description: `Dosisleistung ${m.value} \xB5Sv/h`, lat: m.lat, lon: m.lon, vehicle_id: v.id, measurement_id: m.id }, `${v.id}-dlm`);
     if (m.device === "PID" && m.status === "HOCH") createAlarm({ source: "PID", category: ((_d = activeScenario()) == null ? void 0 : _d.sc.display) === "U" ? "UNBEKANNT" : "CHEMISCH", description: `PID-Screening HOCH (${m.value} ppm)`, lat: m.lat, lon: m.lon, vehicle_id: v.id, measurement_id: m.id }, `${v.id}-pid`);
   }
 }
@@ -4792,7 +4792,7 @@ function systemStatus() {
   for (const v of list("vehicles")) vehicles2[v.id] = { connected: fivemConnected(v.id), info: state.info[v.id] ?? null };
   const any = fivemConnected();
   const first = Object.values(vehicles2).find((x) => x.connected);
-  return { web: "ONLINE", database: "ONLINE", api: "ONLINE", websocket: "ONLINE", fivem: any ? "CONNECTED" : "NOT CONNECTED", data_source: any ? "FIVEM (Position real, Messwerte simuliert)" : "WARTET AUF FIVEM", fivem_info: (first == null ? void 0 : first.info) ?? null, vehicles: vehicles2, incident: ((_a = activeIncident()) == null ? void 0 : _a.id) ?? null };
+  return { web: "ONLINE", database: "ONLINE", api: "ONLINE", websocket: "ONLINE", fivem: any ? "CONNECTED" : "NOT CONNECTED", data_source: any ? "FIVEM" : "WARTET AUF FIVEM", fivem_info: (first == null ? void 0 : first.info) ?? null, vehicles: vehicles2, incident: ((_a = activeIncident()) == null ? void 0 : _a.id) ?? null };
 }
 var timer = null;
 function startSim() {
@@ -4885,7 +4885,7 @@ function completeLab(sampleId, by) {
     res = { finding: "BEFUND", klass: "BIOLOGISCH", substance_id: null, bio_id: b == null ? void 0 : b.id, text: `${b == null ? void 0 : b.name} (PCR, Sonderlabor)`, simulated: true };
   } else res = { finding: "KEIN CBRN-RELEVANTER BEFUND", klass: null, text: "KEIN CBRN-RELEVANTER BEFUND", simulated: true };
   update("samples", sampleId, { lab_result: res, lab_status: "BEFUND EINGEGANGEN", updated_at: now() });
-  db.prepare("INSERT INTO sample_events(sample_id,ts,status,note,by_user) VALUES(?,?,?,?,?)").run(sampleId, now(), "BEFUND EINGEGANGEN", "Simuliertes Laborergebnis", by);
+  db.prepare("INSERT INTO sample_events(sample_id,ts,status,note,by_user) VALUES(?,?,?,?,?)").run(sampleId, now(), "BEFUND EINGEGANGEN", "Laborergebnis", by);
   audit(by, "lab_result", "sample", sampleId, res);
   emit("sample.updated", get("samples", sampleId));
   return get("samples", sampleId);
@@ -5817,7 +5817,7 @@ function registerRoutes(app) {
     const nx = FLOW[cur + 1];
     const status = b.status ?? nx;
     if (!FLOW.includes(status)) throw Object.assign(new Error("Ung\xFCltiger Status"), { statusCode: 400 });
-    if (status === "BEFUND EINGEGANGEN") throw Object.assign(new Error("Laborbefund wird vom Labor (Simulation) erzeugt"), { statusCode: 409 });
+    if (status === "BEFUND EINGEGANGEN") throw Object.assign(new Error("Laborbefund wird vom Labor erzeugt"), { statusCode: 409 });
     const lab = ["LABOR EINGEGANGEN", "ANALYSE"].includes(status);
     update("samples", id, { transport_status: lab ? "\xDCBERGEBEN" : status, lab_status: lab ? status : s.lab_status, updated_at: now() });
     db.prepare("INSERT INTO sample_events(sample_id,ts,status,note,by_user) VALUES(?,?,?,?,?)").run(id, now(), status, b.note ?? null, u.id);

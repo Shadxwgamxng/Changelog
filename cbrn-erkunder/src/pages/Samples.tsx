@@ -28,7 +28,7 @@ export function SampleReport({ id }: { id: string }) {
         <Field label="Geruch" mono={false}>{s.odor ?? NA}</Field><Field label="Trübung" mono={false}>{s.turbidity ?? NA}</Field><Field label="Einschätzung vor Ort">{s.onsite_assessment}</Field>
         <div className="col-span-3"><Field label="Beschreibung" mono={false}>{s.description || NA}</Field></div>
       </div>
-      <div><div className="lbl mb-1">Vor-Ort-Messwerte (simuliert)</div><div className="grid grid-cols-4 gap-2">{Object.entries(s.readings ?? {}).map(([k, v]) => <Field key={k} label={k}>{String(v)}</Field>)}</div></div>
+      <div><div className="lbl mb-1">Vor-Ort-Messwerte</div><div className="grid grid-cols-4 gap-2">{Object.entries(s.readings ?? {}).map(([k, v]) => <Field key={k} label={k}>{String(v)}</Field>)}</div></div>
       {s.analysis?.result?.candidates?.[0] && (<div><div className="lbl mb-1">Analyse (Entscheidungshilfe, vor Ort)</div><div>{s.onsite_assessment} · Alternativen: {s.analysis.result.candidates.slice(1, 4).map((c: any) => c.name).join(', ') || '–'}</div></div>)}
       {w && <div><div className="lbl mb-1">Wetter (Wind kommt aus)</div><div className="font-mono">{w.temperature} °C · {w.humidity} % · {w.pressure} hPa · {w.wind_speed} m/s aus {w.wind_from_text} ({w.wind_from}°) · {w.cloud_okta}/8 · {w.precipitation} mm/h</div></div>}
       <div className="grid grid-cols-2 gap-3">
@@ -36,7 +36,7 @@ export function SampleReport({ id }: { id: string }) {
         <div><div className="lbl mb-1">Laborergebnis</div>{s.lab_result ? (
           <div className="border border-line2 p-2"><div className="text-[11px] text-dim">Vor-Ort: {s.onsite_assessment}</div><div className="font-semibold mt-1">{s.lab_result.text}</div>
             {s.lab_result.substance_id && <a className="text-accent" href={`#/stoffe/${s.lab_result.substance_id}`}>Stoffdaten öffnen →</a>}
-            <div className="mt-1"><StatusBadge s="BEFUND EINGEGANGEN" /> <Badge color="#f0500a">SIMULIERTES LABORERGEBNIS</Badge></div></div>) : <div className="text-dim">Noch kein Befund – Status: {s.lab_status}</div>}</div>
+            <div className="mt-1"><StatusBadge s="BEFUND EINGEGANGEN" /></div></div>) : <div className="text-dim">Noch kein Befund – Status: {s.lab_status}</div>}</div>
       </div>
     </div>
   );
@@ -67,7 +67,6 @@ export default function Samples() {
         <Panel title="Kurzzeit-Prüfröhrchen – Inventar / Informationsfunktion" body="!p-0">
           <table className="t"><thead><tr><th>Hersteller</th><th>Produkt</th><th>Röhrchentyp</th><th>Messstoff</th><th>CAS</th><th>Messbereich</th><th>Einheit</th><th>Anwendungsbereich</th><th>Lagerstatus</th><th>Charge</th><th>Verfall</th></tr></thead><tbody>
             {(tubes.data ?? []).map((t) => <tr key={t.id}><td>{t.manufacturer}</td><td>{t.product}</td><td>{t.tube_type}</td><td>{t.analyte}</td><td className="font-mono">{t.cas}</td><td className="text-dim">QUELLE ERFORDERLICH</td><td>{t.unit}</td><td>{t.application}</td><td><StatusBadge s={t.storage_status} /></td><td className="font-mono">{t.lot}</td><td className="font-mono">{t.expiry}</td></tr>)}</tbody></table>
-          <div className="p-2 text-[11px] text-dim">Messbereiche nicht aus Herstellerdatenblättern übernommen (QUELLE ERFORDERLICH). Chargen/Verfall/Lagerstatus sind simulierte Inventardaten.</div>
         </Panel>)}
       {ana && <AnalysisModal sample={ana} onClose={() => setAna(null)} onSaved={reload} />}
       {quick && <AnalysisModal onClose={() => setQuick(false)} />}

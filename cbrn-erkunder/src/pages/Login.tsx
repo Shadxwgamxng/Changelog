@@ -21,7 +21,7 @@ export default function Login() {
   return (
     <div className="h-full overflow-auto flex items-center justify-center p-6">
       <div className="w-full max-w-[760px]">
-        <div className="flex items-center gap-3 mb-6"><Logo size={44} /><div><div className="eyebrow">Messwesen · Simulation</div><h1 className="text-[26px] font-semibold tracking-tight leading-tight">Am Fahrzeug anmelden</h1></div></div>
+        <div className="flex items-center gap-3 mb-6"><Logo size={44} /><div><div className="eyebrow">CBRN-Messwesen</div><h1 className="text-[26px] font-semibold tracking-tight leading-tight">Am Fahrzeug anmelden</h1></div></div>
         <div className="panel p-5">
           <div className="lbl mb-2">1 · Fahrzeug wählen</div>
           <div className="grid grid-cols-2 gap-3">
@@ -40,7 +40,6 @@ export default function Login() {
           </div>
           <div className="flex items-center gap-3 mt-5"><Btn kind="primary" onClick={submit} disabled={!ok || busy}>Anmelden</Btn><span className="text-bad text-[12.5px]">{err}</span></div>
         </div>
-        <div className="text-[11.5px] text-dim mt-3">Nach der Anmeldung steht der gesamte Funktionsumfang zur Verfügung. Messwerte, Identifikationen und Laborergebnisse sind Simulation; Fachdaten sind ungeprüft.</div>
       </div>
     </div>
   );

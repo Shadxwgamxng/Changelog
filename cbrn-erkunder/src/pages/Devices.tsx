@@ -57,18 +57,17 @@ export function DevicePage() {
       <div className="grid grid-cols-2 gap-3 mb-3">
         {id === 'ims' && <ImsPanel r={r} link={false} />}{id === 'pid' && <PidPanel r={r} link={false} />}{id === 'mgmg' && <MgmgPanel r={r} link={false} />}
         {(id === 'dlm' || id === 'como') && <RadPanel r={r} link={false} />}{id === 'fmg' && <FmgPanel r={r} link={false} />}
-        <Panel title="Beschreibung"><div>{dev.description}</div><div className="text-dim text-[11px] mt-2">Quelle: BBK (Gerätebezeichnung/Funktion) – Detailparameter einzelner Geräte NICHT VERFÜGBAR / QUELLE ERFORDERLICH.</div></Panel>
+        <Panel title="Beschreibung"><div>{dev.description}</div></Panel>
       </div>
       {(id === 'pid' || id === 'dlm' || id === 'fmg') && (
-        <Panel title="Verlauf (Live, Simulation)" className="mb-3"><TimeChart data={hist} series={[id === 'pid' ? { key: 'pid', color: '#d29922', name: 'PID' } : { key: 'dose', color: '#f0500a', name: 'Dosisleistung' }]} unit={id === 'pid' ? 'ppm' : 'µSv/h'} height={190} /></Panel>)}
+        <Panel title="Verlauf (Live)" className="mb-3"><TimeChart data={hist} series={[id === 'pid' ? { key: 'pid', color: '#d29922', name: 'PID' } : { key: 'dose', color: '#f0500a', name: 'Dosisleistung' }]} unit={id === 'pid' ? 'ppm' : 'µSv/h'} height={190} /></Panel>)}
       {(id === 'dlm' || id === 'como') && spec.data && (
-        <Panel title="Gamma-Spektrum" right={<Badge color="#f0500a">SIMULIERTE AUSWERTUNG</Badge>} className="mb-3">
+        <Panel title="Gamma-Spektrum" className="mb-3">
           <SpectrumChart counts={spec.data.counts} kev={spec.data.kev_per_channel} />
           <div className="grid grid-cols-2 gap-3 mt-2">
             <div><div className="lbl mb-1">Mögliche Identifikationen (Linienzuordnung)</div>
               {spec.data.candidates.length ? spec.data.candidates.map((c: any) => (
                 <div key={c.id} className="flex justify-between border-b border-line/50 py-1"><span>{c.natural ? <><b>{c.name}</b> <Badge>natürlicher Untergrund</Badge></> : <Link className="text-accent" to={`/radionuklide/${c.id}`}><b>{c.name}</b></Link>}</span><span className="font-mono text-dim">{c.gamma_kev.map((e: number) => String(e).replace('.', ',')).join(' / ')} keV</span></div>)) : <div className="text-dim">Keine signifikanten Linien</div>}</div>
-            <SimNote>SIMULIERTE AUSWERTUNG – das Spektrum wird aus Datenbank-Linienenergien (IAEA) und dem Szenario erzeugt; keine echte Messung.</SimNote>
           </div>
         </Panel>)}
       {id === 'tubes' && (

@@ -44,7 +44,6 @@ export function AnalysisModal({ sample, onClose, onSaved }: { sample?: any; onCl
           </div>
           {res.extras?.map((x: any) => (
             <div key={x.title} className="mt-2 border border-warn/60 p-2 text-[12px]"><b>{x.title}</b> – {x.text}{x.refs?.length > 0 && <div className="mt-1 flex gap-2 flex-wrap">{x.refs.map((r: any) => <Link key={r.id} onClick={onClose} to={x.type === 'radiologisch' ? `/radionuklide/${r.id}` : `/bio/${r.id}`}><Badge color="#f0500a">{r.name}{r.hint ? ` (${r.hint})` : ''}</Badge></Link>)}</div>}</div>))}
-          <div className="mt-2"><SimNote>ENTSCHEIDUNGSHILFE – keine bestätigte Identifikation. Bestätigung nur durch weitere Messung und Laborbefund.</SimNote></div>
         </div>)}
       <div className="grid grid-cols-3 gap-3">
         <div><div className={lbl}>Woher stammt die Probe?</div><Select className="w-full" value={f.origin} onChange={(v) => set('origin', v)} options={[['unbekannt', 'unbekannt'], ...(opts?.origins ?? []).filter((o: any) => o.key !== 'unbekannt').map((o: any) => [o.key, o.label] as [string, string])]} /></div>

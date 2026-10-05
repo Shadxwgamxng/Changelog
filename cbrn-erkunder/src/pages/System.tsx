@@ -10,9 +10,8 @@ function Status() {
   return (<div className="grid grid-cols-3 gap-3">
     {rows.map(([k, v]) => <div key={k} className="panel p-3"><div className="lbl">{k}</div><div className="mt-1"><StatusBadge s={v} /></div></div>)}
     <Panel title="Betriebsmodus" className="col-span-3">
-      <div className="grid grid-cols-3 gap-3"><Field label="Modus">{status?.fivem === 'CONNECTED' ? 'FiveM verbunden (Position/Geschwindigkeit/Kurs/Wetter aus GTA, Messwerte simuliert)' : 'FiveM getrennt – Fahrzeug wartet am Einsatzzentrum'}</Field><Field label="Aktives Szenario">{status?.scenario}</Field><Field label="Laufzeit">{status?.uptime_s ?? '–'} s</Field>
+      <div className="grid grid-cols-3 gap-3"><Field label="Modus">{status?.fivem === 'CONNECTED' ? 'FiveM verbunden' : 'FiveM getrennt – Fahrzeug wartet am Einsatzzentrum'}</Field><Field label="Aktives Szenario">{status?.scenario}</Field><Field label="Laufzeit">{status?.uptime_s ?? '–'} s</Field>
         <Field label="Letzte FiveM-Telemetrie">{fm.data?.last ? new Date(fm.data.last).toLocaleTimeString('de-DE') : 'keine'}</Field><Field label="Spieler">{fm.data?.info?.player ?? '–'}</Field><Field label="Einsatz (FiveM)">{fm.data?.info?.mission ?? '–'}</Field></div>
-      <div className="text-[12px] text-dim mt-3">Auch bei FiveM-Verbindung stellen alle Messwerte, Identifikationen und Laborergebnisse <b>Simulation</b> dar – die Anwendung gibt FiveM-Daten niemals als echte CBRN-Messung aus.</div>
     </Panel></div>);
 }
 
@@ -20,7 +19,7 @@ function Sources() {
   const s = useApi<any[]>('/sources');
   return (<Panel title="Datenquellen (Quellenpriorität: BBK → BAuA/GESTIS → ECHA → BfR → IAEA → WHO → NIST → andere)" body="!p-0"><table className="t"><thead><tr><th>Prio</th><th>Quelle</th><th>Dokument</th><th>URL</th><th>Datenstand</th><th>Abruf</th><th>Datensätze</th></tr></thead><tbody>
     {(s.data ?? []).map((x) => <tr key={x.id}><td>{x.publisher_priority}</td><td><b>{x.name}</b></td><td>{x.document}</td><td className="font-mono text-[11px]"><a className="text-accent" href={x.url} target="_blank" rel="noreferrer">{x.url}</a></td><td className="text-dim">{x.data_stand ?? 'NICHT DOKUMENTIERT'}</td><td className="text-dim">{x.retrieved_at ?? 'NICHT DOKUMENTIERT'}</td><td className="font-mono">{x.records}</td></tr>)}</tbody></table>
-    <div className="p-2 text-[11px] text-dim">Abrufdatum und Datenstand sind leer, weil die Datensätze noch nicht gegen die Quellen geprüft wurden – bewusst keine erfundenen Angaben. Nach Prüfung Quelle (Administration → sources) und Datensatz-Status pflegen.</div></Panel>);
+    </Panel>);
 }
 
 function Importer() {
@@ -35,7 +34,6 @@ function Importer() {
     {res && <div className="mt-3"><div>{res.total} Datensätze erkannt</div><div className="text-ok">{res.valid} gültig</div><div className="text-warn">{res.review.length} benötigen Prüfung{res.review.length ? ':' : ''}</div>
       {res.review.map((r: any) => <div key={r.id} className="text-[12px] text-dim">· {r.name}: {r.reasons.join('; ')}</div>)}{res.invalid.map((r: any, i: number) => <div key={i} className="text-[12px] text-bad">· Zeile {r.row ?? '–'}: {r.reason}</div>)}
       {res.committed && <div className="mt-1 text-ok">Importiert (Status „ungeprüft“).</div>}</div>}
-    <div className="text-[11px] text-dim mt-3">CAS-Nummern werden inkl. Prüfziffer validiert; Datensätze ohne bekannte Quelle werden zur Prüfung markiert. Importierte Datensätze erhalten den Status „unverified“.</div>
   </Panel>);
 }
 
@@ -54,16 +52,16 @@ function Admin() {
 
 function Incidents() {
   const inc = useApi<any[]>('/incidents', ['incident.changed']);
-  return (<Panel title="Einsätze" body="!p-0"><table className="t"><thead><tr><th>ID</th><th>Stichwort</th><th>Ort</th><th>Art</th><th>Menge</th><th>Stoff (Simulation)</th><th>Status</th><th>Angelegt von</th></tr></thead><tbody>
+  return (<Panel title="Einsätze" body="!p-0"><table className="t"><thead><tr><th>ID</th><th>Stichwort</th><th>Ort</th><th>Art</th><th>Menge</th><th>Stoff</th><th>Status</th><th>Angelegt von</th></tr></thead><tbody>
     {(inc.data ?? []).map((e) => <tr key={e.id}><td className="font-mono">{e.id}</td><td><b>{e.name}</b></td><td>{e.location_text ?? NA}</td><td>{e.category_text}</td><td>{e.amount}</td><td>{e.ref_hidden ? <Badge>VERDECKT</Badge> : e.ref_name}</td><td><Badge color={e.status === 'AKTIV' ? '#3fb950' : '#817d78'}>{e.status}</Badge></td><td className="text-dim">{e.created_by}</td></tr>)}</tbody></table>
-    <div className="p-2 text-[11px] text-dim">Der Wahrheitsstoff eines laufenden Einsatzes bleibt verdeckt (außer die Lage meldet ihn als bekannt) und wird nach Einsatzende angezeigt. Neuer Einsatz: Kopfzeile → Einsatz beenden.</div></Panel>);
+    </Panel>);
 }
 
 function Users() {
   const c = useApi<any[]>('/crew', ['poll']);
   return (<Panel title="Aktive Anmeldungen" body="!p-0"><table className="t"><thead><tr><th>Name</th><th>Funktion</th><th>Fahrzeug</th></tr></thead><tbody>
     {(c.data ?? []).map((u: any, i: number) => <tr key={i}><td>{u.name}</td><td>{u.role}</td><td>{u.vehicle_id}</td></tr>)}</tbody></table>
-    <div className="p-2 text-[11px] text-dim">Anmeldung am Fahrzeug mit Name und Funktion; alle angemeldeten Personen haben vollen Zugriff.</div></Panel>);
+    </Panel>);
 }
 
 function Config() {

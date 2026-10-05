@@ -32,7 +32,6 @@ export function RunCard({ compact }: { compact?: boolean }) {
           <Field label="Bezeichnung">{run.name}</Field><Field label="Dauer">{hms(Date.now() - Date.parse(run.started_at))}</Field><Field label="Strecke">{num(run.distance_m / 1000, 2)} km</Field>
           <Field label="Messpunkte">{run.points}</Field><Field label="Max. Dosisleistung">{num(run.max_dose, 3)} µSv/h</Field>
         </div>)}
-      <div className="text-[11px] text-dim mt-2">{fivem ? 'Position, Geschwindigkeit und Kurs kommen laufend aus GTA; Messwerte bleiben simuliert.' : 'Keine FiveM-Verbindung: Das Fahrzeug bleibt an der markierten Position stehen, bis Position aus GTA eintrifft.'} Während einer Messfahrt werden georeferenzierte Messpunkte aufgezeichnet.</div>
     </>
   );
   return (<>

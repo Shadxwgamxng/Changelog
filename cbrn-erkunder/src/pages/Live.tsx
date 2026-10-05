@@ -20,7 +20,6 @@ export default function Live() {
       <Panel title="Arbeitsablauf" className="mb-3">
         <div className="flex items-center gap-2 flex-wrap">{STEPS.map((s, i) => (
           <div key={s} className="flex items-center gap-2"><span className={`px-3 py-1.5 border rounded-md text-[12px] font-medium ${i <= step ? 'border-accent/60 text-txt bg-accent/15' : 'border-line text-dim'}`}>{s}</span>{i < STEPS.length - 1 && <span className="text-dim">→</span>}</div>))}</div>
-        <div className="text-[11px] text-dim mt-2">Eine Identifikation wird erst nach weiterer Messung/Probe und Laborbefund bestätigt; Screeninggeräte liefern Hinweise bzw. Verdacht.</div>
       </Panel>
       <div className="grid grid-cols-3 gap-3 mb-3"><ImsPanel r={r} /><PidPanel r={r} /><MgmgPanel r={r} /></div>
       <div className="grid grid-cols-2 gap-3 mb-3"><RadPanel r={r} /><FmgPanel r={r} /></div>

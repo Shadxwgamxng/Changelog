@@ -9,7 +9,7 @@ export function weatherText(w: any, short = false) {
   if (!w) return '';
   const wind = `Wind kommt aus ${w.wind_from_text} (${Math.round(w.wind_from)}°), ${n(w.wind_speed)} m/s`;
   if (short) return `Wetter ${new Date(w.ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}: ${n(w.temperature)} °C, ${Math.round(w.humidity)} % rF, ${Math.round(w.pressure)} hPa, ${wind}, Bewölkung ${w.cloud_okta}/8, Niederschlag ${n(w.precipitation)} mm/h (simuliert)`;
-  return [`WETTERDATEN (SIMULIERT) – ${dt(w.ts)}`, `Temperatur: ${n(w.temperature)} °C`, `Luftfeuchtigkeit: ${Math.round(w.humidity)} %`, `Luftdruck: ${Math.round(w.pressure)} hPa`,
+  return [`WETTERDATEN – ${dt(w.ts)}`, `Temperatur: ${n(w.temperature)} °C`, `Luftfeuchtigkeit: ${Math.round(w.humidity)} %`, `Luftdruck: ${Math.round(w.pressure)} hPa`,
     `Windgeschwindigkeit: ${n(w.wind_speed)} m/s`, `Windrichtung (meteorologisch): Wind kommt aus ${w.wind_from_text} (${Math.round(w.wind_from)}°)`, `Bewölkung: ${w.cloud_okta}/8`, `Niederschlag: ${n(w.precipitation)} mm/h`,
     ...(w.game_weather ? [`GTA-Wetterlage: ${w.game_weather}`] : [])].join('\n');
 }

@@ -31,7 +31,7 @@ export default function Mlk() {
           <Panel title="Einsatz">
             {incident ? (<><div className="text-[13px] font-medium">{incident.id} · {incident.name}</div><div className="text-[12px] text-dim">{incident.location_text ?? 'Ort nicht angegeben'} · {incident.category_text} · Menge {incident.amount}</div>
               {incident.report && <div className="text-[12px] mt-1">{incident.report}</div>}
-              <div className="text-[12px] mt-1">Stoff: {incident.ref_hidden ? <Badge>VERDECKT (Simulation)</Badge> : <b>{incident.ref_name}</b>}</div></>) : <div className="text-dim">Kein aktiver Einsatz</div>}
+              <div className="text-[12px] mt-1">Stoff: {incident.ref_hidden ? <Badge>VERDECKT</Badge> : <b>{incident.ref_name}</b>}</div></>) : <div className="text-dim">Kein aktiver Einsatz</div>}
           </Panel>
         </div>
         <Panel title="Aktive Aufträge" className="col-span-8" body="!p-0"><MissionTable missions={act} reload={missions.reload} /></Panel>

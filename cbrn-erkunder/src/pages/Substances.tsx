@@ -24,7 +24,6 @@ export function SourceBlock({ rec }: { rec: any }) {
         <Field label="Letzte Prüfung">{rec.last_checked ?? 'NICHT GEPRÜFT'}</Field>
         <div className="col-span-3"><div className="lbl">URL</div><div className="font-mono break-all">{rec.gestis_zvg ? <a className="text-accent" href={`https://gestis.dguv.de/data?name=${rec.gestis_zvg}&lang=de`} target="_blank" rel="noreferrer">GESTIS-Eintrag (ZVG {rec.gestis_zvg}) öffnen →</a> : s?.url ? <a className="text-accent" href={s.url} target="_blank" rel="noreferrer">{s.url}</a> : NA}</div></div>
       </div>
-      <div className="text-[11px] text-dim mt-2">{rec.quality === 'identity' ? 'CAS-Nummer und Stoffname wurden gegen den GESTIS-Stoffindex abgeglichen; die Stoffeigenschaften (Einstufung, physikalische Daten) sind noch nicht gegen den GESTIS-Eintrag geprüft – bitte über den Link nachprüfen. ' : 'Der Datensatz wurde noch nicht gegen die Primärquelle geprüft. '}Vor fachlicher Nutzung gegen Quelle verifizieren (Prio: BBK → BAuA/GESTIS → ECHA → BfR → IAEA → WHO → NIST).</div>
     </Panel>
   );
 }
@@ -123,7 +122,6 @@ export function SubstanceDetail() {
             <div><div className="lbl mb-1">Relevante Messgeräte</div><div className="flex gap-2 flex-wrap">{s.devices.length ? s.devices.map((d: string) => <Link key={d} to={`/geraete/${d === 'Prüfröhrchen' ? 'tubes' : d.toLowerCase()}`}><Badge color="#58a6ff">{d}</Badge></Link>) : <span className="text-dim">{NA}</span>}</div></div>
             <div><div className="lbl mb-1">Relevante Messverfahren</div><ul className="list-disc ml-5">{s.methods.map((m: string) => <li key={m}>{m}</li>)}</ul></div>
           </div>
-          <div className="text-[11px] text-dim mt-2">Hinweis: Screeninggeräte liefern Hinweis/Verdacht; eine bestätigte Identifikation erfordert weitere Messung/Probe und Laborbefund. Die IMS-Zuordnung in der Simulation ist eine Szenarioannahme ({s.ims_sim ? 'Treffer simulierbar' : 'kein IMS-Treffer simuliert'}).</div>
         </Panel>
         <ResponsePanel r={s.response} />
         <div className="col-span-12"><SourceBlock rec={s} /></div>

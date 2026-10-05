@@ -17,7 +17,7 @@ export function ImsPanel({ r, link = true }: { r: any; link?: boolean }) {
       <div className="grid grid-cols-2 gap-3">
         <Field label="Status"><StatusBadge s={i.state} /></Field><Field label="Messmodus">{i.mode}</Field>
         <Field label="Ergebnis">{i.level ? i.result.split(' – ')[0] === 'MÖGLICHER STOFF' ? 'MÖGLICHER STOFF' : i.result : <span className="text-dim">KEIN TREFFER</span>}</Field>
-        <Field label="Konfidenz (simuliert)">{i.confidence != null ? `${i.confidence} %` : '–'}</Field>
+        <Field label="Konfidenz">{i.confidence != null ? `${i.confidence} %` : '–'}</Field>
         <Field label="Bibliothek">Stoffdatenbank (lokal)</Field><Field label="Zeit">{time(r.ts)}</Field>
       </div>
       <div className="mt-3"><LevelBadge l={i.level} /></div>
@@ -27,11 +27,9 @@ export function ImsPanel({ r, link = true }: { r: any; link?: boolean }) {
           <div className="text-[18px] font-semibold">{sub.data.name}</div>
           <div className="grid grid-cols-2 gap-2 mt-1"><Field label="CAS">{sub.data.cas}</Field><Field label="Kategorie"><CatBadge c={sub.data.cbrn_category} /></Field></div>
           <Link to={`/stoffe/${sub.data.id}`} className="btn btn-primary mt-2 inline-block">[ STOFFDATEN ÖFFNEN ]</Link>
-          <div className="text-[11px] text-dim mt-1">Datenbankstatus: {sub.data.quality === 'verified' ? 'VERIFIZIERT' : 'UNGEPRÜFT'} · Identifikation nicht bestätigt – weitere Messung/Probe erforderlich.</div>
         </div>)}
       {i.level === 'verdacht' && <div className="mt-2 text-[12px]">Mögliche Stoffgruppe: <b>{i.group}</b></div>}
       {i.level === 'hinweis' && <div className="mt-2 text-[12px]">Stoffklasse (Hinweis): <b>{i.group}</b></div>}
-      <div className="mt-3"><SimNote>SIMULIERT – Treffer basiert auf Szenario, nicht auf echter Messung</SimNote></div>
     </Panel>
   );
 }
@@ -43,7 +41,7 @@ export function PidPanel({ r, link = true }: { r: any; link?: boolean }) {
       <div className="flex items-end gap-2"><span className="text-[34px] font-mono leading-none" style={{ color: st === 'NORMAL' ? undefined : st === 'HOCH' ? '#e5534b' : '#d29922' }}>{num(v, 1)}</span><span className="text-dim mb-1">ppm (VOC)</span><span className="ml-auto"><StatusBadge s={st} /></span></div>
       <div className="grid grid-cols-3 gap-3 mt-3"><Field label="Messdauer">{dur}</Field><Field label="GPS"><StatusBadge s="FIX" /></Field><Field label="Lampe">10,6 eV</Field></div>
       <div className="mt-3"><div className="lbl">Mögliche Stoffgruppen</div>{r.pid.groups.length ? <ul className="list-disc ml-5">{r.pid.groups.map((g: string) => <li key={g}>{g}</li>)}</ul> : <div className="text-dim">– (kein erhöhter Wert)</div>}</div>
-      <div className="mt-3"><Badge color="#d29922">SCREENING / HINWEIS</Badge> <span className="text-[11px] text-dim">PID allein identifiziert keinen Stoff.</span></div>
+      <div className="mt-3"><Badge color="#d29922">SCREENING / HINWEIS</Badge></div>
     </Panel>
   );
 }
@@ -60,7 +58,6 @@ export function MgmgPanel({ r, link = true }: { r: any; link?: boolean }) {
             <div className="lbl">{U[k]?.[0] ?? k}</div><div className="font-mono text-[22px]">{num(v, k === 'O2' || k === 'LEL' || k === 'H2S' ? 1 : 0)}</div><div className="text-dim text-[11px]">{U[k]?.[1]}</div>
           </div>))}
       </div>
-      <div className="text-[11px] text-dim mt-2">Kanäle konfigurierbar (System). Aktiv: {(meta?.mgmg_channels ?? []).join(', ')}. Alarmschwellen (Simulation): O₂ &lt; 19,5 %, CO &gt; 30 ppm, H₂S &gt; 5 ppm, EX &gt; 10 %UEG.</div>
     </Panel>
   );
 }
@@ -83,7 +80,6 @@ export function FmgPanel({ r, link = true }: { r: any; link?: boolean }) {
         <Field label="Status"><StatusBadge s="AKTIV" /></Field><Field label="Fahrgeschwindigkeit">{r.speed_kmh} km/h</Field><Field label="GPS"><StatusBadge s="FIX" /></Field>
         <Field label="Messpunkte">{mpCount.toLocaleString('de-DE')}</Field><Field label="Track">{num(trackKm, 1)} km</Field><Field label="Aktueller Messstatus"><StatusBadge s={st} /></Field>
       </div>
-      <div className="text-[11px] text-dim mt-2">Messwerte werden georeferenziert gespeichert (kontinuierliche Messdatenerfassung mit GPS-Ortsinformation).</div>
     </Panel>
   );
 }

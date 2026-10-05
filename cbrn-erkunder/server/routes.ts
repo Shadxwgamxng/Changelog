@@ -214,7 +214,7 @@ export function registerRoutes(app: FastifyInstance) {
     const u = need(req, 1); const id = (req.params as any).id; const s = get('samples', id); if (!s) throw nf('Probe'); const b = req.body as any;
     const cur = FLOW.indexOf(s.lab_status === 'AUSSTEHEND' ? s.transport_status : s.lab_status); const nx = FLOW[cur + 1]; const status = b.status ?? nx;
     if (!FLOW.includes(status)) throw Object.assign(new Error('Ungültiger Status'), { statusCode: 400 });
-    if (status === 'BEFUND EINGEGANGEN') throw Object.assign(new Error('Laborbefund wird vom Labor (Simulation) erzeugt'), { statusCode: 409 });
+    if (status === 'BEFUND EINGEGANGEN') throw Object.assign(new Error('Laborbefund wird vom Labor erzeugt'), { statusCode: 409 });
     const lab = ['LABOR EINGEGANGEN', 'ANALYSE'].includes(status);
     update('samples', id, { transport_status: lab ? 'ÜBERGEBEN' : status, lab_status: lab ? status : s.lab_status, updated_at: now() });
     db.prepare('INSERT INTO sample_events(sample_id,ts,status,note,by_user) VALUES(?,?,?,?,?)').run(id, now(), status, b.note ?? null, u.id);

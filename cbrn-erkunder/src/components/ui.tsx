@@ -44,7 +44,7 @@ export const Stat = ({ label, value, sub, color }: { label: string; value: React
   <div className="panel px-4 py-3"><div className="lbl">{label}</div><div className="text-[22px] font-mono leading-tight mt-0.5" style={{ color }}>{value}</div>{sub && <div className="text-[11.5px] text-dim mt-0.5">{sub}</div>}</div>
 );
 export const Empty = ({ children = 'Keine Daten' }: { children?: ReactNode }) => <div className="text-dim py-6 text-center">{children}</div>;
-export const SimNote = ({ children = 'SIMULIERTE AUSWERTUNG – keine echte Messung' }: { children?: ReactNode }) => <div className="text-[11.5px] text-[#ff8a52] border border-accent/40 bg-accent/10 px-2.5 py-1.5 rounded-md">{children}</div>;
+export const SimNote = (_p: { children?: ReactNode }) => null;
 export function useToggle(init = false): [boolean, () => void] { const [v, s] = useState(init); return [v, () => s((x) => !x)]; }
 export const Select = ({ value, onChange, options, className = '' }: { value: string; onChange: (v: string) => void; options: [string, string][]; className?: string }) => (
   <select className={`inp ${className}`} value={value} onChange={(e) => onChange(e.target.value)}>{options.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
