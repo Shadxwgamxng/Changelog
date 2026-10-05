@@ -1,6 +1,7 @@
 import { db, get, list, insert, update, now, audit } from './db.js';
 import { emit, activeIncident, state, stopRun, systemStatus, resetDevices } from './sim.js';
 import { crewOf } from './auth.js';
+import { publicSample } from './samples.js';
 import { compass } from './geo.js';
 
 // ---------------------------------------------------------------------------------------------
@@ -76,7 +77,7 @@ export function endIncident(by: string, id: string, form: any = {}) {
   const runs = list('runs', 'WHERE incident_id = ?', [id]);
   const q = (sql: string, ...a: any[]) => (db.prepare(sql).get(...a) as any);
   const meas = q('SELECT COUNT(*) c, SUM(CASE WHEN status != ? THEN 1 ELSE 0 END) a FROM measurements WHERE incident_id = ?', 'NORMAL', id);
-  const samples = list('samples', 'WHERE ts >= ? ORDER BY ts', [inc.created_at]).map(({ truth_ref, ...s }: any) => s);
+  const samples = list('samples', 'WHERE ts >= ? ORDER BY ts', [inc.created_at]).map((x: any) => publicSample(x.id)!);
   const alarms = list('alarms', 'WHERE ts >= ? ORDER BY ts', [inc.created_at]);
   const w = db.prepare('SELECT * FROM weather_records ORDER BY ts DESC LIMIT 1').get() as any;
   const ims = list('measurements', "WHERE incident_id = ? AND device = 'IMS' AND substance_id IS NOT NULL", [id]).map((m: any) => m.substance_id);
@@ -93,7 +94,7 @@ export function endIncident(by: string, id: string, form: any = {}) {
     forces_count: num(f.forces_count) ?? people, crew_count: people, crew, vehicles: [...new Set(crew.map((c: any) => c.vehicle))],
     stats: { runs: runs.length, run_distance_m: Math.round(runs.reduce((a: number, r: any) => a + (r.distance_m ?? 0), 0)), measurements: meas?.c ?? 0, anomalies: meas?.a ?? 0, samples: samples.length, alarms: alarms.length,
       max_dose: runs.reduce((a: number, r: any) => Math.max(a, r.max_dose ?? 0), 0), max_pid: runs.reduce((a: number, r: any) => Math.max(a, r.max_pid ?? 0), 0) },
-    samples: samples.map((s: any) => ({ id: s.id, kind: s.kind, ts: s.ts, lab_status: s.lab_status, lab_text: s.lab_result?.text ?? null })), alarms: alarms.map((a: any) => ({ id: a.id, ts: a.ts, category: a.category, description: a.description })),
+    samples: samples.map((s: any) => ({ id: s.id, kind: `${s.type_text}${s.label ? ' · ' + s.label : ''}`, ts: s.ts, lab_status: s.status_text, lab_text: s.lab_result?.text ?? null })), alarms: alarms.map((a: any) => ({ id: a.id, ts: a.ts, category: a.category, description: a.description })),
     device_findings: imsNames, weather: w ? { temperature: w.temperature, humidity: w.humidity, pressure: w.pressure, wind_speed: w.wind_speed, wind_from: w.wind_from, wind_from_text: compass(w.wind_from) } : null,
     truth: { known: !!inc.known, type: inc.ref_type, name: truthRow?.name ?? null, cas: truthRow?.cas ?? null },
   };

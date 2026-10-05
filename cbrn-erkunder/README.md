@@ -38,3 +38,24 @@ Der Server-Teil ist ein Node-Skript (Standard-Node der FiveM-Laufzeit genügt, Z
 ## GESTIS-Abgleich
 
 `tools/gestis-index-check.ts` gleicht CAS/Name mit dem öffentlichen GESTIS-Stoffindex ab (nur Index, keine Artikeldaten); Ergebnis in `server/data/gestis-index.json`.
+
+## Probenentnahme-System
+
+Ablauf: **Fahrzeug → Probenentnahmeset nehmen → J am Punkt → Entnahme (Animation, Fortschritt) → Herkunft/Art/Beschreibung → Proben-ID → beschriften → am Punkt ablegen (Status EINGELAGERT) → CBRN-Computer „Proben“ → Analyse starten → Ergebnis, Historie, Stoffdaten.**
+
+**Voraussetzungen:** `ox_lib` (Pflicht), OneSync (Server-Prüfung der Entfernungen). Optional: `ox_target` (sonst Fallback: TextUI + E), `ox_inventory` (Items `sample_collection_kit`, `sample_container` – Einträge in `ox_inventory_items.lua`; ohne Inventar verwaltet das Skript das Set intern).
+
+**Einrichtung**
+1. `server.cfg`: `add_ace group.admin cbrn.offset allow` (Recht für `/offset`, `/debugsample`, `/debugsamplepoint`; Name in `Config.Sample.AdminAce`).
+2. Fahrzeugmodell in `Config.Models` eintragen (Computer) und den Entnahmepunkt ermitteln: **`/offset`** im oder neben dem Fahrzeug. Pfeil ↑/↓ = Y (vorne/hinten), ←/→ = X (rechts/links), Bild ↑/↓ = Z, SHIFT = 0.10, STRG = 0.01, ENTER = speichern, Rücktaste = abbrechen. Nach ENTER erscheint die fertige Zeile (`Config.SamplePoints = { [`modell`] = vector3(...) }`), sie liegt in der Zwischenablage und wird in der Server-Konsole ausgegeben. Optional wird ein getrennter Ablagepunkt abgefragt (`{ sample = ..., storage = ... }`).
+3. Zeile in `sample_config.lua` unter `Config.SamplePoints` eintragen, Ressource neu starten. Die Punkte sind immer lokale Fahrzeug-Offsets (keine Weltkoordinaten) und bleiben beim Fahren, Drehen und Neuspawnen korrekt.
+
+**Bedienung:** Set nehmen (ox_target-Option bzw. E), `J` am Punkt = Probe entnehmen, Rücktaste = Entnahme abbrechen bzw. Set zurückgeben (ESC öffnet das Pause-Menü und kann nicht belegt werden). Entnommene Proben gehen nicht verloren (auch nicht bei Reconnect): Status TRANSPORT bleibt in der Datenbank, nach dem Verbinden wird die Probe wieder getragen. Ablage nur am Punkt (`Config.SampleReturnDistance`), Lager voll bei `Config.MaxSamples` je Fahrzeug.
+
+**Architektur (Dateien)**
+- `sample_config.lua` – Konfiguration (shared) · `server/bridge.lua` – Lua-Export von Config/Rechten an den JS-Server
+- `client/interaction.lua` (Punkt aus Fahrzeug+Rotation+Offset, ox_target/Fallback) · `client/sample.lua` (Ablauf, HUD, Tasten, Dialoge) · `client/offset.lua` (/offset)
+- `server/sampleEvents.ts` – Server-Events `cbrn:sample:takeKit | startCollection | create | label | return | sync | get | getAll`, serverseitige Distanz-/Besitz-/Statusprüfung · `server/samples.ts` – **Sample Service** (Proben, Lager, Analysen, Historie; UI-unabhängig, auch für Messleitung/Berichte nutzbar) · API `GET /api/samples`, `GET /api/samples/:id`, `POST /api/samples/:id/analyses`, `POST /api/samples/:id/archive`
+- `web/index.html` – HUD unten rechts · `src/pages/Samples.tsx` – Computer-Modul „Proben“
+
+Analyse: Dauer je Art in `Config.Sample.AnalysisDurations`; das Ergebnis wird aus dem verdeckten Einsatzprofil an der Entnahmestelle simuliert und ist mehrstufig (KEIN BEFUND · UNBEKANNT · STOFFGRUPPE ERKANNT · VERDACHT · SIMULIERTE IDENTIFIKATION).

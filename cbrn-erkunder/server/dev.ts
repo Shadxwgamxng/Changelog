@@ -6,6 +6,7 @@ import path from 'node:path';
 import { boot } from './core.js';
 import { bus, ingestFivem } from './sim.js';
 import { list } from './db.js';
+import { createSample, labelSample, storeSample, applySampleConfig } from './samples.js';
 
 const root = path.resolve(process.cwd(), 'resource', 'cbrn-erkunder');
 const appDir = path.join(root, 'app');
@@ -20,6 +21,14 @@ http.createServer(async (req, res) => {
     let b = ''; for await (const c of req) b += c; const j = JSON.parse(b || '{}');
     const r = await app.dispatch(j.method, j.path, j.body, { 'x-session': j.token ?? '' });
     res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ status: r.status, text: JSON.stringify(r.body) })); return;
+  }
+  // Nur Entwicklung: eine Probe wie im Spiel erzeugen (entnehmen -> beschriften -> einlagern) – nutzt denselben Sample Service
+  if (req.method === 'POST' && u.pathname === '/__dev/sample') {
+    let b = ''; for await (const c of req) b += c; const j = JSON.parse(b || '{}'); applySampleConfig({ analysisDurations: { CHEMICAL: 6000, RADIOLOGICAL: 6000, BIOLOGICAL: 8000, GENERAL: 4000 } });
+    try { const s = createSample({ source: j.source ?? 'unbekannte Flüssigkeit', type: j.type ?? 'FLUESSIGKEIT', description: j.description ?? '', by: 'Max Muster', license: 'license:dev', pos: { x: j.x ?? 195, y: j.y ?? -934, z: 30 }, vehicleId: j.vehicle ?? 'FFW-11-71-01', model: 'dev', offset: { x: 0, y: -3, z: 0.5 } });
+      labelSample(s.id, j.label ?? 'Unbekannte Flüssigkeit', j.info ?? 'Fahrbahnrand', 'Max Muster'); if (j.store !== false) storeSample(s.id, 'Max Muster');
+      res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ id: s.id })); } catch (e: any) { res.writeHead(400); res.end(JSON.stringify({ error: e.message })); }
+    return;
   }
   if (u.pathname === '/__events') { res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' }); res.write(':ok\n\n'); clients.add(res); req.on('close', () => clients.delete(res)); return; }
   let f = path.join(appDir, u.pathname === '/' ? 'index.html' : path.normalize(u.pathname)); if (!f.startsWith(appDir) || !fs.existsSync(f)) f = path.join(appDir, 'index.html');

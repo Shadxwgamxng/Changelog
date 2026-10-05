@@ -53,7 +53,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
   useEffect(() => { if (!session) return; const t = setInterval(() => { api('/auth/me').catch(() => {}); }, 30000); return () => clearInterval(t); }, [session]);
 
   // In FiveM-NUI eingebettet: dem Spiel mitteilen, welches Fahrzeug übernommen werden soll
-  useEffect(() => { if (window.parent !== window) window.parent.postMessage({ type: 'cbrn-vehicle', vehicle: session?.vehicle_id ?? null }, '*'); }, [session]);
+  useEffect(() => { if (window.parent !== window) window.parent.postMessage({ type: 'cbrn-vehicle', vehicle: session?.vehicle_id ?? null, name: session?.name ?? null, funktion: session?.funktion ?? null }, '*'); }, [session]);
 
   useEffect(() => {
     if (!session) return;
@@ -67,6 +67,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
           }
           case 'vehicle.position': case 'vehicle.status': setVehicles((vs) => vs.map((v) => (v.id === e.payload.id ? e.payload : v))); break;
           case 'incident.changed': setIncident(e.payload && e.payload.id ? e.payload : null); setRev((r) => ({ ...r, [e.type]: (r[e.type] ?? 0) + 1 })); break;
+          case 'sample.stored': setToasts((t) => [...t.slice(-3), { ...e.payload, kind: 'sample' }]); setTimeout(() => setToasts((t) => t.slice(1)), 12000); setRev((r) => ({ ...r, 'sample.updated': (r['sample.updated'] ?? 0) + 1 })); break;
           case 'device.changed': setLive((l) => ({ ...l, [e.payload.vehicle_id]: { ...l[e.payload.vehicle_id], devices: stamp({ ...e.payload.devices }) } })); break;
           case 'map.changed': setMeta((m: any) => (m ? { ...m, map: { ...m.map, ...e.payload } } : m)); break;
           case 'weather.updated': setWeather(e.payload); break;

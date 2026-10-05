@@ -45,6 +45,6 @@ function MeasInfo({ id, mode }: { id: string; mode?: string }) {
 }
 function SampleInfo({ id }: { id: string }) {
   const s = useApi<any>(`/samples/${id}`, ['sample.updated'], [id]).data; if (!s) return null;
-  return (<div className="space-y-2"><div className="lbl">Probe</div><div className="text-[15px] font-mono">{s.id}</div><Field label="Art">{s.kind}</Field><Field label="Zeit">{dt(s.ts)}</Field><Field label="Labor"><Badge>{s.lab_status}</Badge></Field><Link to="/proben" className="block text-accent">Zur Probenahme →</Link></div>);
+  return (<div className="space-y-2"><div className="lbl">Probe</div><div className="text-[15px] font-mono">{s.id}</div><Field label="Bezeichnung" mono={false}>{s.label ?? 'unbeschriftet'}</Field><Field label="Art" mono={false}>{s.type_text}</Field><Field label="Zeit">{dt(s.ts)}</Field><Field label="Status"><Badge>{s.status_text}</Badge></Field><Link to={`/proben/${s.id}`} className="btn btn-primary inline-block">Details</Link></div>);
 }
 export { Page, Panel };

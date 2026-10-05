@@ -41,6 +41,7 @@ export default function App() {
         <Route path="bio" element={<Bio />} />
         <Route path="bio/:id" element={<Bio />} />
         <Route path="proben" element={<Samples />} />
+        <Route path="proben/:id" element={<Samples />} />
         <Route path="wetter" element={<Weather />} />
         <Route path="messpunkte" element={<Measurements />} />
         <Route path="fahrzeug" element={<Vehicle />} />

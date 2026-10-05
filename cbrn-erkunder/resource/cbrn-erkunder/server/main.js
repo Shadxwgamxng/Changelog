@@ -2314,6 +2314,8 @@ CREATE TABLE IF NOT EXISTS samples (
   id TEXT PRIMARY KEY, ts TEXT, lat REAL, lon REAL, kind TEXT, description TEXT, color TEXT, consistency TEXT, odor TEXT, turbidity TEXT,
   readings TEXT, weather TEXT, location TEXT, taken_by TEXT, mission_id TEXT, vehicle_id TEXT, transport_status TEXT, lab_status TEXT,
   onsite_assessment TEXT, lab_result TEXT, truth_ref TEXT, updated_at TEXT, analysis TEXT);
+CREATE TABLE IF NOT EXISTS sample_analyses (id TEXT PRIMARY KEY, sample_id TEXT, type TEXT, status TEXT, started_at TEXT, completed_at TEXT, duration_ms INTEGER, by_user TEXT, comment TEXT, result TEXT);
+CREATE INDEX IF NOT EXISTS ix_sample_an ON sample_analyses(sample_id);
 CREATE TABLE IF NOT EXISTS sample_events (id INTEGER PRIMARY KEY AUTOINCREMENT, sample_id TEXT, ts TEXT, status TEXT, note TEXT, by_user TEXT);
 CREATE TABLE IF NOT EXISTS weather_records (id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT, temperature REAL, humidity REAL, pressure REAL, wind_speed REAL, wind_from REAL, cloud_okta REAL, precipitation REAL, data_source TEXT DEFAULT 'SIMULATED');
 CREATE TABLE IF NOT EXISTS alarms (id TEXT PRIMARY KEY, ts TEXT, source TEXT, lat REAL, lon REAL, category TEXT, status TEXT, description TEXT, vehicle_id TEXT, measurement_id TEXT);
@@ -2328,7 +2330,7 @@ CREATE TABLE IF NOT EXISTS runs (id TEXT PRIMARY KEY, vehicle_id TEXT, name TEXT
 `;
 function setupSchema() {
   db.exec(SCHEMA);
-  for (const [t, c] of [["substances", "traits"], ["substances", "response"], ["substances", "gestis_zvg"], ["radionuclides", "response"], ["biological_agents", "response"], ["measurements", "run_id"], ["samples", "analysis"], ["runs", "start_lat"], ["runs", "start_lon"], ["runs", "incident_id"], ["measurements", "incident_id"], ["reports", "incident_id"]]) {
+  for (const [t, c] of [["substances", "traits"], ["substances", "response"], ["substances", "gestis_zvg"], ["radionuclides", "response"], ["biological_agents", "response"], ["measurements", "run_id"], ["samples", "analysis"], ["runs", "start_lat"], ["runs", "start_lon"], ["runs", "incident_id"], ["measurements", "incident_id"], ["reports", "incident_id"], ["samples", "label"], ["samples", "info"], ["samples", "sample_type"], ["samples", "source_description"], ["samples", "collected_by"], ["samples", "collected_license"], ["samples", "collection_pos"], ["samples", "collection_offset"], ["samples", "collection_model"], ["samples", "status"], ["samples", "incident_id"], ["samples", "container"], ["samples", "stored_at"], ["samples", "truth_ratio"]]) {
     const cols = db.prepare(`PRAGMA table_info(${t})`).all().map((x) => x.name);
     if (!cols.includes(c)) db.exec(`ALTER TABLE ${t} ADD COLUMN ${c} TEXT`);
   }
@@ -2338,7 +2340,8 @@ var JSON_COLS = {
   radionuclides: ["radiation", "gamma_kev", "response"],
   biological_agents: ["response"],
   measurements: ["channels", "candidates"],
-  samples: ["readings", "weather", "lab_result", "truth_ref", "analysis"],
+  samples: ["readings", "weather", "lab_result", "truth_ref", "analysis", "collection_pos", "collection_offset"],
+  sample_analyses: ["result"],
   scenarios: ["devices"],
   reports: ["data"]
 };
@@ -4674,8 +4677,6 @@ function storeMeasurement(m, silent = false) {
   if (!silent) emit("measurement.created", row);
   return row;
 }
-var LEVEL_TXT = { hinweis: "Hinweis", verdacht: "Verdacht", moegliche_identifikation: "M\xF6gliche Identifikation", bestaetigt: "Best\xE4tigte Identifikation" };
-var levelText = (l) => l ? LEVEL_TXT[l] : "\u2013";
 function evaluateAndStore(v, pos, r, mission, forceRoutine) {
   var _a, _b, _c, _d;
   const base = { lat: pos.lat, lon: pos.lon, vehicle_id: v.id, mission_id: (mission == null ? void 0 : mission.id) ?? null, run_id: ((_a = state.runs[v.id]) == null ? void 0 : _a.id) ?? null, incident_id: ((_b = activeIncident()) == null ? void 0 : _b.id) ?? null };
@@ -4895,39 +4896,18 @@ function tick() {
     const mission = activeMissionFor(v.id);
     if (R2 || mission) evaluateAndStore(cur, pos, r, mission, !!R2 && state.tick % 2 === 0 && (speed > 0 || state.tick % 10 === 0));
   });
-  for (const s of list("samples", "WHERE lab_status = 'ANALYSE' AND lab_result IS NULL")) {
-    const age = (Date.now() - new Date(s.updated_at ?? s.ts).getTime()) / 1e3;
-    if (age < 90) continue;
-    completeLab(s.id, "SYSTEM");
+}
+function sampleTruth(lat, lon) {
+  const A = activeScenario();
+  if (!A) return null;
+  const { x, y } = llToOffset(lat, lon);
+  let ratio;
+  if (A.sc.category === "B") ratio = Math.max(0, 1 - Math.hypot(x - A.src.x, y - A.src.y) / (A.sc.radius_m * 1.2));
+  else {
+    const { c } = truthAt(x, y);
+    ratio = Math.min(1, c / (A.sc.peak || 1));
   }
-}
-function completeLab(sampleId, by) {
-  const s = get("samples", sampleId);
-  if (!s) return null;
-  const t = s.truth_ref;
-  let res;
-  if ((t == null ? void 0 : t.type) === "substance") {
-    const sub = get("substances", t.id);
-    res = { finding: "BEFUND", klass: (sub == null ? void 0 : sub.substance_group) ?? "NICHT VERF\xDCGBAR", substance_id: sub == null ? void 0 : sub.id, text: `${((sub == null ? void 0 : sub.substance_group) ?? "").toUpperCase()}`, simulated: true };
-  } else if ((t == null ? void 0 : t.type) === "radionuclide") {
-    const n = get("radionuclides", t.id);
-    res = { finding: "BEFUND", klass: "RADIONUKLID", substance_id: null, nuclide_id: n == null ? void 0 : n.id, text: `Radionuklid ${n == null ? void 0 : n.name} (Gammaspektrometrie)`, simulated: true };
-  } else if ((t == null ? void 0 : t.type) === "biological") {
-    const b = get("biological_agents", t.id);
-    res = { finding: "BEFUND", klass: "BIOLOGISCH", substance_id: null, bio_id: b == null ? void 0 : b.id, text: `${b == null ? void 0 : b.name} (PCR, Sonderlabor)`, simulated: true };
-  } else res = { finding: "KEIN CBRN-RELEVANTER BEFUND", klass: null, text: "KEIN CBRN-RELEVANTER BEFUND", simulated: true };
-  update("samples", sampleId, { lab_result: res, lab_status: "BEFUND EINGEGANGEN", updated_at: now() });
-  db.prepare("INSERT INTO sample_events(sample_id,ts,status,note,by_user) VALUES(?,?,?,?,?)").run(sampleId, now(), "BEFUND EINGEGANGEN", "Laborergebnis", by);
-  audit(by, "lab_result", "sample", sampleId, res);
-  emit("sample.updated", get("samples", sampleId));
-  return get("samples", sampleId);
-}
-function currentSnapshotAt(vehicleId) {
-  const v = get("vehicles", vehicleId);
-  const { x, y } = llToOffset(v.lat, v.lon);
-  const r = readingsAt(x, y, 0);
-  const { A } = truthAt(x, y);
-  return { r, A, pos: { lat: v.lat, lon: v.lon }, truth: A && truthAt(x, y).c > A.sc.peak * 0.03 ? { type: A.sc.ref_type, id: A.sc.ref_id } : null };
+  return ratio > 0.02 ? { type: A.sc.ref_type, id: A.sc.ref_id, category: A.sc.display, ratio: +ratio.toFixed(3) } : null;
 }
 
 // server/analysis.ts
@@ -5275,6 +5255,197 @@ function validateImport(table, format, content) {
   return { total: rows.length, valid, review, invalid };
 }
 
+// server/samples.ts
+var STATUS_TEXT = { COLLECTED: "ENTNOMMEN", TRANSPORT: "TRANSPORT", STORED: "EINGELAGERT", ANALYSIS: "IN ANALYSE", COMPLETED: "ANALYSE ABGESCHLOSSEN", ARCHIVED: "ARCHIVIERT" };
+var SAMPLE_TYPES = { BODEN: "Boden", WASSER: "Wasser", LUFT: "Luft", FLUESSIGKEIT: "Fl\xFCssigkeit", FESTSTOFF: "Feststoff", ABSTRICH: "Abstrich", SONSTIGE: "Sonstige" };
+var ANALYSIS_TYPES = { CHEMICAL: "Chemisch", RADIOLOGICAL: "Radiologisch", BIOLOGICAL: "Biologisch", GENERAL: "Allgemeine Untersuchung" };
+var SC = { maxSamples: 20, analysisDurations: { CHEMICAL: 6e4, RADIOLOGICAL: 45e3, BIOLOGICAL: 12e4, GENERAL: 3e4 }, containerType: "UNIVERSAL SAMPLE CONTAINER" };
+function applySampleConfig(c) {
+  if (!c) return;
+  if (c.maxSamples) SC.maxSamples = c.maxSamples;
+  if (c.containerType) SC.containerType = c.containerType;
+  if (c.analysisDurations) {
+    for (const [k, v] of Object.entries(c.analysisDurations)) if (Number(v) > 0) SC.analysisDurations[k] = Number(v);
+  }
+}
+var err = (msg, code = 400) => Object.assign(new Error(msg), { statusCode: code });
+var nextSeq = (key) => {
+  const n = getSetting(key, 0) + 1;
+  setSetting(key, n);
+  return n;
+};
+function logEvent(sampleId, status, note, by) {
+  db.prepare("INSERT INTO sample_events(sample_id,ts,status,note,by_user) VALUES(?,?,?,?,?)").run(sampleId, now(), status, note, by);
+}
+function publicSample(id, withDetails = true) {
+  const s = get("samples", id);
+  if (!s) return null;
+  const { truth_ref, truth_ratio, collected_license, ...pub } = s;
+  const out = { ...pub, status_text: STATUS_TEXT[pub.status] ?? pub.status, type_text: SAMPLE_TYPES[pub.sample_type] ?? pub.sample_type };
+  if (withDetails) {
+    out.analyses = list("sample_analyses", "WHERE sample_id = ? ORDER BY started_at", [id]).map(publicAnalysis);
+    out.events = list("sample_events", "WHERE sample_id = ?", [id], "ORDER BY id");
+  }
+  return out;
+}
+function publicAnalysis(a) {
+  const elapsed = a.status === "RUNNING" ? Date.now() - Date.parse(a.started_at) : a.duration_ms;
+  return { ...a, type_text: ANALYSIS_TYPES[a.type] ?? a.type, elapsed_ms: Math.max(0, Math.min(elapsed, a.duration_ms)) };
+}
+var listSamples = () => list("samples", "", [], "ORDER BY ts DESC").map((s) => ({ ...publicSample(s.id, false), analysis_count: db.prepare("SELECT COUNT(*) c FROM sample_analyses WHERE sample_id = ?").get(s.id).c }));
+var storedCount = (vehicleId) => db.prepare("SELECT COUNT(*) c FROM samples WHERE vehicle_id = ? AND status IN ('STORED','ANALYSIS','COMPLETED')").get(vehicleId).c;
+function resolveVehicleId(x, y) {
+  const p = gameToLL(x, y);
+  let best = null;
+  for (const v of list("vehicles")) {
+    if (v.link !== "ONLINE") continue;
+    const d = distM(p, { lat: v.lat, lon: v.lon });
+    if (d < 40 && (!best || d < best.d)) best = { id: v.id, d };
+  }
+  if (best) return best.id;
+  const crewed = list("vehicles").filter((v) => crewOf(v.id).length > 0);
+  return crewed.length === 1 ? crewed[0].id : null;
+}
+function createSample(n) {
+  if (!SAMPLE_TYPES[n.type]) throw err("Ung\xFCltige Probenart");
+  const source2 = String(n.source ?? "").trim();
+  if (source2.length < 2 || source2.length > 120) throw err("Bitte die Herkunft der Probe angeben (2\u2013120 Zeichen)");
+  const description = String(n.description ?? "").trim().slice(0, 300);
+  const id = `P-${(/* @__PURE__ */ new Date()).getFullYear()}-${String(nextSeq("sample_seq")).padStart(6, "0")}`;
+  const ll = gameToLL(n.pos.x, n.pos.y);
+  const inc = activeIncident();
+  const truth = sampleTruth(ll.lat, ll.lon);
+  insert("samples", {
+    id,
+    ts: now(),
+    lat: ll.lat,
+    lon: ll.lon,
+    kind: SAMPLE_TYPES[n.type].toUpperCase(),
+    sample_type: n.type,
+    description,
+    source_description: source2,
+    label: null,
+    info: null,
+    collected_by: n.by,
+    collected_license: n.license,
+    taken_by: n.by,
+    collection_pos: n.pos,
+    collection_offset: n.offset,
+    collection_model: n.model,
+    vehicle_id: n.vehicleId,
+    incident_id: (inc == null ? void 0 : inc.id) ?? null,
+    status: "COLLECTED",
+    transport_status: "ENTNOMMEN",
+    lab_status: "AUSSTEHEND",
+    container: SC.containerType,
+    truth_ref: truth ? { type: truth.type, id: truth.id, category: truth.category } : null,
+    truth_ratio: (truth == null ? void 0 : truth.ratio) ?? 0,
+    updated_at: now()
+  });
+  logEvent(id, "ENTNOMMEN", `${SAMPLE_TYPES[n.type]} \xB7 Fahrzeug ${n.vehicleId}${inc ? " \xB7 Einsatz " + inc.id : " \xB7 ohne Einsatz"}`, n.by);
+  logEvent(id, "HERKUNFT EINGETRAGEN", source2, n.by);
+  audit(n.by, "create", "sample", id, { vehicle: n.vehicleId, incident: (inc == null ? void 0 : inc.id) ?? null });
+  emit("sample.created", publicSample(id));
+  return publicSample(id);
+}
+function labelSample(id, label, info, by) {
+  const s = get("samples", id);
+  if (!s) throw err("Probe nicht gefunden", 404);
+  if (!["COLLECTED", "TRANSPORT"].includes(s.status)) throw err("Die Probe kann nicht mehr beschriftet werden");
+  label = String(label ?? "").trim();
+  if (label.length < 1 || label.length > 60) throw err("Bitte eine Bezeichnung angeben (max. 60 Zeichen)");
+  info = String(info ?? "").trim().slice(0, 120);
+  update("samples", id, { label, info, status: "TRANSPORT", transport_status: "TRANSPORT", updated_at: now() });
+  logEvent(id, "BESCHRIFTET", `${label}${info ? " \u2013 " + info : ""}`, by);
+  audit(by, "label", "sample", id);
+  emit("sample.updated", publicSample(id));
+  return publicSample(id);
+}
+function storeSample(id, by) {
+  const s = get("samples", id);
+  if (!s) throw err("Probe nicht gefunden", 404);
+  if (s.status !== "TRANSPORT") throw err(s.status === "COLLECTED" ? "Die Probe muss zuerst beschriftet werden" : "Die Probe ist bereits eingelagert");
+  if (storedCount(s.vehicle_id) >= SC.maxSamples) throw err("PROBENLAGER VOLL \u2013 Es k\xF6nnen keine weiteren Proben eingelagert werden.", 409);
+  update("samples", id, { status: "STORED", transport_status: "EINGELAGERT", stored_at: now(), updated_at: now() });
+  logEvent(id, "EINGELAGERT", `Probenlager ${s.vehicle_id}`, by);
+  audit(by, "store", "sample", id);
+  const pub = publicSample(id);
+  emit("sample.updated", pub);
+  emit("sample.stored", pub);
+  return pub;
+}
+function archiveSample(id, by) {
+  const s = get("samples", id);
+  if (!s) throw err("Probe nicht gefunden", 404);
+  if (s.status !== "COMPLETED") throw err("Nur abgeschlossene Proben k\xF6nnen archiviert werden");
+  update("samples", id, { status: "ARCHIVED", updated_at: now() });
+  logEvent(id, "ARCHIVIERT", null, by);
+  audit(by, "archive", "sample", id);
+  emit("sample.updated", publicSample(id));
+  return publicSample(id);
+}
+function startAnalysis(id, type, by, comment) {
+  const s = get("samples", id);
+  if (!s) throw err("Probe nicht gefunden", 404);
+  if (!ANALYSIS_TYPES[type]) throw err("Ung\xFCltige Analyseart");
+  if (!["STORED", "COMPLETED"].includes(s.status)) throw err(s.status === "ANALYSIS" ? "F\xFCr diese Probe l\xE4uft bereits eine Analyse" : "Nur eingelagerte Proben k\xF6nnen analysiert werden");
+  const aid = `A-${String(nextSeq("analysis_seq")).padStart(5, "0")}`;
+  const dur = SC.analysisDurations[type] ?? 6e4;
+  insert("sample_analyses", { id: aid, sample_id: id, type, status: "RUNNING", started_at: now(), duration_ms: dur, by_user: by, comment: String(comment ?? "").trim().slice(0, 200) || null, result: null });
+  update("samples", id, { status: "ANALYSIS", lab_status: "ANALYSE", updated_at: now() });
+  logEvent(id, "ANALYSE GESTARTET", `${aid} \xB7 ${ANALYSIS_TYPES[type]}`, by);
+  audit(by, "analysis_start", "sample", id, { analysis: aid, type });
+  emit("sample.updated", publicSample(id));
+  return publicSample(id);
+}
+var pick = (a) => a[Math.floor(Math.random() * a.length)];
+var catOf = (t) => t === "substance" ? "CHEMISCH" : t === "radionuclide" ? "RADIOLOGISCH" : t === "biological" ? "BIOLOGISCH" : null;
+var typeCat = { CHEMICAL: "CHEMISCH", RADIOLOGICAL: "RADIOLOGISCH", BIOLOGICAL: "BIOLOGISCH", GENERAL: null };
+var refName = (t, id) => {
+  var _a, _b, _c;
+  return (t === "substance" ? (_a = get("substances", id)) == null ? void 0 : _a.name : t === "radionuclide" ? (_b = get("radionuclides", id)) == null ? void 0 : _b.name : (_c = get("biological_agents", id)) == null ? void 0 : _c.name) ?? id;
+};
+function analysisResult(sample, type) {
+  const base = { simulated: true, outcome: "NO_FINDING", outcome_text: "KEIN BEFUND", category: null, group: null, ref_type: null, substance_id: null, candidates: [], confidence: null, description: "Es wurde keine Auff\xE4lligkeit festgestellt." };
+  const truth = sample.truth_ref;
+  const ratio = (sample.truth_ratio ?? 0) + (Math.random() - 0.5) * 0.06;
+  if (!truth) return base;
+  const cat = catOf(truth.type);
+  const need = typeCat[type];
+  if (need && need !== cat) return base;
+  const row = truth.type === "substance" ? get("substances", truth.id) : truth.type === "radionuclide" ? get("radionuclides", truth.id) : get("biological_agents", truth.id);
+  const group = truth.type === "substance" ? row == null ? void 0 : row.substance_group : truth.type === "radionuclide" ? "Radionuklid (Gammastrahler)" : (row == null ? void 0 : row.kind) ?? "Biologischer Gefahrstoff";
+  const lead = cat === "CHEMISCH" ? "Chemische" : cat === "RADIOLOGISCH" ? "Radiologische" : "Biologische";
+  const res2 = { ...base, category: cat, group, ref_type: truth.type };
+  const general = type === "GENERAL";
+  if (ratio < (general ? 0.1 : 0.06)) return { ...res2, outcome: "UNKNOWN", outcome_text: "UNBEKANNT", description: `${lead} Auff\xE4lligkeit nicht ausgeschlossen, aber nicht n\xE4her bestimmbar. Weitere Untersuchung empfohlen.`, group: null };
+  if (general || ratio < 0.2) return { ...res2, outcome: "GROUP", outcome_text: "STOFFGRUPPE ERKANNT", description: `${lead} Auff\xE4lligkeit festgestellt.
+Stoffgruppe: ${group}
+Eine eindeutige Identifikation ist nicht m\xF6glich.` };
+  if (ratio < 0.5) {
+    const others = truth.type === "substance" ? list("substances", "WHERE id != ? AND substance_group = ?", [truth.id, row == null ? void 0 : row.substance_group]) : truth.type === "radionuclide" ? list("radionuclides", "WHERE id != ?", [truth.id]) : list("biological_agents", "WHERE id != ?", [truth.id]);
+    const alt = others.length ? pick(others) : null;
+    const cands = [{ id: truth.id, name: refName(truth.type, truth.id) }, ...alt ? [{ id: alt.id, name: alt.name }] : []];
+    if (Math.random() < 0.5) cands.reverse();
+    return { ...res2, outcome: "SUSPECT", outcome_text: "VERDACHT AUF BESTIMMTEN STOFF", candidates: cands, substance_id: cands[0].id, confidence: Math.round(35 + ratio * 60), description: `Verdacht auf ${cands.map((c) => c.name).join(" oder ")} (${group}). Best\xE4tigung durch weitere Untersuchung erforderlich.` };
+  }
+  return { ...res2, outcome: "IDENTIFIED", outcome_text: "SIMULIERTE IDENTIFIKATION", substance_id: truth.id, candidates: [{ id: truth.id, name: refName(truth.type, truth.id) }], confidence: Math.min(95, Math.round(70 + ratio * 25)), description: `M\xF6glicher Stoff: ${refName(truth.type, truth.id)} (${group}).` };
+}
+function completeAnalysis(a) {
+  const s = get("samples", a.sample_id);
+  if (!s) return;
+  const result = analysisResult(s, a.type);
+  update("sample_analyses", a.id, { status: "COMPLETED", completed_at: now(), result });
+  update("samples", s.id, { status: "COMPLETED", lab_status: "BEFUND EINGEGANGEN", lab_result: { text: `${result.outcome_text}${result.substance_id ? " \u2013 " + refName(result.ref_type, result.substance_id) : ""}`, substance_id: result.ref_type === "substance" ? result.substance_id : null }, updated_at: now() });
+  logEvent(s.id, "ANALYSE ABGESCHLOSSEN", `${a.id} \xB7 ${result.outcome_text}`, a.by_user);
+  audit(a.by_user, "analysis_done", "sample", s.id, { analysis: a.id, outcome: result.outcome });
+  emit("sample.updated", publicSample(s.id));
+  emit("analysis.completed", { sample_id: s.id, analysis_id: a.id, outcome_text: result.outcome_text });
+}
+function tickAnalyses() {
+  for (const a of list("sample_analyses", "WHERE status = 'RUNNING'")) if (Date.now() - Date.parse(a.started_at) >= a.duration_ms) completeAnalysis(a);
+}
+
 // server/incident.ts
 var CATEGORIES = { C: "Chemisch", R: "Radiologisch", B: "Biologisch", U: "Unbekannt" };
 var ROLES = ["Messtechniker (Maschinist)", "Gruppenf\xFChrer CBRN-ErkW", "Messtrupp"];
@@ -5285,14 +5456,14 @@ var SIZE = {
   R: { gering: [120, 10], mittel: [200, 40], "gro\xDF": [350, 120] },
   B: { gering: [60, 0], mittel: [100, 0], "gro\xDF": [150, 0] }
 };
-var pick = (a) => a[Math.floor(Math.random() * a.length)];
+var pick2 = (a) => a[Math.floor(Math.random() * a.length)];
 function pickTruth(cat) {
-  const chem = () => ({ ref_type: "substance", ref_id: pick(list("substances", "WHERE cbrn_category = 'C' AND ims_sim = 1")).id, category: "C" });
-  const rad2 = () => ({ ref_type: "radionuclide", ref_id: pick(list("radionuclides").filter((n) => {
+  const chem = () => ({ ref_type: "substance", ref_id: pick2(list("substances", "WHERE cbrn_category = 'C' AND ims_sim = 1")).id, category: "C" });
+  const rad2 = () => ({ ref_type: "radionuclide", ref_id: pick2(list("radionuclides").filter((n) => {
     var _a;
     return ((_a = n.gamma_kev) == null ? void 0 : _a.length) && n.id !== "k-40";
   })).id, category: "R" });
-  const bio = () => ({ ref_type: "biological", ref_id: pick(list("biological_agents")).id, category: "B" });
+  const bio = () => ({ ref_type: "biological", ref_id: pick2(list("biological_agents")).id, category: "B" });
   if (cat === "C") return chem();
   if (cat === "R") return rad2();
   if (cat === "B") return bio();
@@ -5373,7 +5544,7 @@ function endIncident(by, id, form = {}) {
   const runs = list("runs", "WHERE incident_id = ?", [id]);
   const q = (sql, ...a) => db.prepare(sql).get(...a);
   const meas = q("SELECT COUNT(*) c, SUM(CASE WHEN status != ? THEN 1 ELSE 0 END) a FROM measurements WHERE incident_id = ?", "NORMAL", id);
-  const samples = list("samples", "WHERE ts >= ? ORDER BY ts", [inc.created_at]).map(({ truth_ref, ...s }) => s);
+  const samples = list("samples", "WHERE ts >= ? ORDER BY ts", [inc.created_at]).map((x) => publicSample(x.id));
   const alarms = list("alarms", "WHERE ts >= ? ORDER BY ts", [inc.created_at]);
   const w = db.prepare("SELECT * FROM weather_records ORDER BY ts DESC LIMIT 1").get();
   const ims = list("measurements", "WHERE incident_id = ? AND device = 'IMS' AND substance_id IS NOT NULL", [id]).map((m) => m.substance_id);
@@ -5419,7 +5590,7 @@ function endIncident(by, id, form = {}) {
     },
     samples: samples.map((s) => {
       var _a;
-      return { id: s.id, kind: s.kind, ts: s.ts, lab_status: s.lab_status, lab_text: ((_a = s.lab_result) == null ? void 0 : _a.text) ?? null };
+      return { id: s.id, kind: `${s.type_text}${s.label ? " \xB7 " + s.label : ""}`, ts: s.ts, lab_status: s.status_text, lab_text: ((_a = s.lab_result) == null ? void 0 : _a.text) ?? null };
     }),
     alarms: alarms.map((a) => ({ id: a.id, ts: a.ts, category: a.category, description: a.description })),
     device_findings: imsNames,
@@ -5680,13 +5851,13 @@ function registerRoutes(app) {
     const s = get("samples", id);
     if (!s) throw nf("Probe");
     const obs = req.body ?? {};
-    const res = analyze({ ...obs, kind: s.kind });
-    const top = res.candidates[0];
+    const res2 = analyze({ ...obs, kind: s.kind });
+    const top = res2.candidates[0];
     const label = !top || top.score < 3 ? "UNBEKANNT" : `${top.level === "moegliche_identifikation" ? "M\xD6GLICHE IDENTIFIKATION" : top.level === "verdacht" ? "VERDACHT" : "HINWEIS"}: ${top.name.toUpperCase()}`;
-    update("samples", id, { analysis: { observations: obs, result: res, at: now(), by: u.id }, onsite_assessment: label, updated_at: now() });
+    update("samples", id, { analysis: { observations: obs, result: res2, at: now(), by: u.id }, onsite_assessment: label, updated_at: now() });
     audit(u.id, "analysis", "sample", id, { top: top == null ? void 0 : top.id, level: top == null ? void 0 : top.level, score: top == null ? void 0 : top.score });
     emit("sample.updated", get("samples", id));
-    return { ...res, label };
+    return { ...res2, label };
   });
   app.get("/api/missions", async () => list("missions", "", [], "ORDER BY created_at DESC").map((m) => {
     var _a;
@@ -5794,105 +5965,24 @@ function registerRoutes(app) {
     emit("measurement.updated", r);
     return r;
   });
-  const sampleFull = (id) => {
-    const s = get("samples", id);
+  app.get("/api/samples", async () => listSamples());
+  app.get("/api/samples/capacity", async (req) => {
+    const vid = q(req).vehicle ?? user(req).vehicle_id;
+    return { vehicle_id: vid, stored: storedCount(vid), max: SC.maxSamples };
+  });
+  app.get("/api/samples/:id", async (req) => {
+    const s = publicSample(req.params.id);
     if (!s) throw nf("Probe");
-    const { truth_ref, ...pub } = s;
-    return { ...pub, events: list("sample_events", "WHERE sample_id = ?", [id], "ORDER BY id") };
-  };
-  app.get("/api/samples", async () => list("samples", "", [], "ORDER BY ts DESC").map(({ truth_ref, ...s }) => s));
-  app.get("/api/samples/:id", async (req) => sampleFull(req.params.id));
-  app.post("/api/samples", async (req, rep) => {
-    var _a;
-    const u = need(req, 1);
-    const b = req.body;
-    const v = get("vehicles", b.vehicle_id ?? u.vehicle_id);
-    const n = (db.prepare("SELECT COUNT(*) c FROM samples").get().c ?? 0) + 1;
-    const id = `P-2026-${String(n).padStart(5, "0")}`;
-    const snap = currentSnapshotAt(v.id);
-    const wx = weatherNow();
-    const mission = list("missions", "WHERE vehicle_id = ? AND status = 'IN BEARBEITUNG' LIMIT 1", [v.id])[0];
-    const kinds = ["FEST", "FL\xDCSSIG", "LUFT", "BIOLOGISCH", "RADIOLOGISCH", "CHEMISCH"];
-    const kind = kinds.includes(b.kind) ? b.kind : "FL\xDCSSIG";
-    const rd = (k) => devState(v.id, k) === "ready";
-    const NB = "GER\xC4T NICHT BETRIEBSBEREIT";
-    const readings = { PID: rd("pid") ? `${snap.r.pid.value} ppm` : NB, Dosisleistung: rd("dlm") ? `${snap.r.dose.value} \xB5Sv/h` : NB, IMS: rd("ims") ? snap.r.ims.result : NB, pH: b.ph ?? "NICHT GEMESSEN", ...b.readings ?? {} };
-    const row = {
-      id,
-      ts: now(),
-      lat: v.lat,
-      lon: v.lon,
-      kind,
-      description: b.description ?? "",
-      color: b.color ?? null,
-      consistency: b.consistency ?? null,
-      odor: b.odor ?? null,
-      turbidity: b.turbidity ?? null,
-      readings,
-      weather: wx,
-      location: b.location ?? null,
-      taken_by: b.taken_by ?? u.id,
-      mission_id: (mission == null ? void 0 : mission.id) ?? b.mission_id ?? null,
-      vehicle_id: v.id,
-      transport_status: "ENTNOMMEN",
-      lab_status: "AUSSTEHEND",
-      onsite_assessment: snap.r.ims.level ? levelText(snap.r.ims.level).toUpperCase() : "UNBEKANNT",
-      lab_result: null,
-      truth_ref: snap.truth ?? (kind === "BIOLOGISCH" && ((_a = activeIncident()) == null ? void 0 : _a.ref_type) === "biological" ? { type: "biological", id: activeIncident().ref_id } : null),
-      updated_at: now()
-    };
-    insert("samples", row);
-    db.prepare("INSERT INTO sample_events(sample_id,ts,status,note,by_user) VALUES(?,?,?,?,?)").run(id, now(), "ENTNOMMEN", null, u.id);
-    audit(u.id, "create", "sample", id);
-    emit("sample.created", sampleFull(id));
+    return s;
+  });
+  app.post("/api/samples/:id/analyses", async (req, rep) => {
+    const u = need(req);
+    const b = req.body ?? {};
+    const s = startAnalysis(req.params.id, String(b.type ?? ""), u.id, b.comment);
     rep.code(201);
-    return sampleFull(id);
+    return s;
   });
-  const FLOW = ["ENTNOMMEN", "VERPACKT", "\xDCBERGEBEN", "LABOR EINGEGANGEN", "ANALYSE", "BEFUND EINGEGANGEN"];
-  app.post("/api/samples/:id/events", async (req) => {
-    const u = need(req, 1);
-    const id = req.params.id;
-    const s = get("samples", id);
-    if (!s) throw nf("Probe");
-    const b = req.body;
-    const cur = FLOW.indexOf(s.lab_status === "AUSSTEHEND" ? s.transport_status : s.lab_status);
-    const nx = FLOW[cur + 1];
-    const status = b.status ?? nx;
-    if (!FLOW.includes(status)) throw Object.assign(new Error("Ung\xFCltiger Status"), { statusCode: 400 });
-    if (status === "BEFUND EINGEGANGEN") throw Object.assign(new Error("Laborbefund wird vom Labor erzeugt"), { statusCode: 409 });
-    const lab = ["LABOR EINGEGANGEN", "ANALYSE"].includes(status);
-    update("samples", id, { transport_status: lab ? "\xDCBERGEBEN" : status, lab_status: lab ? status : s.lab_status, updated_at: now() });
-    db.prepare("INSERT INTO sample_events(sample_id,ts,status,note,by_user) VALUES(?,?,?,?,?)").run(id, now(), status, b.note ?? null, u.id);
-    audit(u.id, "status", "sample", id, { status });
-    emit("sample.updated", sampleFull(id));
-    return sampleFull(id);
-  });
-  app.post("/api/samples/:id/lab", async (req) => {
-    const u = need(req, 3);
-    const id = req.params.id;
-    if (!get("samples", id)) throw nf("Probe");
-    completeLab(id, u.id);
-    return sampleFull(id);
-  });
-  app.patch("/api/samples/:id", async (req) => {
-    const u = need(req, 1);
-    const id = req.params.id;
-    const s = get("samples", id);
-    if (!s) throw nf("Probe");
-    const b = req.body;
-    const diff = {};
-    const patch = {};
-    for (const k of ["description", "color", "consistency", "odor", "turbidity", "location", "onsite_assessment"]) if (b[k] !== void 0 && b[k] !== s[k]) {
-      patch[k] = b[k];
-      diff[k] = { from: s[k], to: b[k] };
-    }
-    if (Object.keys(patch).length) {
-      update("samples", id, { ...patch, updated_at: now() });
-      audit(u.id, "update", "sample", id, diff);
-      emit("sample.updated", sampleFull(id));
-    }
-    return sampleFull(id);
-  });
+  app.post("/api/samples/:id/archive", async (req) => archiveSample(req.params.id, need(req).id));
   app.get("/api/weather", async (req) => ({ current: weatherNow(), history: db.prepare("SELECT * FROM weather_records ORDER BY id DESC LIMIT ?").all(Math.min(+q(req).limit || 120, 1e3)).reverse().map((w) => ({ ...w, wind_from_text: compass(w.wind_from) })) }));
   app.get("/api/alarms", async () => list("alarms", "", [], "ORDER BY ts DESC LIMIT 300"));
   app.patch("/api/alarms/:id", async (req) => {
@@ -5939,15 +6029,15 @@ function registerRoutes(app) {
     const table = req.params.table;
     if (!["substances", "radionuclides", "biological_agents", "test_tubes"].includes(table)) throw Object.assign(new Error("Tabelle nicht importierbar"), { statusCode: 400 });
     const b = req.body;
-    const res = validateImport(table, b.format, b.content);
+    const res2 = validateImport(table, b.format, b.content);
     if (b.commit) {
       const tx = db.transaction(() => {
-        for (const r of [...res.valid, ...res.review]) insert(table, { ...r, quality: "unverified" }, true);
+        for (const r of [...res2.valid, ...res2.review]) insert(table, { ...r, quality: "unverified" }, true);
       });
       tx();
-      audit(u.id, "import", table, table, { valid: res.valid.length, review: res.review.length });
+      audit(u.id, "import", table, table, { valid: res2.valid.length, review: res2.review.length });
     }
-    return { total: res.total, valid: res.valid.length, review: res.review.map((r) => ({ id: r.id, name: r.name, reasons: r._reasons })), invalid: res.invalid, committed: !!b.commit };
+    return { total: res2.total, valid: res2.valid.length, review: res2.review.map((r) => ({ id: r.id, name: r.name, reasons: r._reasons })), invalid: res2.invalid, committed: !!b.commit };
   });
   app.get("/api/admin/:table", async (req) => {
     need(req, 4);
@@ -6041,7 +6131,7 @@ async function boot(opts) {
   if (seeded && seeded !== config.mapMode) {
     console.log(`[cbrn] Kartenmodus ${seeded} -> ${config.mapMode}: Daten werden neu angelegt.`);
     db.exec("PRAGMA foreign_keys = OFF");
-    for (const t of ["sources", "substances", "radionuclides", "biological_agents", "measurement_devices", "measurement_methods", "test_tubes", "users", "vehicles", "crew", "scenarios", "missions", "measurements", "samples", "sample_events", "weather_records", "alarms", "reports", "audit_log", "runs", "incidents", "sessions", "settings"]) db.exec(`DELETE FROM ${t}`);
+    for (const t of ["sources", "substances", "radionuclides", "biological_agents", "measurement_devices", "measurement_methods", "test_tubes", "users", "vehicles", "crew", "scenarios", "missions", "measurements", "samples", "sample_events", "weather_records", "alarms", "reports", "audit_log", "runs", "incidents", "incident_crew", "sample_analyses", "sessions", "settings"]) db.exec(`DELETE FROM ${t}`);
     db.exec("PRAGMA foreign_keys = ON");
   }
   seedIfEmpty();
@@ -6052,7 +6142,241 @@ async function boot(opts) {
   registerRoutes(app);
   startSim();
   setInterval(() => db.save(), 3e4);
+  setInterval(() => {
+    try {
+      tickAnalyses();
+    } catch (e) {
+      console.error("[cbrn] Analyse-Tick", e);
+    }
+  }, 2e3);
   return app;
+}
+
+// server/sampleEvents.ts
+var import_node_crypto2 = require("node:crypto");
+var DEFAULT2 = { points: /* @__PURE__ */ new Map(), interactDistance: 2, returnDistance: 1.5, collectionDuration: 5e3, maxSamples: 20, allowWithoutIncident: true, useInventory: true, kitItem: "sample_collection_kit", containerItem: "sample_container", containerType: "UNIVERSAL SAMPLE CONTAINER", analysisDurations: {} };
+var cfg = null;
+var cfx = () => globalThis.exports;
+var self2 = () => GetCurrentResourceName();
+function getCfg(force = false) {
+  if (cfg && !force) return cfg;
+  try {
+    const c = cfx()[self2()].getSampleConfig();
+    if (!c) return cfg ?? DEFAULT2;
+    const points = /* @__PURE__ */ new Map();
+    for (const p of c.points ?? []) points.set(p.model >>> 0, { sample: p.sample, storage: p.storage });
+    const n = { ...DEFAULT2, ...c, points };
+    cfg = n;
+    applySampleConfig({ maxSamples: n.maxSamples, containerType: n.containerType, analysisDurations: n.analysisDurations });
+    return n;
+  } catch {
+    return cfg ?? DEFAULT2;
+  }
+}
+var players = /* @__PURE__ */ new Map();
+var licenseOf = (src) => {
+  const n = GetNumPlayerIdentifiers(src);
+  for (let i = 0; i < n; i++) {
+    const id = GetPlayerIdentifier(src, i);
+    if (id.startsWith("license:")) return id;
+  }
+  return `src:${src}`;
+};
+var pl = (src) => {
+  let p = players.get(src);
+  if (!p) {
+    p = { kit: false, license: licenseOf(src) };
+    players.set(src, p);
+  }
+  return p;
+};
+var res = (src, ev, ok2, extra = {}) => emitNet("cbrn:sample:res", src, { ev, ok: ok2, ...extra });
+var fail = (src, ev, msg) => res(src, ev, false, { msg });
+var dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+var posOf = (src) => {
+  const [x, y, z] = GetEntityCoords(GetPlayerPed(src));
+  return { x, y, z };
+};
+function worldPoint(ent, off) {
+  const [ex, ey, ez] = GetEntityCoords(ent);
+  const h = GetEntityHeading(ent) * Math.PI / 180;
+  return { x: ex + Math.cos(h) * off.x - Math.sin(h) * off.y, y: ey + Math.sin(h) * off.x + Math.cos(h) * off.y, z: ez + off.z };
+}
+var adminOk = (src) => {
+  try {
+    return !!cfx()[self2()].isAdmin(src);
+  } catch {
+    return false;
+  }
+};
+var jobOk = (src) => {
+  try {
+    return !!cfx()[self2()].jobAllowed(src);
+  } catch {
+    return true;
+  }
+};
+var inv = () => getCfg().useInventory && GetResourceState("ox_inventory") === "started";
+var ox = () => cfx().ox_inventory;
+var hasKit = (src, p) => inv() ? Number(ox().Search(src, "count", getCfg().kitItem)) > 0 : p.kit;
+function checkPoint(src, netId, which, maxDist) {
+  const ent = NetworkGetEntityFromNetworkId(Number(netId));
+  if (!ent || !DoesEntityExist(ent)) return "Fahrzeug nicht gefunden.";
+  const model = GetEntityModel(ent) >>> 0;
+  const pts = getCfg().points.get(model);
+  if (!pts) return "Kein Probenentnahmepunkt f\xFCr dieses Fahrzeug konfiguriert.";
+  const off = pts[which];
+  const world = worldPoint(ent, off);
+  if (dist(posOf(src), world) > maxDist + 1) return which === "storage" ? "Du befindest dich nicht am vorgesehenen Probenablagepunkt." : "Du befindest dich nicht am Probenentnahmepunkt.";
+  return { ent, world, off, model };
+}
+var carryingOf = (p) => list("samples", "WHERE collected_license = ? AND status IN ('COLLECTED','TRANSPORT') ORDER BY ts DESC LIMIT 1", [p.license])[0] ?? null;
+var safeName = (src, given) => {
+  const g = String(given ?? "").trim().slice(0, 60);
+  return g.length >= 2 ? g : GetPlayerName(src) ?? `Spieler ${src}`;
+};
+function registerSampleEvents() {
+  setTimeout(() => getCfg(true), 1500);
+  onNet("cbrn:sample:takeKit", (netId) => {
+    const src = source, p = pl(src), c = getCfg();
+    if (!jobOk(src)) return fail(src, "kit", "Du hast keine Berechtigung f\xFCr die Probenentnahme.");
+    if (GetVehiclePedIsIn(GetPlayerPed(src), false) !== 0) return fail(src, "kit", "Steige zuerst aus dem Fahrzeug aus.");
+    const chk = checkPoint(src, netId, "sample", c.interactDistance);
+    if (typeof chk === "string") return fail(src, "kit", chk);
+    if (hasKit(src, p)) return fail(src, "kit", "Du hast bereits ein Probenentnahmeset.");
+    if (inv()) {
+      if (!ox().AddItem(src, c.kitItem, 1)) return fail(src, "kit", "Dein Inventar ist voll.");
+    } else p.kit = true;
+    res(src, "kit", true, { kit: true, msg: "Du hast ein Probenentnahmeset genommen." });
+  });
+  onNet("cbrn:sample:returnKit", () => {
+    const src = source, p = pl(src), c = getCfg();
+    if (carryingOf(p) || p.active) return fail(src, "kit", "Lege zuerst die entnommene Probe ab.");
+    if (inv()) ox().RemoveItem(src, c.kitItem, 1);
+    p.kit = false;
+    res(src, "kit", true, { kit: false, msg: "Probenentnahmeset zur\xFCckgegeben." });
+  });
+  onNet("cbrn:sample:startCollection", (netId, confirmedNoIncident, byName) => {
+    const src = source, p = pl(src), c = getCfg();
+    if (!jobOk(src)) return fail(src, "start", "Du hast keine Berechtigung f\xFCr die Probenentnahme.");
+    if (!hasKit(src, p)) return fail(src, "start", "Du hast kein Probenentnahmeset.");
+    if (p.active) return fail(src, "start", "Es l\xE4uft bereits eine Probenentnahme.");
+    if (carryingOf(p)) return fail(src, "start", "Du tr\xE4gst bereits eine Probe \u2013 lege sie zuerst am Fahrzeug ab.");
+    if (GetVehiclePedIsIn(GetPlayerPed(src), false) !== 0) return fail(src, "start", "Steige zuerst aus dem Fahrzeug aus.");
+    const chk = checkPoint(src, netId, "sample", c.interactDistance);
+    if (typeof chk === "string") return fail(src, "start", chk);
+    const noInc = !activeIncident();
+    if (noInc && !c.allowWithoutIncident) return fail(src, "start", "Keine aktive Einsatznummer \u2013 bitte zuerst am Bordcomputer einen Einsatz anlegen.");
+    if (noInc && !confirmedNoIncident) return res(src, "start", true, { needConfirm: true });
+    p.active = { token: (0, import_node_crypto2.randomBytes)(12).toString("hex"), start: Date.now(), net: Number(netId), dur: c.collectionDuration, noIncident: noInc, by: safeName(src, byName) };
+    res(src, "start", true, { token: p.active.token, duration: c.collectionDuration });
+  });
+  onNet("cbrn:sample:cancelCollection", () => {
+    const p = players.get(source);
+    if (p) delete p.active;
+  });
+  onNet("cbrn:sample:create", (token, sourceText, type, description) => {
+    const src = source, p = pl(src), c = getCfg(), a = p.active;
+    if (!a || a.token !== token) return fail(src, "create", "Keine laufende Probenentnahme.");
+    if (Date.now() - a.start < a.dur * 0.85) {
+      delete p.active;
+      return fail(src, "create", "Die Probenentnahme war noch nicht abgeschlossen.");
+    }
+    if (Date.now() - a.start > 10 * 60 * 1e3) {
+      delete p.active;
+      return fail(src, "create", "Die Probenentnahme ist abgelaufen.");
+    }
+    const chk = checkPoint(src, a.net, "sample", c.interactDistance + 1);
+    if (typeof chk === "string") {
+      delete p.active;
+      return fail(src, "create", chk);
+    }
+    if (!SAMPLE_TYPES[type]) return fail(src, "create", "Ung\xFCltige Probenart.");
+    const where = posOf(src);
+    const vehicleId = resolveVehicleId(where.x, where.y);
+    if (!vehicleId) {
+      delete p.active;
+      return fail(src, "create", "Kein angemeldetes CBRN-Fahrzeug in der N\xE4he \u2013 bitte am Bordcomputer anmelden.");
+    }
+    let sample;
+    try {
+      sample = createSample({ source: sourceText, type, description, by: a.by, license: p.license, pos: where, vehicleId, model: String(chk.model), offset: chk.off, vehicleNetId: a.net });
+    } catch (e) {
+      return fail(src, "create", e.message);
+    }
+    delete p.active;
+    if (inv()) {
+      try {
+        ox().AddItem(src, c.containerItem, 1, { sample_id: sample.id, type: c.containerType });
+      } catch {
+      }
+    }
+    res(src, "create", true, { sample: { id: sample.id } });
+  });
+  onNet("cbrn:sample:label", (id, label, info) => {
+    const src = source, p = pl(src), cur = carryingOf(p);
+    if (!cur || cur.id !== id) return fail(src, "label", "Diese Probe geh\xF6rt dir nicht oder wurde bereits eingelagert.");
+    try {
+      const s = labelSample(id, label, info, cur.collected_by);
+      res(src, "label", true, { sample: { id: s.id, label: s.label } });
+    } catch (e) {
+      fail(src, "label", e.message);
+    }
+  });
+  onNet("cbrn:sample:return", (netId) => {
+    const src = source, p = pl(src), c = getCfg(), cur = carryingOf(p);
+    if (!cur) return fail(src, "return", "Du tr\xE4gst keine Probe.");
+    if (cur.status !== "TRANSPORT") return fail(src, "return", "Die Probe muss zuerst beschriftet werden.");
+    const chk = checkPoint(src, netId, "storage", c.returnDistance);
+    if (typeof chk === "string") return fail(src, "return", chk);
+    const w = posOf(src);
+    const rv = resolveVehicleId(chk.world.x, chk.world.y);
+    if (rv && rv !== cur.vehicle_id) return fail(src, "return", "Diese Probe geh\xF6rt zu einem anderen CBRN-Fahrzeug.");
+    try {
+      const s = storeSample(cur.id, cur.collected_by);
+      void w;
+      if (inv()) {
+        try {
+          ox().RemoveItem(src, c.containerItem, 1, { sample_id: s.id });
+        } catch {
+        }
+      }
+      res(src, "return", true, { sample: { id: s.id } });
+    } catch (e) {
+      fail(src, "return", e.message);
+    }
+  });
+  onNet("cbrn:sample:sync", () => {
+    const src = source, p = pl(src), cur = carryingOf(p);
+    res(src, "sync", true, { kit: hasKit(src, p), carrying: cur ? { id: cur.id, label: cur.label, labeled: cur.status === "TRANSPORT" } : null });
+  });
+  onNet("cbrn:sample:get", (id) => {
+    const s = publicSample(String(id), false);
+    emitNet("cbrn:sample:data", source, s);
+  });
+  onNet("cbrn:sample:getAll", () => emitNet("cbrn:sample:data", source, list("samples", "WHERE collected_license = ? ORDER BY ts DESC LIMIT 50", [pl(source).license]).map((s) => publicSample(s.id, false))));
+  onNet("cbrn:sample:debug", () => {
+    var _a;
+    const src = source;
+    if (!adminOk(src)) return;
+    const p = pl(src);
+    res(src, "debug", true, { state: { kit: hasKit(src, p), active: p.active ? { ...p.active, token: "\u2026" } : null, carrying: ((_a = carryingOf(p)) == null ? void 0 : _a.id) ?? null, license: p.license, inventory: inv(), points: [...getCfg().points.keys()] } });
+  });
+  onNet("cbrn:admin:request", (action) => {
+    const src = source;
+    if (!adminOk(src)) return fail(src, "admin", "Daf\xFCr fehlt dir die Berechtigung (ACE cbrn.offset).");
+    emitNet("cbrn:admin:grant", src, action);
+  });
+  onNet("cbrn:offset:report", (text) => {
+    if (adminOk(source)) console.log(`
+[cbrn] OFFSET ermittelt von ${GetPlayerName(source)} \u2013 in sample_config.lua eintragen:
+
+${String(text).slice(0, 800)}
+`);
+  });
+  on("playerDropped", () => {
+    players.delete(source);
+  });
 }
 
 // server/fivem.ts
@@ -6068,27 +6392,28 @@ var live = (src) => {
 boot({ dbFile: import_node_path3.default.join(RES_DIR, "data", "cbrn.db"), wasmFile: import_node_path3.default.join(RES_DIR, "server", "sql-wasm.wasm") }).then((app) => {
   onNet("cbrn:req", async (id, method, url, body, token) => {
     const src = source;
-    let res;
+    let res2;
     try {
-      res = await app.dispatch(String(method), String(url), body, { "x-session": String(token ?? "") });
+      res2 = await app.dispatch(String(method), String(url), body, { "x-session": String(token ?? "") });
     } catch (e) {
-      res = { status: 500, body: { error: (e == null ? void 0 : e.message) ?? "Fehler" } };
+      res2 = { status: 500, body: { error: (e == null ? void 0 : e.message) ?? "Fehler" } };
     }
-    if (res.status !== 401 && token) {
+    if (res2.status !== 401 && token) {
       if (!subs.has(src)) {
         subs.add(src);
         emitNet("cbrn:evt", src, JSON.stringify({ type: "hello", payload: systemStatus(), ts: (/* @__PURE__ */ new Date()).toISOString() }));
       }
     }
-    const text = JSON.stringify(res.body === void 0 ? {} : res.body);
+    const text = JSON.stringify(res2.body === void 0 ? {} : res2.body);
     const total = Math.max(1, Math.ceil(text.length / CHUNK));
-    for (let i = 0; i < total; i++) emitNet("cbrn:resp", src, id, i, total, res.status, text.slice(i * CHUNK, (i + 1) * CHUNK));
+    for (let i = 0; i < total; i++) emitNet("cbrn:resp", src, id, i, total, res2.status, text.slice(i * CHUNK, (i + 1) * CHUNK));
   });
   onNet("cbrn:telemetry", (d) => {
     const src = source;
     if (!d || typeof d.vehicle !== "string") return;
     ingestFivem({ ...d, player: GetPlayerName(src) ?? void 0 });
   });
+  registerSampleEvents();
   bus.on("event", (e) => {
     if (!subs.size) return;
     const msg = JSON.stringify(e);

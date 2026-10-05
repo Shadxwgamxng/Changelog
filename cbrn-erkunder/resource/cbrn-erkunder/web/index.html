@@ -12,9 +12,23 @@
   #glare{position:absolute;pointer-events:none;border-radius:3px;background:linear-gradient(115deg,rgba(255,255,255,.055) 0%,rgba(255,255,255,0) 32%)}
   #led{position:absolute;width:6px;height:6px;border-radius:50%;background:#3fb950;box-shadow:0 0 8px #3fb950,0 0 2px #fff inset}
   #brand{position:absolute;left:0;right:0;text-align:center;color:#9aa0a8;font-size:15px;letter-spacing:.2em;font-weight:900;font-family:'Arial Black',Impact,'Segoe UI Black','Segoe UI',Arial,sans-serif;text-transform:uppercase;text-shadow:0 1px 0 #000}
+  /* HUD unten rechts (Probenentnahme, Offset Finder) – unabhängig vom Computer, ohne Fokus */
+  #hud{position:fixed;right:28px;bottom:28px;width:350px;display:none;background:rgba(14,14,14,.94);border:1px solid #2a2a2a;border-left:3px solid #f0500a;border-radius:8px;color:#ebe9e6;font-size:13px;line-height:1.45;box-shadow:0 8px 28px rgba(0,0,0,.55);padding:12px 14px;pointer-events:none}
+  #hud.on{display:block}
+  #hud .t{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#f0500a;font-weight:700;margin-bottom:6px}
+  #hud .sub{color:#9a9792;font-size:12px}
+  #hud .row{margin-top:8px;display:flex;gap:8px;align-items:flex-start}
+  #hud .key{flex:none;min-width:22px;text-align:center;padding:1px 6px;border:1px solid #5a5a5a;border-bottom-width:2px;border-radius:4px;font-family:Consolas,monospace;font-weight:700;background:#1c1c1c}
+  #hud .key.act{border-color:#f0500a;color:#ff8a52}
+  #hud .dim{opacity:.5}
+  #hud .bar{margin-top:10px;height:8px;border-radius:5px;background:#222;overflow:hidden;border:1px solid #333}
+  #hud .bar i{display:block;height:100%;background:#f0500a;width:0}
+  #hud .pct{margin-top:6px;font-family:Consolas,monospace;font-size:12px;color:#ebe9e6}
+  #hud .mono{font-family:Consolas,monospace}
   #hint{position:absolute;left:0;right:0;text-align:center;color:#d5dde6;font-size:12px;text-shadow:0 1px 3px #000}
 </style></head>
 <body>
+<div id="hud"></div>
 <div id="root"><div id="wrap">
   <div id="screen"><iframe id="f" src="../app/index.html" allow="clipboard-write"></iframe></div>
   <div id="glare"></div><div id="led"></div><div id="brand">WINTER&nbsp;SYSTEMS</div><div id="hint">ESC – Computer schließen</div>
@@ -24,6 +38,33 @@
   const glare = document.getElementById('glare'), led = document.getElementById('led'), brand = document.getElementById('brand'), hint = document.getElementById('hint');
   const res = typeof GetParentResourceName === 'function' ? GetParentResourceName() : 'cbrn-erkunder';
   const post = (name, body) => fetch(`https://${res}/${name}`, { method: 'POST', body: JSON.stringify(body || {}) }).catch(() => {});
+
+  // ---- HUD (unten rechts)
+  const hudEl = document.getElementById('hud');
+  const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const showHud = (d) => {
+    if (!d || d.mode === 'off') { hudEl.classList.remove('on'); hudEl.innerHTML = ''; return; }
+    let h = '';
+    if (d.mode === 'kit') {
+      h = `<div class="t">Probenentnahme</div><div>Probenentnahmeset</div>` +
+        (d.atPoint ? `<div class="row"><span class="key act">${esc(d.key)}</span><span>Drücke „${esc(d.key)}“, um hier eine Probe zu entnehmen</span></div>`
+                   : `<div class="row dim"><span class="key">${esc(d.key)}</span><span>Gehe zum Probenentnahmepunkt am Fahrzeug</span></div>`) +
+        `<div class="row"><span class="key">${esc(d.cancelKey === 'BACK' ? '⌫' : d.cancelKey)}</span><span class="sub">Set zurückgeben</span></div>`;
+    } else if (d.mode === 'progress') {
+      h = `<div class="t">${esc(d.title)}</div><div>${esc(d.text)}</div><div class="bar"><i style="width:${Math.max(0, Math.min(100, d.pct || 0))}%"></i></div><div class="pct">${Math.round(d.pct || 0)} %</div>` +
+        (d.cancelKey ? `<div class="row"><span class="key">${esc(d.cancelKey === 'BACK' ? '⌫' : d.cancelKey)}</span><span class="sub">Abbrechen</span></div>` : '');
+    } else if (d.mode === 'taken') {
+      h = `<div class="t">Probe entnommen</div><div class="mono">${esc(d.id)}</div>${d.label ? `<div class="sub">${esc(d.label)}</div>` : '<div class="sub">noch nicht beschriftet</div>'}` +
+        (d.atPoint ? `<div class="row"><span class="key act">${esc(d.key)}</span><span>Probe hier ablegen</span></div>`
+                   : `<div class="row dim"><span class="key">${esc(d.key)}</span><span>Zum Ablagepunkt am Fahrzeug gehen, um die Probe abzulegen</span></div>`);
+    } else if (d.mode === 'offset') {
+      const f = (v) => (Number(v) >= 0 ? ' ' : '') + Number(v).toFixed(3);
+      h = `<div class="t">${esc(d.title || 'CBRN Offset Finder')}</div>` +
+        `<div class="mono">↑ / ↓ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Y (vorne / hinten)<br>← / → &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;X (rechts / links)<br>Bild ↑ / ↓ &nbsp;Z (oben / unten)<br>SHIFT 0.10 · STRG 0.01<br>ENTER &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Position speichern<br>BACKSPACE Abbrechen</div>` +
+        `<div class="mono" style="margin-top:8px;color:#ff8a52">X: ${f(d.x)}<br>Y: ${f(d.y)}<br>Z: ${f(d.z)}</div><div class="sub" style="margin-top:4px">Schritt ${Number(d.step).toFixed(2)} m</div>`;
+    }
+    hudEl.innerHTML = h; hudEl.classList.add('on');
+  };
   const RATIO = 1.66, MIN_W = 1000; // Mindestbreite der Oberfläche in CSS-Pixeln
   const px = (el, o) => Object.entries(o).forEach(([k, v]) => (el.style[k] = Math.round(v) + 'px'));
   // Alles in ganzen Pixeln: Monitorgröße, Bildschirmfläche, Oberfläche (1:1, nur bei sehr kleinem Fenster verkleinert)
@@ -41,9 +82,10 @@
   window.addEventListener('message', (e) => {
     const d = e.data || {};
     if (d.type === 'open') { root.classList.add('on'); fit(); }
+    else if (d.type === 'hud') showHud(d.data);
     else if (d.type === 'evt') f.contentWindow && f.contentWindow.postMessage({ cbrn: 'evt', data: d.data }, '*'); // Live-Ereignis vom Server
     else if (d.type === 'close') root.classList.remove('on');
-    else if (d.type === 'cbrn-vehicle') post('setVehicle', { vehicle: d.vehicle }); // aus der eingebetteten Web-App nach Anmeldung/Abmeldung
+    else if (d.type === 'cbrn-vehicle') post('setVehicle', { vehicle: d.vehicle, name: d.name, funktion: d.funktion }); // aus der eingebetteten Web-App nach Anmeldung/Abmeldung
     else if (d.type === 'cbrn-close') post('close'); // ESC aus der eingebetteten Web-App
   });
   // Anfragen der Oberflaeche (iframe) -> Lua-Client -> Server-Skript; Antwort zurueck an den iframe

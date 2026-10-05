@@ -9,7 +9,7 @@ import { STATUS_COLOR, time } from '../lib/format';
 
 const I = 17;
 export const NAV: { group: string; items: [string, string, ReactNode][] }[] = [
-  { group: 'Einsatz', items: [['/', 'Dashboard', <LayoutDashboard size={I} />], ['/karte', 'Einsatzkarte', <MapIcon size={I} />], ['/live', 'Live-Messung', <Activity size={I} />], ['/auftraege', 'Messaufträge', <ClipboardList size={I} />], ['/messpunkte', 'Messpunkte', <MapPin size={I} />], ['/proben', 'Probenahme', <TestTube2 size={I} />], ['/wetter', 'Wetter', <CloudSun size={I} />]] },
+  { group: 'Einsatz', items: [['/', 'Dashboard', <LayoutDashboard size={I} />], ['/karte', 'Einsatzkarte', <MapIcon size={I} />], ['/live', 'Live-Messung', <Activity size={I} />], ['/auftraege', 'Messaufträge', <ClipboardList size={I} />], ['/messpunkte', 'Messpunkte', <MapPin size={I} />], ['/proben', 'Proben', <TestTube2 size={I} />], ['/wetter', 'Wetter', <CloudSun size={I} />]] },
   { group: 'Technik', items: [['/geraete', 'Messgeräte', <Gauge size={I} />], ['/fahrzeug', 'Fahrzeug', <Truck size={I} />], ['/besatzung', 'Besatzung', <Users size={I} />], ['/messleitung', 'CBRN-Messleitung', <RadioTower size={I} />]] },
   { group: 'Wissen', items: [['/stoffe', 'Stoffdatenbank', <FlaskConical size={I} />], ['/radionuklide', 'Radionuklid-Datenbank', <Radiation size={I} />], ['/bio', 'Biologische Datenbank', <Biohazard size={I} />]] },
   { group: 'Auswertung', items: [['/berichte', 'Einsatzberichte', <FileText size={I} />], ['/historie', 'Historie', <History size={I} />], ['/system', 'System', <Settings size={I} />]] },
@@ -70,9 +70,11 @@ export default function Layout() {
       <main className="min-w-0 min-h-0 relative overflow-hidden"><Outlet /></main>
       <div className="fixed right-4 bottom-4 z-50 space-y-2 w-80 no-print">
         {toasts.map((a, i) => (
-          <div key={a.id + i} className="panel !border-bad/60 p-3 cursor-pointer shadow-2xl" onClick={() => { dismissToast(i); nav('/historie'); }}>
+          <div key={a.id + i} className={`panel p-3 cursor-pointer shadow-2xl ${a.kind === 'sample' ? '!border-accent/60' : '!border-bad/60'}`} onClick={() => { dismissToast(i); nav(a.kind === 'sample' ? `/proben/${a.id}` : '/historie'); }}>
+            {a.kind === 'sample' ? (<><div className="flex justify-between items-center"><Badge color="#f0500a">NEUE PROBE</Badge><span className="text-dim font-mono text-[11.5px]">{a.id}</span></div>
+              <div className="mt-1.5 font-medium">{a.label ?? 'Probe'}</div><div className="text-[11.5px] text-dim">Status: {a.status_text} · <span className="text-accent">Analyse öffnen →</span></div></>) : (<>
             <div className="flex justify-between items-center"><Badge color="#e5534b">ALARM {a.category}</Badge><span className="text-dim font-mono text-[11.5px]">{time(a.ts)}</span></div>
-            <div className="mt-1.5 font-medium">{a.description}</div><div className="text-[11.5px] text-dim">{a.vehicle_id} · {a.source}</div>
+            <div className="mt-1.5 font-medium">{a.description}</div><div className="text-[11.5px] text-dim">{a.vehicle_id} · {a.source}</div></>)}
           </div>))}
       </div>
     </div>

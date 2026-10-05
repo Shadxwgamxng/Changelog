@@ -38,7 +38,7 @@ export default function Mlk() {
         <div className="col-span-4"><MissionForm onDone={missions.reload} /></div>
         <Panel title="Warnungen" className="col-span-4" body="!p-0"><table className="t"><tbody>{(alarms.data ?? []).filter((a) => a.status === 'OFFEN').slice(0, 8).map((a) => <tr key={a.id}><td className="font-mono">{time(a.ts)}</td><td><Badge color={CAT[a.category[0]]?.color}>{a.category}</Badge></td><td>{a.description}</td></tr>)}</tbody></table></Panel>
         <Panel title="Letzte Messpunkte (Auffälligkeiten)" className="col-span-4" body="!p-0"><table className="t"><tbody>{(mp.data ?? []).map((m) => <tr key={m.id}><td className="font-mono">{m.id}</td><td>{m.vehicle_id}</td><td>{m.device}</td><td><StatusBadge s={m.status} /></td></tr>)}</tbody></table></Panel>
-        <Panel title="Proben" className="col-span-4" body="!p-0"><table className="t"><tbody>{(samples.data ?? []).slice(0, 8).map((s) => <tr key={s.id}><td className="font-mono">{s.id}</td><td>{s.kind}</td><td><StatusBadge s={s.lab_status} /></td></tr>)}</tbody></table></Panel>
+        <Panel title="Proben" className="col-span-4" body="!p-0"><table className="t"><tbody>{(samples.data ?? []).slice(0, 8).map((s) => <tr key={s.id}><td className="font-mono">{s.id}</td><td>{s.label ?? s.type_text}</td><td><StatusBadge s={s.status_text} /></td></tr>)}</tbody></table></Panel>
       </div>
     </Page>
   );

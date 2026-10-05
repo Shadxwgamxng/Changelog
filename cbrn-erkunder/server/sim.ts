@@ -323,23 +323,14 @@ function tick() {
     const mission = activeMissionFor(v.id);
     if (R || mission) evaluateAndStore(cur, pos, r, mission, !!R && state.tick % 2 === 0 && (speed > 0 || state.tick % 10 === 0));
   });
-  // Simulierte Laborbefunde
-  for (const s of list('samples', "WHERE lab_status = 'ANALYSE' AND lab_result IS NULL")) {
-    const age = (Date.now() - new Date(s.updated_at ?? s.ts).getTime()) / 1000; if (age < 90) continue;
-    completeLab(s.id, 'SYSTEM');
-  }
 }
 
-export function completeLab(sampleId: string, by: string) {
-  const s = get('samples', sampleId); if (!s) return null;
-  const t = s.truth_ref; let res: any;
-  if (t?.type === 'substance') { const sub = get('substances', t.id); res = { finding: 'BEFUND', klass: sub?.substance_group ?? 'NICHT VERFÜGBAR', substance_id: sub?.id, text: `${(sub?.substance_group ?? '').toUpperCase()}`, simulated: true }; }
-  else if (t?.type === 'radionuclide') { const n = get('radionuclides', t.id); res = { finding: 'BEFUND', klass: 'RADIONUKLID', substance_id: null, nuclide_id: n?.id, text: `Radionuklid ${n?.name} (Gammaspektrometrie)`, simulated: true }; }
-  else if (t?.type === 'biological') { const b = get('biological_agents', t.id); res = { finding: 'BEFUND', klass: 'BIOLOGISCH', substance_id: null, bio_id: b?.id, text: `${b?.name} (PCR, Sonderlabor)`, simulated: true }; }
-  else res = { finding: 'KEIN CBRN-RELEVANTER BEFUND', klass: null, text: 'KEIN CBRN-RELEVANTER BEFUND', simulated: true };
-  update('samples', sampleId, { lab_result: res, lab_status: 'BEFUND EINGEGANGEN', updated_at: now() });
-  db.prepare('INSERT INTO sample_events(sample_id,ts,status,note,by_user) VALUES(?,?,?,?,?)').run(sampleId, now(), 'BEFUND EINGEGANGEN', 'Laborergebnis', by);
-  audit(by, 'lab_result', 'sample', sampleId, res); emit('sample.updated', get('samples', sampleId)); return get('samples', sampleId);
+/** Wahrheitsprofil an einer Entnahmestelle (für Probenanalysen): welcher Stoff, wie stark (ratio 0..1). Verdeckt, nur serverseitig. */
+export function sampleTruth(lat: number, lon: number) {
+  const A = activeScenario(); if (!A) return null; const { x, y } = llToOffset(lat, lon); let ratio: number;
+  if (A.sc.category === 'B') ratio = Math.max(0, 1 - Math.hypot(x - A.src.x, y - A.src.y) / (A.sc.radius_m * 1.2));
+  else { const { c } = truthAt(x, y); ratio = Math.min(1, c / (A.sc.peak || 1)); }
+  return ratio > 0.02 ? { type: A.sc.ref_type, id: A.sc.ref_id, category: A.sc.display, ratio: +ratio.toFixed(3) } : null;
 }
 
 export function currentSnapshotAt(vehicleId: string) {

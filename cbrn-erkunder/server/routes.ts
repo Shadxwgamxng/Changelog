@@ -1,12 +1,13 @@
 import type { App as FastifyInstance, Req as FastifyRequest } from './router.js';
 import { db, get, list, insert, update, remove, audit, now, getSetting, setSetting, TABLES, columns } from './db.js';
-import { state, emit, fivemConnected, systemStatus, weatherNow, ingestFivem, spectrumAt, currentSnapshotAt, completeLab, mgmgChannels, activeIncident, devState, setDevicePower, routeLL, levelText, startRun, stopRun, runInfo } from './sim.js';
+import { state, emit, fivemConnected, systemStatus, weatherNow, ingestFivem, spectrumAt, mgmgChannels, activeIncident, devState, setDevicePower, routeLL, levelText, startRun, stopRun, runInfo } from './sim.js';
 import { analyze } from './analysis.js';
 import { ORIGIN_LABEL } from './data/derive.js';
 import { SECTORS, sectorPolygon, llToOffset, compass, CENTER, MODE } from './geo.js';
 import { config } from './config.js';
 import { buildReport, reportCsv } from './report.js';
 import { validateImport } from './import.js';
+import { listSamples, publicSample, startAnalysis, archiveSample, storedCount, SC } from './samples.js';
 import { createIncident, endIncident, publicIncident } from './incident.js';
 import { authUser, createSession, crewOf, endSession, getSession, touch, purgeSessions } from './auth.js';
 
@@ -195,42 +196,11 @@ export function registerRoutes(app: FastifyInstance) {
   });
 
   // ---------- Proben
-  const sampleFull = (id: string) => { const s = get('samples', id); if (!s) throw nf('Probe'); const { truth_ref, ...pub } = s; return { ...pub, events: list('sample_events', 'WHERE sample_id = ?', [id], 'ORDER BY id') }; };
-  app.get('/api/samples', async () => list('samples', '', [], 'ORDER BY ts DESC').map(({ truth_ref, ...s }: any) => s));
-  app.get('/api/samples/:id', async (req) => sampleFull((req.params as any).id));
-  app.post('/api/samples', async (req, rep) => {
-    const u = need(req, 1); const b = req.body as any; const v = get('vehicles', b.vehicle_id ?? u.vehicle_id)!;
-    const n = ((db.prepare("SELECT COUNT(*) c FROM samples").get() as any).c ?? 0) + 1; const id = `P-2026-${String(n).padStart(5, '0')}`;
-    const snap = currentSnapshotAt(v.id); const wx = weatherNow();
-    const mission = list('missions', "WHERE vehicle_id = ? AND status = 'IN BEARBEITUNG' LIMIT 1", [v.id])[0];
-    const kinds = ['FEST', 'FLÜSSIG', 'LUFT', 'BIOLOGISCH', 'RADIOLOGISCH', 'CHEMISCH'];
-    const kind = kinds.includes(b.kind) ? b.kind : 'FLÜSSIG';
-    const rd = (k: string) => devState(v.id, k) === 'ready'; const NB = 'GERÄT NICHT BETRIEBSBEREIT';
-    const readings = { PID: rd('pid') ? `${snap.r.pid.value} ppm` : NB, Dosisleistung: rd('dlm') ? `${snap.r.dose.value} µSv/h` : NB, IMS: rd('ims') ? snap.r.ims.result : NB, pH: b.ph ?? 'NICHT GEMESSEN', ...(b.readings ?? {}) };
-    const row = { id, ts: now(), lat: v.lat, lon: v.lon, kind, description: b.description ?? '', color: b.color ?? null, consistency: b.consistency ?? null, odor: b.odor ?? null, turbidity: b.turbidity ?? null,
-      readings, weather: wx, location: b.location ?? null, taken_by: b.taken_by ?? u.id, mission_id: mission?.id ?? b.mission_id ?? null, vehicle_id: v.id, transport_status: 'ENTNOMMEN', lab_status: 'AUSSTEHEND',
-      onsite_assessment: snap.r.ims.level ? levelText(snap.r.ims.level).toUpperCase() : 'UNBEKANNT', lab_result: null, truth_ref: snap.truth ?? (kind === 'BIOLOGISCH' && activeIncident()?.ref_type === 'biological' ? { type: 'biological', id: activeIncident().ref_id } : null), updated_at: now() };
-    insert('samples', row); db.prepare('INSERT INTO sample_events(sample_id,ts,status,note,by_user) VALUES(?,?,?,?,?)').run(id, now(), 'ENTNOMMEN', null, u.id);
-    audit(u.id, 'create', 'sample', id); emit('sample.created', sampleFull(id)); rep.code(201); return sampleFull(id);
-  });
-  const FLOW = ['ENTNOMMEN', 'VERPACKT', 'ÜBERGEBEN', 'LABOR EINGEGANGEN', 'ANALYSE', 'BEFUND EINGEGANGEN'];
-  app.post('/api/samples/:id/events', async (req) => {
-    const u = need(req, 1); const id = (req.params as any).id; const s = get('samples', id); if (!s) throw nf('Probe'); const b = req.body as any;
-    const cur = FLOW.indexOf(s.lab_status === 'AUSSTEHEND' ? s.transport_status : s.lab_status); const nx = FLOW[cur + 1]; const status = b.status ?? nx;
-    if (!FLOW.includes(status)) throw Object.assign(new Error('Ungültiger Status'), { statusCode: 400 });
-    if (status === 'BEFUND EINGEGANGEN') throw Object.assign(new Error('Laborbefund wird vom Labor erzeugt'), { statusCode: 409 });
-    const lab = ['LABOR EINGEGANGEN', 'ANALYSE'].includes(status);
-    update('samples', id, { transport_status: lab ? 'ÜBERGEBEN' : status, lab_status: lab ? status : s.lab_status, updated_at: now() });
-    db.prepare('INSERT INTO sample_events(sample_id,ts,status,note,by_user) VALUES(?,?,?,?,?)').run(id, now(), status, b.note ?? null, u.id);
-    audit(u.id, 'status', 'sample', id, { status }); emit('sample.updated', sampleFull(id)); return sampleFull(id);
-  });
-  app.post('/api/samples/:id/lab', async (req) => { const u = need(req, 3); const id = (req.params as any).id; if (!get('samples', id)) throw nf('Probe'); completeLab(id, u.id); return sampleFull(id); });
-  app.patch('/api/samples/:id', async (req) => {
-    const u = need(req, 1); const id = (req.params as any).id; const s = get('samples', id); if (!s) throw nf('Probe'); const b = req.body as any; const diff: any = {}; const patch: any = {};
-    for (const k of ['description', 'color', 'consistency', 'odor', 'turbidity', 'location', 'onsite_assessment']) if (b[k] !== undefined && b[k] !== s[k]) { patch[k] = b[k]; diff[k] = { from: s[k], to: b[k] }; }
-    if (Object.keys(patch).length) { update('samples', id, { ...patch, updated_at: now() }); audit(u.id, 'update', 'sample', id, diff); emit('sample.updated', sampleFull(id)); }
-    return sampleFull(id);
-  });
+  app.get('/api/samples', async () => listSamples());
+  app.get('/api/samples/capacity', async (req) => { const vid = q(req).vehicle ?? user(req).vehicle_id; return { vehicle_id: vid, stored: storedCount(vid), max: SC.maxSamples }; });
+  app.get('/api/samples/:id', async (req) => { const s = publicSample((req.params as any).id); if (!s) throw nf('Probe'); return s; });
+  app.post('/api/samples/:id/analyses', async (req, rep) => { const u = need(req); const b = (req.body ?? {}) as any; const s = startAnalysis((req.params as any).id, String(b.type ?? ''), u.id, b.comment); rep.code(201); return s; });
+  app.post('/api/samples/:id/archive', async (req) => archiveSample((req.params as any).id, need(req).id));
 
   // ---------- Wetter, Alarme, Audit, Lage
   app.get('/api/weather', async (req) => ({ current: weatherNow(), history: (db.prepare('SELECT * FROM weather_records ORDER BY id DESC LIMIT ?').all(Math.min(+q(req).limit || 120, 1000)) as any[]).reverse().map((w) => ({ ...w, wind_from_text: compass(w.wind_from) })) }));

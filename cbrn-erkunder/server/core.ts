@@ -5,6 +5,7 @@ import { registerRoutes } from './routes.js';
 import { startSim } from './sim.js';
 import { purgeSessions } from './auth.js';
 import { App } from './router.js';
+import { tickAnalyses } from './samples.js';
 
 /** Startet Datenbank, Referenzdaten, Simulation und Router. Gemeinsam für FiveM-Server und Entwicklungs-Testserver. */
 export async function boot(opts: { dbFile: string | null; wasmFile: string }) {
@@ -14,7 +15,7 @@ export async function boot(opts: { dbFile: string | null; wasmFile: string }) {
   if (seeded && seeded !== config.mapMode) {
     console.log(`[cbrn] Kartenmodus ${seeded} -> ${config.mapMode}: Daten werden neu angelegt.`);
     db.exec('PRAGMA foreign_keys = OFF');
-    for (const t of ['sources', 'substances', 'radionuclides', 'biological_agents', 'measurement_devices', 'measurement_methods', 'test_tubes', 'users', 'vehicles', 'crew', 'scenarios', 'missions', 'measurements', 'samples', 'sample_events', 'weather_records', 'alarms', 'reports', 'audit_log', 'runs', 'incidents', 'sessions', 'settings']) db.exec(`DELETE FROM ${t}`);
+    for (const t of ['sources', 'substances', 'radionuclides', 'biological_agents', 'measurement_devices', 'measurement_methods', 'test_tubes', 'users', 'vehicles', 'crew', 'scenarios', 'missions', 'measurements', 'samples', 'sample_events', 'weather_records', 'alarms', 'reports', 'audit_log', 'runs', 'incidents', 'incident_crew', 'sample_analyses', 'sessions', 'settings']) db.exec(`DELETE FROM ${t}`);
     db.exec('PRAGMA foreign_keys = ON');
   }
   seedIfEmpty();
@@ -23,5 +24,6 @@ export async function boot(opts: { dbFile: string | null; wasmFile: string }) {
   purgeSessions();
   const app = new App(); registerRoutes(app); startSim();
   setInterval(() => db.save(), 30000);
+  setInterval(() => { try { tickAnalyses(); } catch (e) { console.error('[cbrn] Analyse-Tick', e); } }, 2000);
   return app;
 }

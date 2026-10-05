@@ -97,6 +97,11 @@ end)
 -- Live-Ereignisse (Messwerte, Alarme, Wetter ...) an die Oberflaeche
 RegisterNetEvent('cbrn:evt', function(json) SendNUIMessage({ type = 'evt', data = json }) end)
 
-RegisterNUICallback('setVehicle', function(d, cb) currentVehicle = d and d.vehicle or nil; cb('ok') end)
+CBRN = CBRN or {}
+RegisterNUICallback('setVehicle', function(d, cb)
+  currentVehicle = d and d.vehicle or nil
+  CBRN.session = currentVehicle and { vehicle = currentVehicle, name = d.name, funktion = d.funktion } or nil -- angemeldete Person (nur Anzeigename)
+  cb('ok')
+end)
 RegisterNUICallback('close', function(_, cb) setOpen(false); cb('ok') end)
 AddEventHandler('onResourceStop', function(res) if res == GetCurrentResourceName() and open then SetNuiFocus(false, false) end end)

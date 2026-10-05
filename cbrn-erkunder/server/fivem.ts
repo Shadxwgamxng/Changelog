@@ -4,6 +4,7 @@ import { boot } from './core.js';
 import { bus, ingestFivem, systemStatus } from './sim.js';
 import { db } from './db.js';
 import { RES_DIR } from './paths.js';
+import { registerSampleEvents } from './sampleEvents.js';
 
 const CHUNK = 12000; // Zeichen je Antwort-Event (große Listen werden in Teilen übertragen)
 const subs = new Set<number>(); // Spieler mit gültiger Anmeldung -> erhalten Live-Ereignisse
@@ -24,6 +25,7 @@ boot({ dbFile: path.join(RES_DIR, 'data', 'cbrn.db'), wasmFile: path.join(RES_DI
     const src = source; if (!d || typeof d.vehicle !== 'string') return;
     ingestFivem({ ...d, player: GetPlayerName(src) ?? undefined });
   });
+  registerSampleEvents();
   bus.on('event', (e: any) => {
     if (!subs.size) return; const msg = JSON.stringify(e);
     for (const s of [...subs]) { if (!live(s)) subs.delete(s); else emitNet('cbrn:evt', s, msg); }
