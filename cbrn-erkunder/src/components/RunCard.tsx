@@ -34,7 +34,7 @@ export function RunCard({ compact }: { compact?: boolean }) {
     </>
   );
   return (<>
-    <Panel title="Messfahrt" className={compact ? '' : 'mb-3'}>{body}</Panel>
+    <Panel title="Messfahrt" className={compact ? '' : ''}>{body}</Panel>
     {pick && <Modal title="Messfahrt starten – eigenen Standort markieren" wide onClose={() => setPick(false)}>
       <div className="text-[12.5px] text-dim mb-2">Markiere auf der Karte, wo sich das Fahrzeug jetzt befindet.</div>
       <MapPicker value={pos} onChange={setPos} hint={fv} hintLabel="Aktuelle FiveM-Position" color="#f0500a" height={340} />
