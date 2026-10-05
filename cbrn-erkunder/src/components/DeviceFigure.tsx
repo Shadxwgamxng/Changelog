@@ -99,20 +99,11 @@ function ComoArt({ r }: { r: any }) {
     <rect x={520} y={348} width={170} height={56} rx={10} fill="url(#gMetal)" stroke={COL.edge} /><rect x={532} y={358} width={146} height={36} rx={5} fill="#1a1a1a" stroke="#5a5a5a" /><T x={605} y={381} s={10} c={COL.dim} a="middle">Flächensonde</T>
   </g>);
 }
-function FmgArt({ r, drive }: { r: any; drive: boolean }) {
-  return (<g filter="url(#shadow)">
-    <rect x={110} y={250} width={540} height={26} fill="#0e0e0e" opacity=".8" />
-    <path d="M130 250 V170 q0 -24 24 -24 H270 L318 100 H520 q36 0 52 30 L640 188 V250 Z" fill="url(#gBody)" stroke={COL.edge} strokeWidth={2} />
-    <path d="M330 112 H506 q20 0 30 18 L560 170 H318 Z" fill="#0f1c26" stroke={COL.edge} />
-    <rect x={150} y={176} width={110} height={40} rx={4} fill="#d29922" opacity=".85" />
-    <circle cx={218} cy={260} r={34} fill="#0e0e0e" stroke={COL.edge} strokeWidth={3} /><circle cx={218} cy={260} r={16} fill="#5a5a5a" /><circle cx={556} cy={260} r={34} fill="#0e0e0e" stroke={COL.edge} strokeWidth={3} /><circle cx={556} cy={260} r={16} fill="#5a5a5a" />
-    {/* Dach: Gamma-Detektor + GPS + DFÜ */}
-    <rect x={380} y={70} width={110} height={30} rx={6} fill="url(#gMetal)" stroke={COL.edge} /><rect x={392} y={78} width={86} height={14} rx={3} fill="#1a1a1a" />
-    <circle cx={540} cy={96} r={9} fill="#58a6ff" stroke="#fff" strokeWidth={1.5} /><path d="M522 82 q18 -22 36 0" stroke={COL.acc} strokeWidth={2} fill="none" />
-    <line x1={332} y1={100} x2={332} y2={52} stroke="#9a9a9a" strokeWidth={3} /><circle cx={332} cy={50} r={4} fill="#9a9a9a" />
-    <Screen x={352} y={126} w={92} h={34}><T x={358} y={141} s={9} c="#5aa981">FMG</T><T x={358} y={154} s={10} c="#7be0a4" w="bold">{num(r?.dose.value ?? 0, 3)} µSv/h</T></Screen>
-    <path d="M30 330 q60 -20 140 0 M470 330 q80 -20 160 0" stroke="#272727" strokeWidth={2} fill="none" opacity={drive ? 1 : .3} />
-  </g>);
+// FMG: vom Betreiber geliefertes Fahrzeugbild (public/devices/fmg.png, 939×412), Anker als Bruchteile der Bildfläche
+const FMG_BOX = { x: 170, y: 128, w: 420, h: 420 * 412 / 939 };
+const fmgPt = (fx: number, fy: number): [number, number] => [FMG_BOX.x + fx * FMG_BOX.w, FMG_BOX.y + fy * FMG_BOX.h];
+function FmgArt(_p: { r: any; drive: boolean }) {
+  return (<g filter="url(#shadow)"><image href={imgUrl('fmg')} x={FMG_BOX.x} y={FMG_BOX.y} width={FMG_BOX.w} height={FMG_BOX.h} preserveAspectRatio="xMidYMid meet" /></g>);
 }
 function TubesArt({ tube }: { tube: any }) {
   return (<g filter="url(#shadow)">
@@ -209,12 +200,12 @@ function useSpots(id: string, ctx: any): Spot[] {
     common(...A('handle'), 260, 'l');
   }
   if (id === 'fmg') { const st = doseStatus(r?.dose.value ?? 0);
-    P(435, 85, 'l', 40, 'Gamma-Detektor (Dach)', `${num(r?.dose.value ?? 0, 3)} µSv/h`, st, stCol(st), [['Messwert', `${num(r?.dose.value ?? 0, 3)} µSv/h`], ['Messstatus', st], ['Prinzip', 'Fahrzeuggesteuerte, kontinuierliche Gamma-Messung']]);
-    P(540, 96, 'r', 30, 'GPS-Antenne', 'FIX', pos, COL.acc, [['GPS', 'FIX'], ['Position', pos], ['Georeferenzierung', 'jeder Messpunkt mit Ortsinformation']]);
-    P(440, 156, 'l', 150, 'Auswerteeinheit (Kabine)', `${r?.speed_kmh ?? 0} km/h`, `Messpunkte ${mpCount.toLocaleString('de-DE')} · Track ${num(trackKm, 1)} km`, undefined, [['Status', 'AKTIV'], ['Fahrgeschwindigkeit', `${r?.speed_kmh ?? 0} km/h`], ['Messpunkte', mpCount.toLocaleString('de-DE')], ['Track', `${num(trackKm, 1)} km`]]);
-    P(332, 52, 'r', 130, 'Funkantenne (DFÜ)', 'ONLINE', 'Datenverbindung zur MLK', COL.ok, [['DFÜ', 'ONLINE']]);
-    P(220, 200, 'l', 260, 'Fahrzeug', vname, run ? `Messfahrt ${run.id}` : 'keine Messfahrt', undefined, [['Fahrzeug', vname], ['Messfahrt', run ? `${run.name} (${run.id})` : '–']]);
-    common(520, 215, 230);
+    P(...fmgPt(0.2385, 0.051), 'l', 40, 'Gamma-Detektor (Dach)', `${num(r?.dose.value ?? 0, 3)} µSv/h`, st, stCol(st), [['Messwert', `${num(r?.dose.value ?? 0, 3)} µSv/h`], ['Messstatus', st], ['Prinzip', 'Fahrzeuggesteuerte, kontinuierliche Gamma-Messung']]);
+    P(...fmgPt(0.414, 0.058), 'r', 30, 'GPS-Antenne', 'FIX', pos, COL.acc, [['GPS', 'FIX'], ['Position', pos], ['Georeferenzierung', 'jeder Messpunkt mit Ortsinformation']]);
+    P(...fmgPt(0.659, 0.277), 'l', 150, 'Auswerteeinheit (Kabine)', `${r?.speed_kmh ?? 0} km/h`, `Messpunkte ${mpCount.toLocaleString('de-DE')} · Track ${num(trackKm, 1)} km`, undefined, [['Status', 'AKTIV'], ['Fahrgeschwindigkeit', `${r?.speed_kmh ?? 0} km/h`], ['Messpunkte', mpCount.toLocaleString('de-DE')], ['Track', `${num(trackKm, 1)} km`]]);
+    P(...fmgPt(0.694, 0.083), 'r', 130, 'Funkantenne (DFÜ)', 'ONLINE', 'Datenverbindung zur MLK', COL.ok, [['DFÜ', 'ONLINE']]);
+    P(...fmgPt(0.436, 0.483), 'l', 260, 'Fahrzeug', vname, run ? `Messfahrt ${run.id}` : 'keine Messfahrt', undefined, [['Fahrzeug', vname], ['Messfahrt', run ? `${run.name} (${run.id})` : '–']]);
+    common(...fmgPt(0.925, 0.532), 230);
   }
   if (id === 'tubes') { const t = tube;
     P(262, 200, 'l', 40, 'Handpumpe (Balg)', 'Probenahme', 'definierte Hubzahl je Röhrchen', undefined, [['Funktion', 'Ansaugen eines definierten Luftvolumens']]);
