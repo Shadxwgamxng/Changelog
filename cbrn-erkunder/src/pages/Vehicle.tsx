@@ -5,7 +5,7 @@ import { num } from '../lib/format';
 import { RunCard } from '../components/RunCard';
 
 export default function Vehicle() {
-  const { vehicles, live, status, meta } = useLive(); const gta = meta?.map?.mode === 'gta5'; const v = vehicles.find((x) => x.id === 'CBRN-01'); const r = live['CBRN-01']; const crew = useApi<any[]>('/crew?vehicle=CBRN-01');
+  const { live, status, meta, own, ownVehicle } = useLive(); const gta = meta?.map?.mode === 'gta5'; const v = ownVehicle; const r = live[own]; const crew = useApi<any[]>(`/crew?vehicle=${own}`, ['crew.changed', 'poll'], [own]);
   if (!v) return null; const fivem = status?.fivem === 'CONNECTED';
   return (
     <Page title={`Fahrzeug ${v.name}`} sub="CBRN-Erkundungswagen (neue Generation – konzeptionelle Grundlage)">
@@ -30,7 +30,7 @@ export default function Vehicle() {
 export function Crew() {
   const { vehicles } = useLive(); const crew = useApi<any[]>('/crew');
   return (
-    <Page title="Besatzung" sub="Konfigurierbar (System → Administration → crew). BBK: bisheriger ErkW 2 Trupps à 4; neue Generation: vierköpfige Fahrzeugbesatzung – FiveM-Besatzungsgröße frei konfigurierbar.">
+    <Page title="Besatzung" sub="Aktuell am Fahrzeug angemeldete Personen (Anmeldung beim Öffnen der Seite).">
       <div className="grid grid-cols-2 gap-3">
         {vehicles.map((v) => (
           <Panel key={v.id} title={v.id} right={<StatusBadge s={v.status} />}>

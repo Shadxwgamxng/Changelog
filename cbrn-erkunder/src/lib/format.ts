@@ -18,7 +18,6 @@ export const STATUS_COLOR = (s?: string | null) => {
   if (/ONLINE|OK|NORMAL|AKTIV|VERFÜGBAR|EINSATZBEREIT|ABGESCHLOSSEN|FIX|VERIFIZIERT|BEFUND|CONNECTED/.test(t) && !/NOT/.test(t)) return '#3fb950';
   return '#817d78';
 };
-export const ROLE_LABEL: Record<string, string> = { erkunder: 'Erkunder', truppfuehrer: 'Truppführer', messleitung: 'Messleitung', admin: 'Administrator' };
 export const ROLE_LVL: Record<string, number> = { erkunder: 1, truppfuehrer: 2, messleitung: 3, admin: 4 };
 
 // Positionsanzeige: GTA-5-Modus zeigt Spielkoordinaten (X/Y in Metern), sonst Breite/Länge.

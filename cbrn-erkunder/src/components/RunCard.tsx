@@ -6,7 +6,7 @@ import { num } from '../lib/format';
 
 const hms = (ms: number) => { const d = Math.max(0, Math.floor(ms / 1000)); return `${String(Math.floor(d / 3600)).padStart(2, '0')}:${String(Math.floor(d / 60) % 60).padStart(2, '0')}:${String(d % 60).padStart(2, '0')}`; };
 export function RunCard({ compact }: { compact?: boolean }) {
-  const { live, status, can } = useLive(); const run = live['CBRN-01']?.run ?? null; const [, setT] = useState(0); const [err, setErr] = useState('');
+  const { live, status, can, own } = useLive(); const run = live[own]?.run ?? null; const [, setT] = useState(0); const [err, setErr] = useState('');
   useEffect(() => { const t = setInterval(() => setT((x) => x + 1), 1000); return () => clearInterval(t); }, []);
   const go = async (what: 'start' | 'stop') => { try { setErr(''); await api(`/runs/${what}`, { method: 'POST', body: {} }); } catch (e: any) { setErr(e.message); } };
   const fivem = status?.fivem === 'CONNECTED';

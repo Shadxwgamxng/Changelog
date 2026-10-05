@@ -7,30 +7,54 @@ import { SECTORS, sectorPolygon, llToOffset, compass, CENTER, MODE } from './geo
 import { config } from './config.js';
 import { buildReport, reportCsv, reportPdf } from './report.js';
 import { validateImport } from './import.js';
+import { authUser, createSession, crewOf, endSession, getSession, touch, purgeSessions } from './auth.js';
 
 const LEVEL: Record<string, number> = { erkunder: 1, truppfuehrer: 2, messleitung: 3, admin: 4 };
-const ADMIN_TABLES = ['substances', 'radionuclides', 'biological_agents', 'measurement_devices', 'measurement_methods', 'sources', 'scenarios', 'test_tubes', 'vehicles', 'crew', 'users'];
+const ADMIN_TABLES = ['substances', 'radionuclides', 'biological_agents', 'measurement_devices', 'measurement_methods', 'sources', 'scenarios', 'test_tubes', 'vehicles'];
+const FUNKTIONEN = ['Fahrzeugführer', 'Truppführer', 'Messtrupp', 'Melder', 'Messleitung (MLK)', 'Einsatzleiter'];
+const PUBLIC = [/^\/api\/meta$/, /^\/api\/auth\/(vehicles|login)$/, /^\/api\/adapter\//];
 
 function shiftedBounds() {
   const b = config.gta5.bounds; const o = getSetting('gta_offset', { dx: 0, dy: 0 }) as { dx: number; dy: number };
   return { minX: b.minX + o.dx, maxX: b.maxX + o.dx, minY: b.minY + o.dy, maxY: b.maxY + o.dy };
 }
 export function registerRoutes(app: FastifyInstance) {
-  const user = (req: FastifyRequest) => get('users', String(req.headers['x-user-id'] ?? 'u-erk')) ?? get('users', 'u-erk')!;
-  const need = (req: FastifyRequest, lvl: number) => { const u = user(req); if ((LEVEL[u.role] ?? 0) < lvl) throw Object.assign(new Error(`Rolle ${u.role} darf diese Aktion nicht ausführen`), { statusCode: 403 }); return u; };
+  // Zugriffsschutz: alles unter /api außer Anmeldung, Metadaten und FiveM-Adapter braucht eine gültige Anmeldung am Fahrzeug.
+  app.addHook('onRequest', async (req) => {
+    const url = req.url.split('?')[0]; if (!url.startsWith('/api/') || PUBLIC.some((r) => r.test(url))) return;
+    if (!authUser(req)) throw Object.assign(new Error('Nicht angemeldet'), { statusCode: 401 });
+  });
+  const user = (req: FastifyRequest) => authUser(req)!;
+  const need = (req: FastifyRequest, _lvl = 1) => user(req); // nach der Anmeldung voller Zugriff
   const nf = (what: string) => Object.assign(new Error(`${what} nicht gefunden`), { statusCode: 404 });
   const q = (req: FastifyRequest) => req.query as Record<string, string>;
 
   app.get('/api/meta', async () => ({
     app: 'CBRN Erkunder Software', version: '0.1.0', sectors: Object.entries(SECTORS).map(([k, v]) => ({ key: k, name: v.name, polygon: sectorPolygon(k) })),
-    roles: Object.keys(LEVEL), center: CENTER, route: routeLL(),
-    map: MODE === 'gta5' ? { mode: 'gta5', image: config.gta5.image, bounds: shiftedBounds(), offset: getSetting('gta_offset', { dx: 0, dy: 0 }) } : { mode: 'geo', tileUrl: config.geo.tileUrl, attribution: config.geo.attribution }, users: list('users'), mgmg_channels: mgmgChannels(),
+    center: CENTER, route: routeLL(),
+    map: MODE === 'gta5' ? { mode: 'gta5', image: config.gta5.image, bounds: shiftedBounds(), offset: getSetting('gta_offset', { dx: 0, dy: 0 }) } : { mode: 'geo', tileUrl: config.geo.tileUrl, attribution: config.geo.attribution }, mgmg_channels: mgmgChannels(),
     disclaimer: 'Fachdaten: öffentliche Quellen, ungeprüft (QUELLE ERFORDERLICH). Messwerte, GPS, Einsätze, Identifikationen und Laborergebnisse: SIMULIERT.',
   }));
 
+  // ---------- Anmeldung am Fahrzeug
+  app.get('/api/auth/vehicles', async () => ({
+    vehicles: list('vehicles').map((v: any) => ({ id: v.id, name: v.name, connected: fivemConnected(v.id), crew: crewOf(v.id).map((c) => ({ name: c.name, funktion: c.role })) })),
+    funktionen: FUNKTIONEN,
+  }));
+  app.post('/api/auth/login', async (req, rep) => {
+    const b = (req.body ?? {}) as any; const name = String(b.name ?? '').trim().slice(0, 60); const funktion = String(b.funktion ?? '').trim().slice(0, 60);
+    const v = get('vehicles', String(b.vehicle_id ?? ''));
+    if (!v) throw Object.assign(new Error('Bitte ein Fahrzeug auswählen'), { statusCode: 400 });
+    if (name.length < 2) throw Object.assign(new Error('Bitte den Namen eingeben'), { statusCode: 400 });
+    if (!funktion) throw Object.assign(new Error('Bitte die Funktion eingeben'), { statusCode: 400 });
+    purgeSessions(); const token = createSession(v.id, name, funktion); audit(`${name} (${funktion})`, 'login', 'vehicle', v.id);
+    emit('crew.changed', { vehicle_id: v.id }); rep.code(201); return { token, session: { vehicle_id: v.id, vehicle_name: v.name, name, funktion } };
+  });
+  app.get('/api/auth/me', async (req) => { const u = user(req); touch(u.token); return { vehicle_id: u.vehicle_id, vehicle_name: get('vehicles', u.vehicle_id)?.name, name: u.name, funktion: u.callsign }; });
+  app.post('/api/auth/logout', async (req) => { const u = user(req); endSession(u.token); audit(u.id, 'logout', 'vehicle', u.vehicle_id); emit('crew.changed', { vehicle_id: u.vehicle_id }); return { ok: true }; });
+
   // ---------- System
   app.get('/api/system/status', async () => ({ ...systemStatus(), drive: state.drive, fivem_origin: getSetting('fivem_origin'), gta_offset: getSetting('gta_offset', { dx: 0, dy: 0 }), mgmg_channels: mgmgChannels(), now: now(), uptime_s: Math.round(process.uptime()) }));
-  app.post('/api/system/drive', async (req) => { const u = need(req, 1); state.drive = !!(req.body as any).on; audit(u.id, 'drive', 'system', 'demo-drive', { on: state.drive }); return { drive: state.drive }; });
   app.post('/api/system/scenario', async (req) => {
     const u = need(req, 3); const b = req.body as any; const sc = get('scenarios', b.id); if (!sc) throw nf('Szenario');
     setSetting('active_scenario', sc.id); if (b.source_offset) setSetting('source_offset', b.source_offset);
@@ -82,23 +106,23 @@ export function registerRoutes(app: FastifyInstance) {
 
   // ---------- Fahrzeuge / Live
   app.get('/api/vehicles', async () => list('vehicles'));
-  app.get('/api/vehicles/:id', async (req) => { const v = get('vehicles', (req.params as any).id); if (!v) throw nf('Fahrzeug'); return { ...v, crew: list('crew', 'WHERE vehicle_id = ?', [v.id]) }; });
-  app.get('/api/crew', async (req) => list('crew', q(req).vehicle ? 'WHERE vehicle_id = ?' : '', q(req).vehicle ? [q(req).vehicle] : []));
-  app.get('/api/live', async () => ({ vehicles: state.live, track_km: +(state.trackLen / 1000).toFixed(2), run: runInfo(), mp_count: (db.prepare('SELECT COUNT(*) c FROM measurements').get() as any).c, weather: weatherNow(), status: systemStatus(), drive: state.drive }));
-  app.get('/api/live/spectrum', async (req) => { const v = get('vehicles', q(req).vehicle ?? 'CBRN-01'); if (!v) throw nf('Fahrzeug'); const { x, y } = llToOffset(v.lat, v.lon); return { ...spectrumAt(x, y), label: 'SIMULIERTE AUSWERTUNG', data_source: 'SIMULATED' }; });
+  app.get('/api/vehicles/:id', async (req) => { const v = get('vehicles', (req.params as any).id); if (!v) throw nf('Fahrzeug'); return { ...v, crew: crewOf(v.id) }; });
+  app.get('/api/crew', async (req) => crewOf(q(req).vehicle));
+  app.get('/api/live', async () => ({ vehicles: state.live, weather: weatherNow(), status: systemStatus() }));
+  app.get('/api/live/spectrum', async (req) => { const v = get('vehicles', q(req).vehicle ?? user(req).vehicle_id); if (!v) throw nf('Fahrzeug'); const { x, y } = llToOffset(v.lat, v.lon); return { ...spectrumAt(x, y), label: 'SIMULIERTE AUSWERTUNG', data_source: 'SIMULATED' }; });
   app.get('/api/scenarios', async () => list('scenarios'));
   app.get('/api/scenario/active', async () => { const id = getSetting('active_scenario'); const sc = get('scenarios', id); return { ...sc, source_offset: getSetting('source_offset') }; });
   app.get('/api/track', async (req) => {
-    const p = q(req); const run = p.run ?? state.run?.id;
-    const rows = (run ? db.prepare("SELECT lat,lon,ts FROM measurements WHERE run_id = ? ORDER BY seq DESC LIMIT 1500").all(run) : db.prepare("SELECT lat,lon,ts FROM measurements WHERE vehicle_id = ? ORDER BY seq DESC LIMIT 400").all(p.vehicle ?? 'CBRN-01')) as any[];
+    const p = q(req); const vid = p.vehicle ?? user(req).vehicle_id; const run = p.run ?? state.runs[vid]?.id;
+    const rows = (run ? db.prepare("SELECT lat,lon,ts FROM measurements WHERE run_id = ? ORDER BY seq DESC LIMIT 1500").all(run) : db.prepare("SELECT lat,lon,ts FROM measurements WHERE vehicle_id = ? ORDER BY seq DESC LIMIT 400").all(vid)) as any[];
     return rows.reverse();
   });
 
   // ---------- Messfahrten
-  app.get('/api/runs', async () => list('runs', '', [], 'ORDER BY started_at DESC LIMIT 100').map((r: any) => (state.run?.id === r.id ? { ...r, distance_m: Math.round(state.run!.dist), active: true } : r)));
-  app.get('/api/runs/active', async () => ({ run: runInfo() }));
-  app.post('/api/runs/start', async (req, rep) => { const u = need(req, 1); const r = startRun(u.id, (req.body as any)?.name); if ((r as any).error) throw Object.assign(new Error((r as any).error), { statusCode: 409 }); rep.code(201); return r; });
-  app.post('/api/runs/stop', async (req) => { const u = need(req, 1); const r = stopRun(u.id); if ((r as any).error) throw Object.assign(new Error((r as any).error), { statusCode: 409 }); return r; });
+  app.get('/api/runs', async () => list('runs', '', [], 'ORDER BY started_at DESC LIMIT 100').map((r: any) => (state.runs[r.vehicle_id]?.id === r.id ? { ...r, distance_m: Math.round(state.runs[r.vehicle_id].dist), active: true } : r)));
+  app.get('/api/runs/active', async (req) => ({ run: runInfo(user(req).vehicle_id) }));
+  app.post('/api/runs/start', async (req, rep) => { const u = need(req, 1); const r = startRun(u.id, u.vehicle_id, (req.body as any)?.name); if ((r as any).error) throw Object.assign(new Error((r as any).error), { statusCode: 409 }); rep.code(201); return r; });
+  app.post('/api/runs/stop', async (req) => { const u = need(req, 1); const r = stopRun(u.id, u.vehicle_id); if ((r as any).error) throw Object.assign(new Error((r as any).error), { statusCode: 409 }); return r; });
 
   // ---------- Probenanalyse (Entscheidungshilfe)
   app.get('/api/analysis/options', async () => ({ origins: Object.entries(ORIGIN_LABEL).map(([k, v]) => ({ key: k, label: v })) }));
@@ -145,7 +169,7 @@ export function registerRoutes(app: FastifyInstance) {
   app.get('/api/measurements/:id', async (req) => { const m = get('measurements', (req.params as any).id); if (!m) throw nf('Messpunkt'); return { ...m, substance: m.substance_id ? get('substances', m.substance_id) : null, audit: list('audit_log', "WHERE entity = 'measurement' AND entity_id = ?", [m.id], 'ORDER BY id') }; });
   app.post('/api/measurements', async (req, rep) => {
     const u = need(req, 1); const b = req.body as any; const seq = ((db.prepare('SELECT MAX(seq) m FROM measurements').get() as any).m ?? 0) + 1;
-    const v = get('vehicles', b.vehicle_id ?? 'CBRN-01')!;
+    const v = get('vehicles', b.vehicle_id ?? u.vehicle_id)!;
     const row = { id: 'MP-' + String(seq).padStart(6, '0'), seq, ts: now(), lat: b.lat ?? v.lat, lon: b.lon ?? v.lon, vehicle_id: v.id, mission_id: b.mission_id ?? null, device: b.device ?? 'MANUELL', value: b.value ?? null, unit: b.unit ?? null,
       status: b.status ?? 'AUSWERTUNG ERFORDERLICH', level: b.level ?? null, headline: b.headline ?? 'Manuelle Eingabe', remark: b.remark ?? null, data_source: 'MANUAL' };
     insert('measurements', row); audit(u.id, 'create', 'measurement', row.id, row); emit('measurement.created', row); rep.code(201); return row;
@@ -163,7 +187,7 @@ export function registerRoutes(app: FastifyInstance) {
   app.get('/api/samples', async () => list('samples', '', [], 'ORDER BY ts DESC').map(({ truth_ref, ...s }: any) => s));
   app.get('/api/samples/:id', async (req) => sampleFull((req.params as any).id));
   app.post('/api/samples', async (req, rep) => {
-    const u = need(req, 1); const b = req.body as any; const v = get('vehicles', b.vehicle_id ?? 'CBRN-01')!;
+    const u = need(req, 1); const b = req.body as any; const v = get('vehicles', b.vehicle_id ?? u.vehicle_id)!;
     const n = ((db.prepare("SELECT COUNT(*) c FROM samples").get() as any).c ?? 0) + 1; const id = `P-2026-${String(n).padStart(5, '0')}`;
     const snap = currentSnapshotAt(v.id); const wx = weatherNow();
     const mission = list('missions', "WHERE vehicle_id = ? AND status = 'IN BEARBEITUNG' LIMIT 1", [v.id])[0];
@@ -171,7 +195,7 @@ export function registerRoutes(app: FastifyInstance) {
     const kind = kinds.includes(b.kind) ? b.kind : 'FLÜSSIG';
     const readings = { PID: `${snap.r.pid.value} ppm`, Dosisleistung: `${snap.r.dose.value} µSv/h`, IMS: snap.r.ims.result, pH: b.ph ?? 'NICHT GEMESSEN', ...(b.readings ?? {}) };
     const row = { id, ts: now(), lat: v.lat, lon: v.lon, kind, description: b.description ?? '', color: b.color ?? null, consistency: b.consistency ?? null, odor: b.odor ?? null, turbidity: b.turbidity ?? null,
-      readings, weather: wx, location: b.location ?? null, taken_by: b.taken_by ?? u.callsign, mission_id: mission?.id ?? b.mission_id ?? null, vehicle_id: v.id, transport_status: 'ENTNOMMEN', lab_status: 'AUSSTEHEND',
+      readings, weather: wx, location: b.location ?? null, taken_by: b.taken_by ?? u.id, mission_id: mission?.id ?? b.mission_id ?? null, vehicle_id: v.id, transport_status: 'ENTNOMMEN', lab_status: 'AUSSTEHEND',
       onsite_assessment: snap.r.ims.level ? levelText(snap.r.ims.level).toUpperCase() : 'UNBEKANNT', lab_result: null, truth_ref: snap.truth ?? (kind === 'BIOLOGISCH' && getSetting('active_scenario') === 'sc-bio' ? { type: 'biological', id: 'b-anthracis' } : null), updated_at: now() };
     insert('samples', row); db.prepare('INSERT INTO sample_events(sample_id,ts,status,note,by_user) VALUES(?,?,?,?,?)').run(id, now(), 'ENTNOMMEN', null, u.id);
     audit(u.id, 'create', 'sample', id); emit('sample.created', sampleFull(id)); rep.code(201); return sampleFull(id);
@@ -238,5 +262,5 @@ export function registerRoutes(app: FastifyInstance) {
     if (req.headers['x-adapter-token'] !== token) throw Object.assign(new Error('Adapter-Token ungültig'), { statusCode: 401 });
     return { ok: ingestFivem(req.body as any) };
   });
-  app.get('/api/adapter/fivem/status', async () => ({ connected: fivemConnected(), info: state.fivem.info, last: state.fivem.last }));
+  app.get('/api/adapter/fivem/status', async () => ({ connected: fivemConnected(), vehicles: systemStatus().vehicles }));
 }

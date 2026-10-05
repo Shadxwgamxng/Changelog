@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Page, Panel, Tabs, StatusBadge, Badge, Btn, Select, Field, QualityBadge } from '../components/ui';
 import { api } from '../api';
 import { useApi, useLive } from '../store';
-import { ROLE_LABEL, NA } from '../lib/format';
+import { NA } from '../lib/format';
 
 function Status() {
   const { status, wsUp } = useLive(); const fm = useApi<any>('/adapter/fivem/status', ['system.status']);
@@ -60,10 +60,10 @@ function Scenarios() {
 }
 
 function Users() {
-  const { meta } = useLive();
-  return (<Panel title="Benutzer & Rollen" body="!p-0"><table className="t"><thead><tr><th>Benutzer</th><th>Rolle</th><th>Rechte</th></tr></thead><tbody>
-    {(meta?.users ?? []).map((u: any) => <tr key={u.id}><td>{u.name}</td><td><Badge>{ROLE_LABEL[u.role]}</Badge></td><td className="text-dim text-[12px]">{{ erkunder: 'Messungen, Proben, Aufträge annehmen/starten, Karte, Geräte', truppfuehrer: '+ Aufträge abschließen, Berichte erstellen', messleitung: '+ mehrere Fahrzeuge, Aufträge erteilen, Lagekarte, Szenario wählen, Laborbefund simulieren', admin: 'Vollzugriff inkl. Datenbank, Import, Konfiguration' }[u.role as string]}</td></tr>)}</tbody></table>
-    <div className="p-2 text-[11px] text-dim">Rollenumschaltung über Kopfzeile (keine Passwort-Anmeldung). Für Produktivbetrieb Authentifizierung ergänzen.</div></Panel>);
+  const c = useApi<any[]>('/crew', ['poll']);
+  return (<Panel title="Aktive Anmeldungen" body="!p-0"><table className="t"><thead><tr><th>Name</th><th>Funktion</th><th>Fahrzeug</th></tr></thead><tbody>
+    {(c.data ?? []).map((u: any, i: number) => <tr key={i}><td>{u.name}</td><td>{u.role}</td><td>{u.vehicle_id}</td></tr>)}</tbody></table>
+    <div className="p-2 text-[11px] text-dim">Anmeldung am Fahrzeug mit Name und Funktion; alle angemeldeten Personen haben vollen Zugriff.</div></Panel>);
 }
 
 function Config() {

@@ -55,6 +55,8 @@ CREATE TABLE IF NOT EXISTS alarms (id TEXT PRIMARY KEY, ts TEXT, source TEXT, la
 CREATE TABLE IF NOT EXISTS reports (id TEXT PRIMARY KEY, mission_id TEXT, created_at TEXT, created_by TEXT, data TEXT);
 CREATE TABLE IF NOT EXISTS audit_log (id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT, user_id TEXT, action TEXT, entity TEXT, entity_id TEXT, detail TEXT);
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
+CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, vehicle_id TEXT, name TEXT, funktion TEXT, created_at TEXT, last_seen TEXT);
+CREATE INDEX IF NOT EXISTS ix_meas_veh ON measurements(vehicle_id);
 CREATE TABLE IF NOT EXISTS runs (id TEXT PRIMARY KEY, vehicle_id TEXT, name TEXT, started_at TEXT, ended_at TEXT, started_by TEXT, distance_m REAL DEFAULT 0, points INTEGER DEFAULT 0, max_dose REAL, max_pid REAL, source TEXT, mission_id TEXT);
 `;
 db.exec(SCHEMA);

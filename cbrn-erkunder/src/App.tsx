@@ -1,4 +1,6 @@
 import { Route, Routes } from 'react-router-dom';
+import Login from './pages/Login';
+import { useLive } from './store';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import MapPage from './pages/MapPage';
@@ -17,6 +19,9 @@ import History from './pages/History';
 import System from './pages/System';
 
 export default function App() {
+  const { session, ready } = useLive();
+  if (!ready) return null;
+  if (!session) return <Login />;
   return (
     <Routes>
       <Route element={<Layout />}>

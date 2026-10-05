@@ -19,12 +19,12 @@ const statusColor = ['match', ['get', 'status'], 'ALARM', '#e5534b', 'HOCH', '#e
 export function MapView({ layers, onSelect, follow = true, grid = true, showVehicleLabels = true }: { layers: Layers; onSelect?: (s: { type: string; id: string }) => void; follow?: boolean; grid?: boolean; showVehicleLabels?: boolean }) {
   const el = useRef<HTMLDivElement>(null); const mapRef = useRef<maplibregl.Map | null>(null); const ready = useRef(false);
   const marker = useRef<maplibregl.Marker | null>(null); const markerEl = useRef<HTMLDivElement | null>(null);
-  const { meta, vehicles, weather } = useLive();
+  const { meta, vehicles, weather, own } = useLive();
   const meas = useApi<any[]>('/measurements?limit=500', ['measurement.created', 'poll']);
   const samples = useApi<any[]>('/samples', ['sample.created', 'sample.updated']);
   const alarms = useApi<any[]>('/alarms', ['alarm.created']);
   const missions = useApi<any[]>('/missions', ['mission.created', 'mission.updated']);
-  const track = useApi<any[]>('/track?vehicle=CBRN-01', ['measurement.created', 'poll']);
+  const track = useApi<any[]>(`/track?vehicle=${own}`, ['measurement.created', 'poll', 'run.started', 'run.stopped'], [own]);
   const [imgMissing, setImgMissing] = useState(false);
   const mm = meta?.map;
   const onSel = useRef(onSelect); onSel.current = onSelect;
@@ -83,8 +83,8 @@ export function MapView({ layers, onSelect, follow = true, grid = true, showVehi
     const act = new Set((missions.data ?? []).filter((x) => ['ÜBERMITTELT', 'ANGENOMMEN', 'IN BEARBEITUNG'].includes(x.status)).map((x) => x.sector));
     set('sectors', fc((meta?.sectors ?? []).map((s: any) => ({ type: 'Feature', properties: { name: s.name, active: act.has(s.key) }, geometry: { type: 'Polygon', coordinates: [s.polygon] } }))));
     set('areas', fc((alarms.data ?? []).filter((a) => a.status === 'OFFEN' && ['CHEMISCH', 'RADIOLOGISCH', 'NUKLEAR', 'BIOLOGISCH', 'UNBEKANNT'].includes(a.category)).map((a) => ({ type: 'Feature', properties: { color: (CAT[a.category[0]] ?? CAT.U).color }, geometry: circlePoly(a.lon, a.lat, 90) }))));
-    set('others', fc(vehicles.filter((v) => v.id !== 'CBRN-01').map((v) => ({ type: 'Feature', properties: { id: v.id, color: v.online ? '#3fb950' : '#817d78' }, geometry: { type: 'Point', coordinates: [v.lon, v.lat] } }))));
-    const v = vehicles.find((x) => x.id === 'CBRN-01');
+    set('others', fc(vehicles.filter((v) => v.id !== own && v.link === 'ONLINE').map((v) => ({ type: 'Feature', properties: { id: v.id, color: '#3fb950' }, geometry: { type: 'Point', coordinates: [v.lon, v.lat] } }))));
+    const v = vehicles.find((x) => x.id === own);
     if (v) {
       if (!marker.current) {
         const d = document.createElement('div'); d.innerHTML = `<svg width="30" height="30" viewBox="-15 -15 30 30"><g id="rot"><polygon points="0,-12 9,10 0,5 -9,10" fill="#f0500a" stroke="#fff" stroke-width="1.5"/></g></svg>`; markerEl.current = d;

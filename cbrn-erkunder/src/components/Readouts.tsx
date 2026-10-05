@@ -76,14 +76,14 @@ export function RadPanel({ r, link = true }: { r: any; link?: boolean }) {
 }
 
 export function FmgPanel({ r, link = true }: { r: any; link?: boolean }) {
-  const { trackKm, mpCount, drive } = useLive(); if (!r) return null; const st = doseStatus(r.dose.value);
+  const { trackKm, mpCount } = useLive(); if (!r) return null; const st = doseStatus(r.dose.value);
   return (
     <Panel title="FMG – Fahrzeuggesteuertes Messsystem Gamma" right={link && <Link className="text-accent" to="/geraete/fmg">Gerätepage →</Link>} className="h-full">
       <div className="grid grid-cols-3 gap-3">
         <Field label="Status"><StatusBadge s="AKTIV" /></Field><Field label="Fahrgeschwindigkeit">{r.speed_kmh} km/h</Field><Field label="GPS"><StatusBadge s="FIX" /></Field>
         <Field label="Messpunkte">{mpCount.toLocaleString('de-DE')}</Field><Field label="Track">{num(trackKm, 1)} km</Field><Field label="Aktueller Messstatus"><StatusBadge s={st} /></Field>
       </div>
-      <div className="text-[11px] text-dim mt-2">Messwerte werden georeferenziert gespeichert (kontinuierliche Messdatenerfassung mit GPS-Ortsinformation). {drive ? '' : 'Demo-Fahrt angehalten.'}</div>
+      <div className="text-[11px] text-dim mt-2">Messwerte werden georeferenziert gespeichert (kontinuierliche Messdatenerfassung mit GPS-Ortsinformation).</div>
     </Panel>
   );
 }

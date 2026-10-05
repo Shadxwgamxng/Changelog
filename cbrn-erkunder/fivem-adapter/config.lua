@@ -5,7 +5,7 @@ Config = {
   -- Adresse des Backends, wie der FiveM-SERVER sie erreicht (meist identisch/lokal).
   ApiUrl = 'http://127.0.0.1:3001',
   Token = 'dev-token',            -- = Umgebungsvariable FIVEM_TOKEN des Backends
-  Vehicle = 'CBRN-01',            -- Fahrzeugkennung in der Web-App
+  Vehicle = 'FFW-11-71-01',            -- Fahrzeugkennung in der Web-App
   IntervalMs = 1000,              -- Telemetrie-Takt
   -- Spawnnamen der Fahrzeuge, die als CBRN-Erkunder gelten. Leer = JEDES Fahrzeug (zum Testen).
   Models = {},

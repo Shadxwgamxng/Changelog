@@ -8,7 +8,7 @@ export default function History() {
   const [tab, setTab] = useState('alarme'); const alarms = useApi<any[]>('/alarms', ['alarm.created']); const audit = useApi<any[]>('/audit', ['measurement.updated', 'mission.updated', 'sample.updated', 'measurement.created', 'sample.created']);
   const missions = useApi<any[]>('/missions', ['mission.updated']); const runs = useApi<any[]>('/runs', ['run.started', 'run.stopped']);
   const ack = async (id: string, status: string) => { await api('/alarms/' + id, { method: 'PATCH', body: { status } }); alarms.reload(); };
-  const { meta } = useLive(); const un = (id: string) => meta?.users?.find((u: any) => u.id === id)?.name ?? id;
+  const un = (id: string) => id;
   return (
     <Page title="Historie" sub="Alarme, Audit-Log und abgeschlossene Aufträge">
       <Tabs tabs={[['alarme', 'Alarme'], ['fahrten', 'Messfahrten'], ['audit', 'Audit-Log'], ['auftraege', 'Aufträge']]} value={tab} onChange={setTab} />

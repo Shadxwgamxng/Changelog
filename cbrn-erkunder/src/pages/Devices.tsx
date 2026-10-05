@@ -20,7 +20,7 @@ const CUR = (id: string, r: any): [string, string, string] => {
 export const dev_id = (d: any) => (d.id === 'como' ? 'como' : d.id);
 
 export default function Devices() {
-  const devs = useApi<any[]>('/devices'); const { live } = useLive(); const r = live['CBRN-01'];
+  const devs = useApi<any[]>('/devices'); const { live, own } = useLive(); const r = live[own];
   return (
     <Page title="Messgeräte" sub="Ausstattung gemäß öffentlich dokumentierter Beschreibung der neuen ErkW-Generation (BBK)">
       <div className="grid grid-cols-3 gap-3">
@@ -39,11 +39,11 @@ export default function Devices() {
 
 export function DevicePage() {
   const { id = 'pid' } = useParams(); const dev = useApi<any[]>('/devices').data?.find((d) => d.id === id);
-  const { live, hist } = useLive(); const r = live['CBRN-01']; const dur = useSession();
-  const missions = useApi<any[]>('/missions', ['mission.updated']); const mission = missions.data?.find((m) => m.vehicle_id === 'CBRN-01' && m.status === 'IN BEARBEITUNG');
+  const { live, hist, own } = useLive(); const r = live[own]; const dur = useSession();
+  const missions = useApi<any[]>('/missions', ['mission.updated']); const mission = missions.data?.find((m) => m.vehicle_id === own && m.status === 'IN BEARBEITUNG');
   const key = id === 'ims' ? 'IMS' : id === 'pid' ? 'PID' : id === 'mgmg' ? 'MGMG' : id === 'dlm' ? 'DLM' : id === 'fmg' ? 'FMG' : id;
-  const mh = useApi<any[]>(`/measurements?vehicle_id=CBRN-01&device=${key}&limit=40`, ['measurement.created', 'poll'], [key]);
-  const spec = useApi<any>(id === 'dlm' || id === 'como' ? '/live/spectrum?vehicle=CBRN-01' : null, ['poll'], [r?.ts]);
+  const mh = useApi<any[]>(`/measurements?vehicle_id=${own}&device=${key}&limit=40`, ['measurement.created', 'poll'], [key]);
+  const spec = useApi<any>(id === 'dlm' || id === 'como' ? `/live/spectrum?vehicle=${own}` : null, ['poll'], [r?.ts]);
   const tubes = useApi<any[]>(id === 'tubes' ? '/test-tubes' : null);
   if (!dev) return <Page title="Gerät"><Empty>Gerät nicht gefunden</Empty></Page>;
   const [v, u, st] = CUR(id, r);

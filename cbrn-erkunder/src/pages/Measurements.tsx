@@ -31,7 +31,7 @@ function Detail({ id, onClose, mode }: { id: string; onClose: () => void; mode?:
 }
 
 export default function Measurements() {
-  const { can, meta } = useLive(); const [f, setF] = useState({ device: '', status: '', anomalies: false, vehicle_id: '' }); const [sel, setSel] = useState<string | null>(null); const [nw, setNw] = useState(false);
+  const { can, meta, vehicles } = useLive(); const [f, setF] = useState({ device: '', status: '', anomalies: false, vehicle_id: '' }); const [sel, setSel] = useState<string | null>(null); const [nw, setNw] = useState(false);
   const qs = `limit=300${f.device ? `&device=${f.device}` : ''}${f.status ? `&status=${encodeURIComponent(f.status)}` : ''}${f.vehicle_id ? `&vehicle_id=${f.vehicle_id}` : ''}${f.anomalies ? '&anomalies=1' : ''}`;
   const { data, reload } = useApi<any[]>('/measurements?' + qs, ['measurement.created', 'measurement.updated', 'poll'], [qs]);
   const [man, setMan] = useState({ device: 'MANUELL', value: '', unit: 'ppm', headline: '', remark: '' });
@@ -40,7 +40,7 @@ export default function Measurements() {
     <Page title="Messpunkte" sub="Georeferenzierte Messwerte – Korrekturen werden im Audit-Log protokolliert" right={<Btn onClick={() => setNw(true)} disabled={!can(1)}>+ Manueller Eintrag</Btn>}>
       <div className="panel p-2 mb-3 flex gap-2 items-center">
         <Select value={f.device} onChange={(v) => setF({ ...f, device: v })} options={[['', 'Gerät: alle'], ['PID', 'PID'], ['IMS', 'IMS'], ['MGMG', 'MGMG'], ['DLM', 'Dosisleistung'], ['FMG', 'FMG'], ['MANUELL', 'Manuell']]} />
-        <Select value={f.vehicle_id} onChange={(v) => setF({ ...f, vehicle_id: v })} options={[['', 'Fahrzeug: alle'], ['CBRN-01', 'CBRN-01'], ['CBRN-02', 'CBRN-02'], ['CBRN-03', 'CBRN-03']]} />
+        <Select value={f.vehicle_id} onChange={(v) => setF({ ...f, vehicle_id: v })} options={[['', 'Fahrzeug: alle'], ...(vehicles ?? []).map((v: any) => [v.id, v.name] as [string, string])]} />
         <label className="flex items-center gap-1"><input type="checkbox" checked={f.anomalies} onChange={(e) => setF({ ...f, anomalies: e.target.checked })} />nur Auffälligkeiten</label>
         <span className="ml-auto text-dim">{data?.length ?? 0} Einträge</span>
       </div>

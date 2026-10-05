@@ -11,13 +11,13 @@ const SYMP: [string, string][] = [['augen', 'Augenreizung'], ['atemwege', 'Huste
 const lbl = 'lbl mb-0.5';
 
 export function AnalysisModal({ sample, onClose, onSaved }: { sample?: any; onClose: () => void; onSaved?: () => void }) {
-  const { live } = useLive(); const opts = useApi<any>('/analysis/options').data;
+  const { live, own } = useLive(); const opts = useApi<any>('/analysis/options').data;
   const prev = sample?.analysis?.observations ?? {};
   const [f, setF] = useState<any>({ origin: 'unbekannt', state: 'unbekannt', flammable: 'unbekannt', ph: 'unbekannt', water: 'unbekannt', odor: 'unbekannt', color: 'unbekannt', symptoms: [], fumes: false, ...prev });
   const [res, setRes] = useState<any>(sample?.analysis?.result ?? null); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false); const [saved, setSaved] = useState(false);
   const set = (k: string, v: any) => setF((o: any) => ({ ...o, [k]: v }));
   const numIn = (k: string, ph: string, w = 'w-24') => <input className={`inp ${w}`} placeholder={ph} value={f[k] ?? ''} onChange={(e) => set(k, e.target.value)} inputMode="decimal" />;
-  const takeLive = () => { const r = live['CBRN-01']; if (!r) return; const c = r.mgmg.channels; setF((o: any) => ({ ...o, pid: r.pid.value, dose: r.dose.value, lel: c.LEL ?? o.lel, co: c.CO ?? o.co, h2s: c.H2S ?? o.h2s, o2: c.O2 ?? o.o2, ims: r.ims.level ? r.ims.result : o.ims })); };
+  const takeLive = () => { const r = live[own]; if (!r) return; const c = r.mgmg.channels; setF((o: any) => ({ ...o, pid: r.pid.value, dose: r.dose.value, lel: c.LEL ?? o.lel, co: c.CO ?? o.co, h2s: c.H2S ?? o.h2s, o2: c.O2 ?? o.o2, ims: r.ims.level ? r.ims.result : o.ims })); };
   const toNum = (v: any) => (v === '' || v == null ? null : Number(String(v).replace(',', '.')));
   const body = () => ({ ...f, pid: toNum(f.pid), lel: toNum(f.lel), co: toNum(f.co), h2s: toNum(f.h2s), o2: toNum(f.o2), dose: toNum(f.dose), gamma_kev: String(f.gamma ?? '').split(/[;, ]+/).map(Number).filter((x) => x > 0), state: f.state === 'unbekannt' ? undefined : f.state });
   const run = async () => {
@@ -57,7 +57,7 @@ export function AnalysisModal({ sample, onClose, onSaved }: { sample?: any; onCl
         <div><div className={lbl}>UN-Nummer / Kennzeichnung</div><input className="inp w-full" placeholder="z. B. 1017 oder Aufschrift" value={f.un ?? ''} onChange={(e) => set('un', e.target.value)} /></div>
         <div><div className={lbl}>Eigene Vermutung (Name)</div><input className="inp w-full" placeholder="z. B. Chlor, Benzin …" value={f.guess ?? ''} onChange={(e) => set('guess', e.target.value)} /></div>
       </div>
-      <div className="flex items-center justify-between mt-4 mb-1"><div className="lbl">Messwerte</div><Btn onClick={takeLive} disabled={!live['CBRN-01']}>Live-Werte von CBRN-01 übernehmen</Btn></div>
+      <div className="flex items-center justify-between mt-4 mb-1"><div className="lbl">Messwerte</div><Btn onClick={takeLive} disabled={!live[own]}>Live-Werte vom Fahrzeug übernehmen</Btn></div>
       <div className="flex gap-3 flex-wrap items-end">
         <div><div className={lbl}>PID (ppm)</div>{numIn('pid', '0,0')}</div><div><div className={lbl}>EX (%UEG)</div>{numIn('lel', '0')}</div><div><div className={lbl}>CO (ppm)</div>{numIn('co', '0')}</div>
         <div><div className={lbl}>H₂S (ppm)</div>{numIn('h2s', '0')}</div><div><div className={lbl}>O₂ (%)</div>{numIn('o2', '20,9')}</div><div><div className={lbl}>Dosisleistung (µSv/h)</div>{numIn('dose', '0,09', 'w-32')}</div>

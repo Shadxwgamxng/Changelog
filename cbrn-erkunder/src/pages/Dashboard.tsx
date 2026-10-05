@@ -8,8 +8,8 @@ import { WeatherCopy } from '../components/WeatherCopy';
 import { num, time, CAT, STATUS_COLOR, fmtPos } from '../lib/format';
 
 export default function Dashboard() {
-  const { status, vehicles, live, mpCount, hist, weather, meta } = useLive();
-  const v = vehicles.find((x) => x.id === 'CBRN-01'); const r = live['CBRN-01'];
+  const { status, live, mpCount, hist, weather, meta, own, ownVehicle } = useLive();
+  const v = ownVehicle; const r = live[own];
   const missions = useApi<any[]>('/missions', ['mission.created', 'mission.updated']);
   const samples = useApi<any[]>('/samples', ['sample.created', 'sample.updated']);
   const alarms = useApi<any[]>('/alarms', ['alarm.created']);
@@ -19,9 +19,9 @@ export default function Dashboard() {
   const open = (alarms.data ?? []).filter((a) => a.status === 'OFFEN');
   const L = lage.data ?? {};
   return (
-    <Page title="Dashboard" sub="Einsatzübersicht – Fahrzeug CBRN-01 (Messwerte simuliert)">
+    <Page title="Dashboard" sub={`Einsatzübersicht – ${v?.name ?? ""} (Messwerte simuliert)`}>
       <div className="grid grid-cols-8 gap-2 mb-3">
-        <Stat label="Fahrzeug" value={v?.name ?? '–'} sub={<StatusBadge s={v?.status} />} />
+        <Stat label="Fahrzeug" value={<span className="text-[15px]">{v?.name ?? '–'}</span>} sub={<StatusBadge s={v?.status} />} />
         <Stat label="GPS" value={<span style={{ color: STATUS_COLOR(v?.gps_fix ? 'FIX' : 'KEIN') }}>{v?.gps_fix ? 'FIX' : 'KEIN FIX'}</span>} sub={r ? fmtPos(meta?.map?.mode, r.lat, r.lon) : ''} />
         <Stat label="DFÜ" value={<span style={{ color: STATUS_COLOR(v?.link) }}>{v?.link ?? '–'}</span>} />
         <Stat label="Messgeräte" value={`${devices.data?.length ?? 7} / ${devices.data?.length ?? 7}`} sub="alle betriebsbereit" />

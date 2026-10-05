@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { Activity, Biohazard, ClipboardList, CloudSun, FileText, FlaskConical, Gauge, History, LayoutDashboard, Map as MapIcon, MapPin, PanelLeft, Radiation, RadioTower, Search as SearchIcon, Settings, TestTube2, Truck, Users } from 'lucide-react';
+import { Activity, Biohazard, ClipboardList, CloudSun, FileText, FlaskConical, Gauge, History, LayoutDashboard, Map as MapIcon, MapPin, LogOut, PanelLeft, Radiation, RadioTower, Search as SearchIcon, Settings, TestTube2, Truck, Users } from 'lucide-react';
 import { Logo } from './Logo';
 import { useLive } from '../store';
 import { api } from '../api';
 import { Badge, CatBadge } from './ui';
-import { ROLE_LABEL, STATUS_COLOR, time } from '../lib/format';
+import { STATUS_COLOR, time } from '../lib/format';
 
 const I = 17;
 export const NAV: { group: string; items: [string, string, ReactNode][] }[] = [
@@ -37,19 +37,19 @@ function Search() {
 }
 
 export default function Layout() {
-  const { status, meta, user, switchUser, vehicles, toasts, dismissToast, wsUp, live } = useLive();
-  const nav = useNavigate(); const [clock, setClock] = useState(new Date()); const v = vehicles.find((x) => x.id === 'CBRN-01');
+  const { status, meta, session, logout, ownVehicle, toasts, dismissToast, wsUp, live, own } = useLive();
+  const nav = useNavigate(); const [clock, setClock] = useState(new Date()); const v = ownVehicle;
   const [collapsed, setCollapsed] = useState(() => { try { return localStorage.getItem('cbrn.collapsed') === '1'; } catch { return false; } });
   useEffect(() => { document.documentElement.classList.toggle('is-collapsed', collapsed); try { localStorage.setItem('cbrn.collapsed', collapsed ? '1' : '0'); } catch { /* ignore */ } }, [collapsed]);
   useEffect(() => { const t = setInterval(() => setClock(new Date()), 1000); return () => clearInterval(t); }, []);
-  const fivem = status?.fivem === 'CONNECTED'; const run = live['CBRN-01']?.run; const gt = status?.fivem_info?.game_time;
+  const fivem = status?.fivem === 'CONNECTED'; const run = live[own]?.run; const gt = status?.fivem_info?.game_time;
   return (
     <div className="shell">
       <header className="topbar no-print">
         <button className="icon-btn" onClick={() => setCollapsed((c) => !c)} title="Navigation ein-/ausklappen"><PanelLeft size={18} /></button>
         <button className="flex items-center gap-2.5" onClick={() => nav('/')}><Logo size={26} /><span className="font-semibold text-[14px] tracking-tight">CBRN Erkunder</span></button>
         <div className="flex items-center gap-1.5 ml-2">
-          <Badge color="#58a6ff">{v?.name ?? 'CBRN-01'}</Badge>
+          <Badge color="#58a6ff">{session?.vehicle_name ?? v?.name}</Badge>
           <Badge color={fivem ? '#3fb950' : '#e5534b'}>{fivem ? 'FIVEM VERBUNDEN' : 'FIVEM GETRENNT'}</Badge>
           <Badge color="#f0500a">SIMULATION</Badge>
           {run && <Badge color="#e5534b" solid>● MESSFAHRT</Badge>}
@@ -57,9 +57,10 @@ export default function Layout() {
         </div>
         <div className="flex-1" />
         <Search />
-        <select className="inp" value={user.id} onChange={(e) => switchUser(e.target.value)} title="Benutzer / Rolle">
-          {(meta?.users ?? []).map((u: any) => <option key={u.id} value={u.id}>{u.name} · {ROLE_LABEL[u.role]}</option>)}
-        </select>
+        <div className="flex items-center gap-2 pl-3 border-l border-line">
+          <div className="text-right leading-tight"><div className="text-[12.5px] font-medium">{session?.name}</div><div className="text-[11px] text-dim">{session?.funktion}</div></div>
+          <button className="icon-btn" title="Abmelden / Fahrzeug wechseln" onClick={() => logout()}><LogOut size={16} /></button>
+        </div>
         <div className="font-mono text-[12.5px] text-dim w-[66px] text-right">{clock.toLocaleTimeString('de-DE')}</div>
       </header>
       <nav className="sidebar no-print">

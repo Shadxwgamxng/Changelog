@@ -163,7 +163,7 @@ function ImgArt({ id, r, channels }: { id: string; r: any; channels: string[] })
 
 /* ------------------------------------------------------------------ Spots (Beschriftungen mit Live-Werten) */
 function useSpots(id: string, ctx: any): Spot[] {
-  const { r, dur, pos, mission, run, weather, trackKm, mpCount, tube, hist, channels } = ctx; const L: Spot[] = []; let n = 0;
+  const { r, dur, pos, mission, run, weather, trackKm, mpCount, tube, hist, channels, vname } = ctx; const L: Spot[] = []; let n = 0;
   const P = (x: number, y: number, side: 'l' | 'r', ly: number, title: string, v: string, sub: string | undefined, color: string | undefined, lines: [string, string][]) => L.push({ n: ++n, x, y, side, ly, title, v, sub, color, lines });
   const common = (x: number, y: number, ly: number, side: 'l' | 'r' = 'r') => P(x, y, side, ly, 'Auftrag / GPS', mission ? `#${mission.id}` : run ? run.id : '–', pos, undefined, [['Auftrag', mission ? `#${mission.id} · ${mission.sector_name}` : '–'], ['Messfahrt', run ? `${run.name} (${run.id})` : '–'], ['GPS', 'FIX'], ['Position', pos], ['Messdauer', dur]]);
   const A = (n: string): [number, number] => pt(id, n); const C = (): [number, number] => { const g = lcd(id); return [g.x + g.w - 2, g.y + 2]; };
@@ -213,7 +213,7 @@ function useSpots(id: string, ctx: any): Spot[] {
     P(540, 96, 'r', 30, 'GPS-Antenne', 'FIX', pos, COL.acc, [['GPS', 'FIX'], ['Position', pos], ['Georeferenzierung', 'jeder Messpunkt mit Ortsinformation']]);
     P(440, 156, 'l', 150, 'Auswerteeinheit (Kabine)', `${r?.speed_kmh ?? 0} km/h`, `Messpunkte ${mpCount.toLocaleString('de-DE')} · Track ${num(trackKm, 1)} km`, undefined, [['Status', 'AKTIV'], ['Fahrgeschwindigkeit', `${r?.speed_kmh ?? 0} km/h`], ['Messpunkte', mpCount.toLocaleString('de-DE')], ['Track', `${num(trackKm, 1)} km`]]);
     P(332, 52, 'r', 130, 'Funkantenne (DFÜ)', 'ONLINE', 'Datenverbindung zur MLK', COL.ok, [['DFÜ', 'ONLINE']]);
-    P(220, 200, 'l', 260, 'Fahrzeug', 'CBRN-01', run ? `Messfahrt ${run.id}` : 'keine Messfahrt', undefined, [['Fahrzeug', 'CBRN-01'], ['Messfahrt', run ? `${run.name} (${run.id})` : '–']]);
+    P(220, 200, 'l', 260, 'Fahrzeug', vname, run ? `Messfahrt ${run.id}` : 'keine Messfahrt', undefined, [['Fahrzeug', vname], ['Messfahrt', run ? `${run.name} (${run.id})` : '–']]);
     common(520, 215, 230);
   }
   if (id === 'tubes') { const t = tube;
@@ -236,12 +236,12 @@ function Art({ id, ctx }: { id: string; ctx: any }) {
   }
 }
 function useCtx(tubeId?: string) {
-  const { live, vehicles, hist, trackKm, mpCount, drive, meta } = useLive(); const dur = useSession();
+  const { live, vehicles, hist, trackKm, mpCount, meta, own, status } = useLive(); const drive = status?.fivem === 'CONNECTED'; const dur = useSession();
   const tubes = useApi<any[]>('/test-tubes').data ?? []; const missions = useApi<any[]>('/missions', ['mission.updated']).data ?? [];
-  const r = live['CBRN-01']; const v = vehicles.find((x) => x.id === 'CBRN-01');
+  const r = live[own]; const v = vehicles.find((x) => x.id === own);
   return useMemo(() => ({
-    r, dur, hist, trackKm, mpCount, drive, tubes, tube: tubes.find((t) => t.id === tubeId) ?? tubes[0], channels: (meta?.mgmg_channels ?? ['O2', 'CO', 'H2S', 'LEL', 'CH4']) as string[],
-    pos: v ? fmtPos(meta?.map?.mode, v.lat, v.lon) : '–', mission: missions.find((m) => m.vehicle_id === 'CBRN-01' && m.status === 'IN BEARBEITUNG'), run: r?.run ?? null,
+    vname: v?.name ?? '–', r, dur, hist, trackKm, mpCount, drive, tubes, tube: tubes.find((t) => t.id === tubeId) ?? tubes[0], channels: (meta?.mgmg_channels ?? ['O2', 'CO', 'H2S', 'LEL', 'CH4']) as string[],
+    pos: v ? fmtPos(meta?.map?.mode, v.lat, v.lon) : '–', mission: missions.find((m) => m.vehicle_id === own && m.status === 'IN BEARBEITUNG'), run: r?.run ?? null,
   }), [r, dur, hist, trackKm, mpCount, drive, tubes, tubeId, meta, v, missions]);
 }
 

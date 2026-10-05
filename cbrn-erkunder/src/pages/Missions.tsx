@@ -5,13 +5,13 @@ import { useApi, useLive } from '../store';
 import { dt } from '../lib/format';
 
 export function MissionForm({ onDone }: { onDone?: () => void }) {
-  const { meta, vehicles, can } = useLive();
-  const [f, setF] = useState({ vehicle_id: 'CBRN-01', sector: 'NORD', priority: 'HOCH', profile: 'CHEMISCH + RADIOLOGISCH', notes: '' }); const [msg, setMsg] = useState('');
+  const { meta, vehicles, can, own } = useLive();
+  const [f, setF] = useState({ vehicle_id: own, sector: 'NORD', priority: 'HOCH', profile: 'CHEMISCH + RADIOLOGISCH', notes: '' }); const [msg, setMsg] = useState('');
   const send = async () => { try { const m = await api('/missions', { method: 'POST', body: f }); setMsg(`Auftrag #${m.id} übermittelt`); onDone?.(); } catch (e: any) { setMsg(e.message); } };
   return (
     <Panel title="Messauftrag erstellen (CBRN-Messleitkomponente)">
       <div className="grid grid-cols-2 gap-3">
-        <div><div className="lbl">Fahrzeug</div><Select className="w-full" value={f.vehicle_id} onChange={(v) => setF({ ...f, vehicle_id: v })} options={vehicles.filter((v) => v.online).map((v) => [v.id, `${v.id} (${v.status})`] as [string, string])} /></div>
+        <div><div className="lbl">Fahrzeug</div><Select className="w-full" value={f.vehicle_id} onChange={(v) => setF({ ...f, vehicle_id: v })} options={vehicles.map((v) => [v.id, `${v.name} (${v.link === 'ONLINE' ? 'FiveM verbunden' : 'FiveM getrennt'})`] as [string, string])} /></div>
         <div><div className="lbl">Gebiet</div><Select className="w-full" value={f.sector} onChange={(v) => setF({ ...f, sector: v })} options={(meta?.sectors ?? []).map((s: any) => [s.key, s.name] as [string, string])} /></div>
         <div><div className="lbl">Priorität</div><Select className="w-full" value={f.priority} onChange={(v) => setF({ ...f, priority: v })} options={[['NIEDRIG', 'NIEDRIG'], ['NORMAL', 'NORMAL'], ['HOCH', 'HOCH'], ['DRINGEND', 'DRINGEND']]} /></div>
         <div><div className="lbl">Messprofil</div><Select className="w-full" value={f.profile} onChange={(v) => setF({ ...f, profile: v })} options={['CHEMISCH', 'RADIOLOGISCH', 'CHEMISCH + RADIOLOGISCH', 'PROBENAHME', 'BIOLOGISCH (PROBENAHME)'].map((x) => [x, x] as [string, string])} /></div>

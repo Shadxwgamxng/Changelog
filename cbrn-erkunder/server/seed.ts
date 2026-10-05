@@ -3,7 +3,7 @@ import { substances as subs1 } from './data/substances.js';
 import { substances2 } from './data/substances2.js';
 import { deriveTraits, buildResponse, radResponse, bioResponse } from './data/derive.js';
 import { radionuclides, bioAgents } from './data/nuclides.js';
-import { sources, devices, methods, tubes, users, vehicles, crew, scenarios } from './data/misc.js';
+import { sources, devices, methods, tubes, vehicles, scenarios } from './data/misc.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { offsetToLL } from './geo.js';
@@ -18,7 +18,7 @@ function pFor(s: { ghs: string[]; h: string[] }) {
   return [...p];
 }
 
-export const REF_VERSION = 5; // erhöhen, wenn sich Referenzdaten (Stoffe, Handlungsempfehlungen …) ändern
+export const REF_VERSION = 6; // erhöhen, wenn sich Referenzdaten (Stoffe, Handlungsempfehlungen …) ändern
 
 // Referenzdaten (fachliche Stammdaten) – werden bei Versionswechsel neu eingespielt (Admin-Änderungen daran gehen dabei verloren).
 // Ergebnis von tools/gestis-index-check.ts: CAS-Nummer/Name mit dem öffentlichen GESTIS-Stoffindex abgeglichen (nur Index, keine Artikeldaten)
@@ -50,13 +50,20 @@ export function syncReference() {
   setSetting('ref_version', REF_VERSION);
 }
 
+// Ältere Datenbanken (Fahrzeuge CBRN-01 …): Betriebsdaten verwerfen und neue Fahrzeuge anlegen
+function migrateVehicles() {
+  if ((db.prepare("SELECT COUNT(*) c FROM vehicles WHERE id LIKE 'FFW-%'").get() as any).c >= 2) return;
+  db.exec('PRAGMA foreign_keys = OFF');
+  for (const t of ['vehicles', 'crew', 'missions', 'measurements', 'samples', 'sample_events', 'alarms', 'runs', 'reports', 'audit_log', 'sessions']) db.exec(`DELETE FROM ${t}`);
+  db.exec('PRAGMA foreign_keys = ON');
+  for (const v of vehicles) insert('vehicles', { ...v, ...offsetToLL(0, 0) });
+}
+
 export function seedIfEmpty() {
-  if ((db.prepare('SELECT COUNT(*) c FROM sources').get() as any).c > 0) { if (getSetting('ref_version', 0) < REF_VERSION) syncReference(); return; }
+  if ((db.prepare('SELECT COUNT(*) c FROM sources').get() as any).c > 0) { migrateVehicles(); if (getSetting('ref_version', 0) < REF_VERSION) syncReference(); return; }
   syncReference();
   const tx = db.transaction(() => {
-    for (const u of users) insert('users', u);
     for (const v of vehicles) insert('vehicles', { ...v, ...offsetToLL(0, 0) }); // Start am Einsatzzentrum; Position kommt ab dann aus GTA
-    for (const c of crew) insert('crew', c);
     setSetting('active_scenario', 'sc-chlor'); setSetting('source_offset', { x: 160, y: 90 });
     setSetting('mgmg_channels', ['O2', 'CO', 'H2S', 'LEL', 'CH4']); setSetting('fivem_origin', { x: 0, y: 0, scale: 1 });
   });

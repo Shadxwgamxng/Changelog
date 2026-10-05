@@ -10,8 +10,8 @@ import { RunCard } from '../components/RunCard';
 
 const STEPS = ['Messwert', 'Gerätehinweis', 'Mögliche Stoffgruppe', 'Mögliche Stoffe', 'Weitere Messung / Probe', 'Laborbefund'];
 export default function Live() {
-  const { live, status } = useLive(); const r = live['CBRN-01'];
-  const recent = useApi<any[]>('/measurements?vehicle_id=CBRN-01&anomalies=1&limit=12', ['measurement.created', 'poll']);
+  const { live, status, own } = useLive(); const r = live[own];
+  const recent = useApi<any[]>(`/measurements?vehicle_id=${own}&anomalies=1&limit=12`, ['measurement.created', 'poll']);
   const lvl = r?.ims?.level; const step = lvl === 'moegliche_identifikation' ? 3 : lvl === 'verdacht' ? 2 : lvl === 'hinweis' || r?.pid?.value >= 2 ? 1 : 0;
   if (!r) return <Page title="Live-Messung"><Empty>Warte auf Messdaten …</Empty></Page>;
   return (

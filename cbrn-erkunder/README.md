@@ -79,3 +79,10 @@ WebSocket-Events: `vehicle.position`, `vehicle.status`, `measurement.created|upd
 * IMS-Treffer (`ims_sim`) sind Szenarioannahmen, keine Aussage über reale Gerätebibliotheken.
 * Keine Authentifizierung (Rollenumschaltung in der Kopfzeile).
 * Tablet-Ansicht: reduziertes Raster per CSS (≤ 1100 px); nicht alle Seiten sind für Touch optimiert.
+
+## Anmeldung am Fahrzeug
+
+Beim Öffnen der Seite wählt man eines von zwei Fahrzeugen (**Florian Falkenwalde 11-71-01** / **Florian Falkenwalde 01-71-01**), gibt Name und Funktion ein und hat danach vollen Zugriff. Messfahrten, Track, Spektrum und Proben gehören zum angemeldeten Fahrzeug.
+
+FiveM: Fahrzeug-IDs sind `FFW-11-71-01` und `FFW-01-71-01`. Im NUI sendet die Web-App nach der Anmeldung `cbrn-vehicle` an den Adapter; die Telemetrie wird dann diesem Fahrzeug zugeordnet (Standard: `Config.Vehicle`). Simulator: `node tools/fivem-sim.mjs http://localhost:3001 dev-token FFW-01-71-01`.
+Hinweis: Beim ersten Start mit dieser Version werden alte Betriebsdaten (CBRN-0x) verworfen.

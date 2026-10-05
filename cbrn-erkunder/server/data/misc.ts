@@ -51,26 +51,14 @@ export const tubes = [
   storage_status: i === 6 ? 'Nachbestellen' : 'Verfügbar', lot: `SIM-${2400 + i * 7}`, expiry: `${2027 + (i % 3)}-0${1 + (i % 9)}-30`,
 }));
 
-export const users = [
-  { id: 'u-erk', name: 'Müller, K.', role: 'erkunder', callsign: 'Messtrupp 1' },
-  { id: 'u-tf', name: 'Schneider, A.', role: 'truppfuehrer', callsign: 'Truppführer' },
-  { id: 'u-mlk', name: 'Weber, J.', role: 'messleitung', callsign: 'MLK' },
-  { id: 'u-adm', name: 'Administrator', role: 'admin', callsign: 'ADMIN' },
-];
+
 
 export const vehicles = [
-  { id: 'CBRN-01', name: 'CBRN-01', status: 'EINSATZBEREIT', link: 'OFFLINE', online: 1, lat: 0, lon: 0, heading: 90, speed: 0, gps_fix: 0, power: 'OK' },
-  { id: 'CBRN-02', name: 'CBRN-02', status: 'OFFLINE', link: 'OFFLINE', online: 0, lat: 0, lon: 0, heading: 0, speed: 0, gps_fix: 0, power: 'NICHT VERFÜGBAR' },
-  { id: 'CBRN-03', name: 'CBRN-03', status: 'OFFLINE', link: 'OFFLINE', online: 0, lat: 0, lon: 0, heading: 0, speed: 0, gps_fix: 0, power: 'NICHT VERFÜGBAR' },
-  { id: 'CBRN-04', name: 'CBRN-04', status: 'OFFLINE', link: 'OFFLINE', online: 0, lat: 0, lon: 0, heading: 0, speed: 0, gps_fix: 0, power: 'NICHT VERFÜGBAR' },
+  { id: 'FFW-11-71-01', name: 'Florian Falkenwalde 11-71-01', status: 'EINSATZBEREIT', link: 'OFFLINE', online: 1, lat: 0, lon: 0, heading: 90, speed: 0, gps_fix: 0, power: 'OK' },
+  { id: 'FFW-01-71-01', name: 'Florian Falkenwalde 01-71-01', status: 'EINSATZBEREIT', link: 'OFFLINE', online: 1, lat: 0, lon: 0, heading: 90, speed: 0, gps_fix: 0, power: 'OK' },
 ];
 
-export const crew = [
-  { id: 'c1', vehicle_id: 'CBRN-01', role: 'Fahrzeugführer', name: 'Becker, T.' },
-  { id: 'c2', vehicle_id: 'CBRN-01', role: 'Truppführer', name: 'Schneider, A.' },
-  { id: 'c3', vehicle_id: 'CBRN-01', role: 'Messtrupp', name: 'Müller, K.' },
-  { id: 'c4', vehicle_id: 'CBRN-01', role: 'Messtrupp', name: 'Hoffmann, L.' },
-];
+
 
 // Szenarien: reale Stoff-/Nuklidreferenzen, simulierte Ereignisse. Zentrum = Einsatzzentrum aus config.json.
 export const scenarios = [

@@ -39,6 +39,7 @@ CreateThread(function()
       data.in_vehicle = true
     end
     if Config.SendWeather and (n % 3 == 1) then data.weather = weatherPayload() end
+    data.vehicle = currentVehicle
     if data.x or data.weather then TriggerServerEvent('cbrn:telemetry', data) end
     Wait(Config.IntervalMs)
   end
@@ -52,5 +53,7 @@ end
 
 RegisterCommand(Config.Command, function() setOpen(not open) end, false)
 RegisterKeyMapping(Config.Command, 'CBRN-Erkunder öffnen/schließen', 'keyboard', Config.Key)
+local currentVehicle = nil
+RegisterNUICallback('setVehicle', function(d, cb) currentVehicle = d and d.vehicle or nil; cb('ok') end)
 RegisterNUICallback('close', function(_, cb) setOpen(false); cb('ok') end)
 AddEventHandler('onResourceStop', function(res) if res == GetCurrentResourceName() and open then SetNuiFocus(false, false) end end)
