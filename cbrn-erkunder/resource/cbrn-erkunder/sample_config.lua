@@ -8,10 +8,7 @@
 -- Einzelner Punkt:       [`modell`] = vector3(0.423, -1.274, 1.182)
 -- Getrennte Punkte:      [`modell`] = { sample = vector3(...), storage = vector3(...) }
 Config.SamplePoints = {
-    [`elwblaichach`] = {
-        sample = vector3(-0.950, 0.158, 0.725),
-        storage = vector3(-0.950, 0.158, 0.725)
-    },
+    [`elwblaichach`] = vector3(-0.950, 0.168, 0.785),
 }
 
 Config.OffsetStep = 0.01              -- Schrittweite des Offset Finders (Meter)
