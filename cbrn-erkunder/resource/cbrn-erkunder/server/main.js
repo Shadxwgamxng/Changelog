@@ -4477,7 +4477,7 @@ function seedIfEmpty() {
 // server/sim.ts
 var import_node_events = require("node:events");
 var bus = new import_node_events.EventEmitter();
-var emit = (type, payload) => bus.emit("event", { type, payload, ts: now() });
+var emit2 = (type, payload) => bus.emit("event", { type, payload, ts: now() });
 var BG = { dose: 0.09, o2: 20.9, co: 0.5, pid: 0.1, cps: 1.2 };
 var PID_LAMP_EV = 10.6;
 var rnd = (a = 1) => (Math.random() - 0.5) * 2 * a;
@@ -4526,7 +4526,7 @@ function setDevicePower(by, vid, key, on2) {
   if (!on2 && !(cur == null ? void 0 : cur.on)) return { devices: deviceInfo(vid) };
   (devices2[vid] ??= {})[key] = { on: on2, since: Date.now() };
   audit(by, on2 ? "power_on" : "power_off", "device", `${vid}/${key}`);
-  emit("device.changed", { vehicle_id: vid, devices: deviceInfo(vid) });
+  emit2("device.changed", { vehicle_id: vid, devices: deviceInfo(vid) });
   return { devices: deviceInfo(vid) };
 }
 function resetDevices() {
@@ -4664,7 +4664,7 @@ function createAlarm(a, key) {
   const n = (db.prepare("SELECT COUNT(*) c FROM alarms").get().c ?? 0) + 1;
   const row = { id: "ALM-" + String(n).padStart(5, "0"), ts: now(), status: "OFFEN", ...a };
   insert("alarms", row);
-  emit("alarm.created", row);
+  emit2("alarm.created", row);
   return row;
 }
 function activeMissionFor(vehicle_id) {
@@ -4674,7 +4674,7 @@ function storeMeasurement(m, silent = false) {
   const seq = seqNow();
   const row = { id: mpId(seq), seq, ts: now(), data_source: "SIMULATED", ...m };
   insert("measurements", row);
-  if (!silent) emit("measurement.created", row);
+  if (!silent) emit2("measurement.created", row);
   return row;
 }
 function evaluateAndStore(v, pos, r, mission, forceRoutine) {
@@ -4741,11 +4741,11 @@ function ingestFivem(d) {
       }
     }
     update("vehicles", id, { lat, lon, heading: d.heading ?? v.heading, speed: d.speed_kmh ?? 0, online: 1, gps_fix: 1, link: "ONLINE", status: v.status === "OFFLINE" ? "EINSATZBEREIT" : v.status });
-    emit("vehicle.position", get("vehicles", id));
+    emit2("vehicle.position", get("vehicles", id));
   }
   const gw = state.gameWeather;
   state.info[id] = { player: d.player ?? ((_c = state.info[id]) == null ? void 0 : _c.player) ?? null, mission: d.mission ?? null, heading: d.heading ?? null, in_vehicle: d.in_vehicle ?? hasPos, game_weather: (gw == null ? void 0 : gw.type) ?? null, game_time: gw ? `${String(gw.hour).padStart(2, "0")}:${String(gw.minute).padStart(2, "0")}` : null };
-  if (!was) emit("system.status", systemStatus());
+  if (!was) emit2("system.status", systemStatus());
   return true;
 }
 function runInfo(vehicleId) {
@@ -4764,7 +4764,7 @@ function startRun(userLabel, vehicleId, name, start) {
   if (!start || !Number.isFinite(start.lat) || !Number.isFinite(start.lon)) return { error: "Startposition fehlt \u2013 bitte den Standort auf der Karte markieren" };
   if (!fivemConnected(vehicleId)) {
     update("vehicles", vehicleId, { lat: start.lat, lon: start.lon, speed: 0 });
-    emit("vehicle.position", get("vehicles", vehicleId));
+    emit2("vehicle.position", get("vehicles", vehicleId));
   }
   const n = (db.prepare("SELECT COUNT(*) c FROM runs").get().c ?? 0) + 1;
   const mission = list("missions", "WHERE vehicle_id = ? AND status = 'IN BEARBEITUNG' LIMIT 1", [vehicleId])[0];
@@ -4774,7 +4774,7 @@ function startRun(userLabel, vehicleId, name, start) {
   insert("runs", { id: R2.id, vehicle_id: R2.vehicle_id, name: R2.name, started_at: R2.started_at, started_by: userLabel, distance_m: 0, points: 0, source: R2.source, mission_id: R2.mission_id, start_lat: start.lat, start_lon: start.lon, incident_id: inc.id });
   const dev = fivemConnected(vehicleId) ? Math.round(distM(start, { lat: get("vehicles", vehicleId).lat, lon: get("vehicles", vehicleId).lon })) : 0;
   audit(userLabel, "start", "run", R2.id, { source: R2.source, vehicle: vehicleId, start, deviation_m: dev });
-  emit("run.started", runInfo(vehicleId));
+  emit2("run.started", runInfo(vehicleId));
   return { run: runInfo(vehicleId), deviation_m: dev };
 }
 function stopRun(userLabel, vehicleId) {
@@ -4784,7 +4784,7 @@ function stopRun(userLabel, vehicleId) {
   update("runs", R2.id, { ended_at: now() });
   delete state.runs[vehicleId];
   audit(userLabel, "stop", "run", R2.id, { distance_m: Math.round(R2.dist) });
-  emit("run.stopped", get("runs", R2.id));
+  emit2("run.stopped", get("runs", R2.id));
   return { run: get("runs", R2.id) };
 }
 var GTA_WX = {
@@ -4843,7 +4843,7 @@ function tick() {
   state.tick++;
   const dt = 2;
   weatherStep();
-  if (state.tick % 5 === 0) emit("weather.updated", weatherNow());
+  if (state.tick % 5 === 0) emit2("weather.updated", weatherNow());
   if (state.tick % 30 === 0) {
     const w = weatherNow();
     db.prepare("INSERT INTO weather_records(ts,temperature,humidity,pressure,wind_speed,wind_from,cloud_okta,precipitation) VALUES(?,?,?,?,?,?,?,?)").run(w.ts, w.temperature, w.humidity, w.pressure, w.wind_speed, w.wind_from, w.cloud_okta, w.precipitation);
@@ -4853,7 +4853,7 @@ function tick() {
     const want = live2 ? "ONLINE" : "OFFLINE";
     if (v.link !== want) {
       update("vehicles", v.id, { link: want, gps_fix: live2 ? 1 : 0, speed: live2 ? v.speed : 0 });
-      emit("vehicle.status", get("vehicles", v.id));
+      emit2("vehicle.status", get("vehicles", v.id));
     }
   }
   const vehicles2 = list("vehicles");
@@ -4891,8 +4891,8 @@ function tick() {
     }
     const payload = { vehicle_id: v.id, ts: now(), lat: pos.lat, lon: pos.lon, speed_kmh: +(speed * 3.6).toFixed(0), heading: cur.heading, ...r, track_km: +(T2.len / 1e3).toFixed(2), run: runInfo(v.id), devices: deviceInfo(v.id), mp_count: db.prepare("SELECT COUNT(*) c FROM measurements WHERE vehicle_id = ?").get(v.id).c };
     state.live[v.id] = payload;
-    emit("reading.live", payload);
-    emit("vehicle.position", cur);
+    emit2("reading.live", payload);
+    emit2("vehicle.position", cur);
     const mission = activeMissionFor(v.id);
     if (R2 || mission) evaluateAndStore(cur, pos, r, mission, !!R2 && state.tick % 2 === 0 && (speed > 0 || state.tick % 10 === 0));
   });
@@ -5345,7 +5345,7 @@ function createSample(n) {
   logEvent(id, "ENTNOMMEN", `${SAMPLE_TYPES[n.type]} \xB7 Fahrzeug ${n.vehicleId}${inc ? " \xB7 Einsatz " + inc.id : " \xB7 ohne Einsatz"}`, n.by);
   logEvent(id, "HERKUNFT EINGETRAGEN", source2, n.by);
   audit(n.by, "create", "sample", id, { vehicle: n.vehicleId, incident: (inc == null ? void 0 : inc.id) ?? null });
-  emit("sample.created", publicSample(id));
+  emit2("sample.created", publicSample(id));
   return publicSample(id);
 }
 function labelSample(id, label, info, by) {
@@ -5358,7 +5358,7 @@ function labelSample(id, label, info, by) {
   update("samples", id, { label, info, status: "TRANSPORT", transport_status: "TRANSPORT", updated_at: now() });
   logEvent(id, "BESCHRIFTET", `${label}${info ? " \u2013 " + info : ""}`, by);
   audit(by, "label", "sample", id);
-  emit("sample.updated", publicSample(id));
+  emit2("sample.updated", publicSample(id));
   return publicSample(id);
 }
 function storeSample(id, by) {
@@ -5370,8 +5370,8 @@ function storeSample(id, by) {
   logEvent(id, "EINGELAGERT", `Probenlager ${s.vehicle_id}`, by);
   audit(by, "store", "sample", id);
   const pub = publicSample(id);
-  emit("sample.updated", pub);
-  emit("sample.stored", pub);
+  emit2("sample.updated", pub);
+  emit2("sample.stored", pub);
   return pub;
 }
 function archiveSample(id, by) {
@@ -5381,7 +5381,7 @@ function archiveSample(id, by) {
   update("samples", id, { status: "ARCHIVED", updated_at: now() });
   logEvent(id, "ARCHIVIERT", null, by);
   audit(by, "archive", "sample", id);
-  emit("sample.updated", publicSample(id));
+  emit2("sample.updated", publicSample(id));
   return publicSample(id);
 }
 function startAnalysis(id, type, by, comment) {
@@ -5395,7 +5395,7 @@ function startAnalysis(id, type, by, comment) {
   update("samples", id, { status: "ANALYSIS", lab_status: "ANALYSE", updated_at: now() });
   logEvent(id, "ANALYSE GESTARTET", `${aid} \xB7 ${ANALYSIS_TYPES[type]}`, by);
   audit(by, "analysis_start", "sample", id, { analysis: aid, type });
-  emit("sample.updated", publicSample(id));
+  emit2("sample.updated", publicSample(id));
   return publicSample(id);
 }
 var pick = (a) => a[Math.floor(Math.random() * a.length)];
@@ -5439,8 +5439,8 @@ function completeAnalysis(a) {
   update("samples", s.id, { status: "COMPLETED", lab_status: "BEFUND EINGEGANGEN", lab_result: { text: `${result.outcome_text}${result.substance_id ? " \u2013 " + refName(result.ref_type, result.substance_id) : ""}`, substance_id: result.ref_type === "substance" ? result.substance_id : null }, updated_at: now() });
   logEvent(s.id, "ANALYSE ABGESCHLOSSEN", `${a.id} \xB7 ${result.outcome_text}`, a.by_user);
   audit(a.by_user, "analysis_done", "sample", s.id, { analysis: a.id, outcome: result.outcome });
-  emit("sample.updated", publicSample(s.id));
-  emit("analysis.completed", { sample_id: s.id, analysis_id: a.id, outcome_text: result.outcome_text });
+  emit2("sample.updated", publicSample(s.id));
+  emit2("analysis.completed", { sample_id: s.id, analysis_id: a.id, outcome_text: result.outcome_text });
 }
 function tickAnalyses() {
   for (const a of list("sample_analyses", "WHERE status = 'RUNNING'")) if (Date.now() - Date.parse(a.started_at) >= a.duration_ms) completeAnalysis(a);
@@ -5515,8 +5515,8 @@ function createIncident(by, b) {
   insert("incidents", inc);
   for (const c of crewOf()) noteCrew(c.name, c.role, c.vehicle_id);
   audit(by, "create", "incident", inc.id, { name, category: truth.category, amount, known: !!b.known });
-  emit("incident.changed", publicIncident(inc));
-  emit("system.status", systemStatus());
+  emit2("incident.changed", publicIncident(inc));
+  emit2("system.status", systemStatus());
   return { incident: publicIncident(inc) };
 }
 function noteCrew(name, funktion, vehicle_id) {
@@ -5600,8 +5600,8 @@ function endIncident(by, id, form = {}) {
   update("incidents", id, { status: "BEENDET", ended_at: ended });
   insert("reports", { id: data.number, mission_id: null, incident_id: id, created_at: ended, created_by: by, data }, true);
   audit(by, "end", "incident", id, { report: data.number });
-  emit("incident.changed", null);
-  emit("system.status", systemStatus());
+  emit2("incident.changed", null);
+  emit2("system.status", systemStatus());
   return { incident: publicIncident(get("incidents", id)), report: { id: data.number, ...data } };
 }
 
@@ -5650,7 +5650,7 @@ function registerRoutes(app) {
     const token = createSession(v.id, name, funktion);
     audit(`${name} (${funktion})`, "login", "vehicle", v.id);
     noteCrew(name, funktion, v.id);
-    emit("crew.changed", { vehicle_id: v.id });
+    emit2("crew.changed", { vehicle_id: v.id });
     rep.code(201);
     return { token, session: { vehicle_id: v.id, vehicle_name: v.name, name, funktion } };
   });
@@ -5665,7 +5665,7 @@ function registerRoutes(app) {
     const u = user(req);
     endSession(u.token);
     audit(u.id, "logout", "vehicle", u.vehicle_id);
-    emit("crew.changed", { vehicle_id: u.vehicle_id });
+    emit2("crew.changed", { vehicle_id: u.vehicle_id });
     return { ok: true };
   });
   app.get("/api/system/status", async () => ({ ...systemStatus(), drive: state.drive, fivem_origin: getSetting("fivem_origin"), gta_offset: getSetting("gta_offset", { dx: 0, dy: 0 }), mgmg_channels: mgmgChannels(), now: now(), uptime_s: Math.round(process.uptime()) }));
@@ -5683,7 +5683,7 @@ function registerRoutes(app) {
     setSetting("gta_offset", n);
     audit(u.id, "calibrate", "map", "gta_offset", { from: o, to: n });
     const map = { offset: n, bounds: shiftedBounds() };
-    emit("map.changed", map);
+    emit2("map.changed", map);
     return map;
   });
   app.post("/api/system/config", async (req) => {
@@ -5856,7 +5856,7 @@ function registerRoutes(app) {
     const label = !top || top.score < 3 ? "UNBEKANNT" : `${top.level === "moegliche_identifikation" ? "M\xD6GLICHE IDENTIFIKATION" : top.level === "verdacht" ? "VERDACHT" : "HINWEIS"}: ${top.name.toUpperCase()}`;
     update("samples", id, { analysis: { observations: obs, result: res2, at: now(), by: u.id }, onsite_assessment: label, updated_at: now() });
     audit(u.id, "analysis", "sample", id, { top: top == null ? void 0 : top.id, level: top == null ? void 0 : top.level, score: top == null ? void 0 : top.score });
-    emit("sample.updated", get("samples", id));
+    emit2("sample.updated", get("samples", id));
     return { ...res2, label };
   });
   app.get("/api/missions", async () => list("missions", "", [], "ORDER BY created_at DESC").map((m) => {
@@ -5872,7 +5872,7 @@ function registerRoutes(app) {
     const m = { id: `2026-${String(n).padStart(4, "0")}`, vehicle_id: b.vehicle_id, sector: b.sector, priority: b.priority ?? "NORMAL", profile: b.profile ?? "CHEMISCH", status: "\xDCBERMITTELT", created_by: u.id, created_at: now(), updated_at: now(), notes: b.notes ?? null };
     insert("missions", m);
     audit(u.id, "create", "mission", m.id, m);
-    emit("mission.created", m);
+    emit2("mission.created", m);
     rep.code(201);
     return m;
   });
@@ -5894,7 +5894,7 @@ function registerRoutes(app) {
     update("missions", id, { status: b.status, updated_at: now(), started_at: b.status === "IN BEARBEITUNG" ? now() : m.started_at, ended_at: ["ABGESCHLOSSEN", "ABGEBROCHEN"].includes(b.status) ? now() : null, notes: b.notes ?? m.notes });
     audit(u.id, "status", "mission", id, { from: m.status, to: b.status });
     const r = get("missions", id);
-    emit("mission.updated", r);
+    emit2("mission.updated", r);
     return r;
   });
   app.get("/api/measurements", async (req) => {
@@ -5941,7 +5941,7 @@ function registerRoutes(app) {
     };
     insert("measurements", row);
     audit(u.id, "create", "measurement", row.id, row);
-    emit("measurement.created", row);
+    emit2("measurement.created", row);
     rep.code(201);
     return row;
   });
@@ -5962,7 +5962,7 @@ function registerRoutes(app) {
     update("measurements", id, patch);
     audit(u.id, "update", "measurement", id, diff);
     const r = get("measurements", id);
-    emit("measurement.updated", r);
+    emit2("measurement.updated", r);
     return r;
   });
   app.get("/api/samples", async () => listSamples());
@@ -6156,22 +6156,30 @@ async function boot(opts) {
 var import_node_crypto2 = require("node:crypto");
 var DEFAULT2 = { points: /* @__PURE__ */ new Map(), interactDistance: 2, returnDistance: 1.5, collectionDuration: 5e3, maxSamples: 20, allowWithoutIncident: true, useInventory: true, kitItem: "sample_collection_kit", containerItem: "sample_container", containerType: "UNIVERSAL SAMPLE CONTAINER", analysisDurations: {} };
 var cfg = null;
-var cfx = () => globalThis.exports;
+var cfx = () => {
+  try {
+    if (typeof exports !== "undefined") return exports;
+  } catch {
+  }
+  return globalThis.exports;
+};
 var self2 = () => GetCurrentResourceName();
+function setCfg(c) {
+  const points = /* @__PURE__ */ new Map();
+  for (const p of c.points ?? []) points.set(p.model >>> 0, { sample: p.sample, storage: p.storage });
+  const n = { ...DEFAULT2, ...c, points };
+  cfg = n;
+  applySampleConfig({ maxSamples: n.maxSamples, containerType: n.containerType, analysisDurations: n.analysisDurations });
+  return n;
+}
 function getCfg(force = false) {
   if (cfg && !force) return cfg;
   try {
     const c = cfx()[self2()].getSampleConfig();
-    if (!c) return cfg ?? DEFAULT2;
-    const points = /* @__PURE__ */ new Map();
-    for (const p of c.points ?? []) points.set(p.model >>> 0, { sample: p.sample, storage: p.storage });
-    const n = { ...DEFAULT2, ...c, points };
-    cfg = n;
-    applySampleConfig({ maxSamples: n.maxSamples, containerType: n.containerType, analysisDurations: n.analysisDurations });
-    return n;
+    if (c) return setCfg(c);
   } catch {
-    return cfg ?? DEFAULT2;
   }
+  return cfg ?? DEFAULT2;
 }
 var players = /* @__PURE__ */ new Map();
 var licenseOf = (src) => {
@@ -6202,18 +6210,12 @@ function worldPoint(ent, off) {
   const h = GetEntityHeading(ent) * Math.PI / 180;
   return { x: ex + Math.cos(h) * off.x - Math.sin(h) * off.y, y: ey + Math.sin(h) * off.x + Math.cos(h) * off.y, z: ez + off.z };
 }
-var adminOk = (src) => {
-  try {
-    return !!cfx()[self2()].isAdmin(src);
-  } catch {
-    return false;
-  }
-};
 var jobOk = (src) => {
+  if (!getCfg().requireJob) return true;
   try {
     return !!cfx()[self2()].jobAllowed(src);
   } catch {
-    return true;
+    return false;
   }
 };
 var inv = () => getCfg().useInventory && GetResourceState("ox_inventory") === "started";
@@ -6236,7 +6238,15 @@ var safeName = (src, given) => {
   return g.length >= 2 ? g : GetPlayerName(src) ?? `Spieler ${src}`;
 };
 function registerSampleEvents() {
-  setTimeout(() => getCfg(true), 1500);
+  on("cbrn:sampleConfig", (c) => {
+    try {
+      setCfg(c);
+    } catch (e) {
+      console.error("[cbrn] Konfiguration ung\xFCltig", e);
+    }
+  });
+  emit("cbrn:cfg:request");
+  setTimeout(() => emit("cbrn:cfg:request"), 3e3);
   onNet("cbrn:sample:takeKit", (netId) => {
     const src = source, p = pl(src), c = getCfg();
     if (!jobOk(src)) return fail(src, "kit", "Du hast keine Berechtigung f\xFCr die Probenentnahme.");
@@ -6358,21 +6368,8 @@ function registerSampleEvents() {
   onNet("cbrn:sample:debug", () => {
     var _a;
     const src = source;
-    if (!adminOk(src)) return;
     const p = pl(src);
-    res(src, "debug", true, { state: { kit: hasKit(src, p), active: p.active ? { ...p.active, token: "\u2026" } : null, carrying: ((_a = carryingOf(p)) == null ? void 0 : _a.id) ?? null, license: p.license, inventory: inv(), points: [...getCfg().points.keys()] } });
-  });
-  onNet("cbrn:admin:request", (action) => {
-    const src = source;
-    if (!adminOk(src)) return fail(src, "admin", "Daf\xFCr fehlt dir die Berechtigung (ACE cbrn.offset).");
-    emitNet("cbrn:admin:grant", src, action);
-  });
-  onNet("cbrn:offset:report", (text) => {
-    if (adminOk(source)) console.log(`
-[cbrn] OFFSET ermittelt von ${GetPlayerName(source)} \u2013 in sample_config.lua eintragen:
-
-${String(text).slice(0, 800)}
-`);
+    res(src, "debug", true, { state: { kit: hasKit(src, p), active: p.active ? { net: p.active.net, dur: p.active.dur } : null, carrying: ((_a = carryingOf(p)) == null ? void 0 : _a.id) ?? null, inventory: inv(), points: [...getCfg().points.keys()], requireJob: !!getCfg().requireJob } });
   });
   on("playerDropped", () => {
     players.delete(source);

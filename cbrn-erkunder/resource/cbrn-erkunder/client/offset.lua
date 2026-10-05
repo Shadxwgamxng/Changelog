@@ -55,6 +55,13 @@ local function runFinder(veh, title, start)
     DrawMarker(28, p.x, p.y, p.z, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.06, 0.06, 0.06, 255, 0, 0, 230, false, false, 2, false, nil, nil, false)
     DrawLine(p.x, p.y, p.z, p.x, p.y, p.z + 0.9, 255, 0, 0, 255)
     DrawLine(p.x, p.y, p.z, p.x, p.y, p.z - 0.9, 255, 80, 80, 160)
+    -- 2D-Punkt + Fadenkreuz auf dem Bildschirm: bleibt auch sichtbar, wenn der Punkt im Fahrzeug (hinter Blech) liegt
+    local onScreen, sx, sy = GetScreenCoordFromWorldCoord(p.x, p.y, p.z)
+    if onScreen then
+      DrawRect(sx, sy, 0.0065, 0.0115, 255, 0, 0, 255)
+      DrawRect(sx, sy, 0.030, 0.0012, 255, 255, 255, 190)
+      DrawRect(sx, sy, 0.0007, 0.054, 255, 255, 255, 190)
+    end
     CBRN.hud({ mode = 'offset', title = title, x = off.x, y = off.y, z = off.z, step = st })
     if IsDisabledControlJustPressed(0, K.save) then return off end
     if IsDisabledControlJustPressed(0, K.cancel) then return nil end
@@ -106,7 +113,8 @@ local function startFinder()
 end
 
 RegisterNetEvent('cbrn:admin:grant', function(action) if action == 'offset' then CreateThread(startFinder) end end)
-RegisterCommand('offset', function() TriggerServerEvent('cbrn:admin:request', 'offset') end, false)
+RegisterCommand('offset', function() CBRN.requestAdmin('offset') end, false)
+RegisterCommand('cbrnoffset', function() CBRN.requestAdmin('offset') end, false) -- Alternative, falls ein anderes Skript /offset belegt
 
 AddEventHandler('onResourceStop', function(res)
   if res ~= GetCurrentResourceName() or not running then return end

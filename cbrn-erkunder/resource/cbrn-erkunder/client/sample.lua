@@ -211,15 +211,32 @@ AddEventHandler('onResourceStop', function(res)
   hud({ mode = 'off' })
 end)
 
+-- ---- Admin-Befehle (/offset, /debugsample, /debugsamplepoint): Berechtigung beim Server anfragen, mit sichtbarer Rückmeldung
+local adminWait
+function CBRN.requestAdmin(action)
+  local t = GetGameTimer(); adminWait = t
+  notify('inform', 'Prüfe Berechtigung …')
+  TriggerServerEvent('cbrn:admin:request', action)
+  CreateThread(function()
+    Wait(4000)
+    if adminWait == t then
+      adminWait = nil
+      notify('error', 'Keine Antwort vom Server. Läuft die Ressource "cbrn-erkunder" (Server-Konsole prüfen)?')
+    end
+  end)
+end
+RegisterNetEvent('cbrn:admin:deny', function(msg) adminWait = nil; notify('error', msg) end)
+
 -- ---- Debug
 RegisterNetEvent('cbrn:admin:grant', function(action)
+  adminWait = nil
   if action == 'debugsample' then
     print('[cbrn:sample] Client:', json.encode({ kit = S.kit, phase = S.phase, busy = S.busy, sample = S.sample, atSample = S.atSample, atStorage = S.atStorage }))
     TriggerServerEvent('cbrn:sample:debug')
   elseif action == 'debugsamplepoint' then CBRN.togglePointDebug() end
 end)
-RegisterCommand('debugsample', function() TriggerServerEvent('cbrn:admin:request', 'debugsample') end, false)
-RegisterCommand('debugsamplepoint', function() TriggerServerEvent('cbrn:admin:request', 'debugsamplepoint') end, false)
+RegisterCommand('debugsample', function() CBRN.requestAdmin('debugsample') end, false)
+RegisterCommand('debugsamplepoint', function() CBRN.requestAdmin('debugsamplepoint') end, false)
 
 local drawing = false
 function CBRN.togglePointDebug()

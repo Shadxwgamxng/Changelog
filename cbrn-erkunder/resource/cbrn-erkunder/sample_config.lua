@@ -7,7 +7,7 @@
 -- Getrennte Punkte (später möglich):            [`modell`] = { sample = vector3(...), storage = vector3(...) }
 -- Ohne Eintrag gilt: "Kein Probenentnahmepunkt für dieses Fahrzeug konfiguriert."
 Config.SamplePoints = {
-  -- [`firetruk`] = vector3(0.000, -4.000, 0.500),   -- Beispiel, mit /offset ermitteln und hier eintragen
+  -- [`elwblaichach`] = vector3(0.000, -4.000, 0.500),   -- Beispiel, mit /offset ermitteln und hier eintragen
 }
 
 Config.OffsetStep = 0.01              -- Schrittweite des Offset Finders (Meter)
@@ -25,7 +25,13 @@ Config.Sample = {
   Debug = false,
   InteractDistance = 2.0,             -- max. Abstand zum Entnahmepunkt (m)
   TargetDistance = 3.5,               -- Reichweite von ox_target am Fahrzeug
-  AdminAce = 'cbrn.offset',           -- ACE-Recht für /offset, /debugsample, /debugsamplepoint:  add_ace group.admin cbrn.offset allow
+  -- Wer darf /offset, /debugsample, /debugsamplepoint? Erlaubt ist, wer EINES davon erfüllt:
+  --  1) ACE-Recht AdminAce:   add_ace group.admin cbrn.offset allow
+  --  2) ACE 'command' (Standard-Admins: add_ace group.admin command allow)
+  --  3) Eintrag in AdminIdentifiers, z. B. ['license:abc123...'] = true  (bei Ablehnung steht dein Identifier in der Server-Konsole)
+  --  4) Framework-Admin (qb-core / qbx_core / es_extended)
+  AdminAce = 'cbrn.offset',
+  AdminIdentifiers = {},
   AllowWithoutIncident = true,        -- false: ohne aktiven Einsatz keine Probe; true: Rückfrage "Probe trotzdem erstellen?"
   UseInventory = true,                -- ox_inventory automatisch nutzen, falls gestartet (Items siehe README); sonst interne Verwaltung
   KitItem = 'sample_collection_kit',

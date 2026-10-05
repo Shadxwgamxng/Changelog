@@ -1,8 +1,8 @@
 Config = {
   -- Spawnnamen der Fahrzeuge, in denen der Computer des CBRN-Erkunders verfuegbar ist.
   -- Der Computer laesst sich NUR von den BEIFAHRERPLAETZEN aus oeffnen, nie vom Fahrersitz.
-  -- Beispiel: Models = { 'firetruk', 'riot', 'mule' }
-  Models = { 'firetruk' },
+  -- Beispiel: Models = { 'ELWBlaichach', 'zweitesFahrzeug' }
+  Models = { 'ELWBlaichach' },
   Control = 38,                   -- Taste zum Oeffnen: 38 = E (INPUT_CONTEXT)
   PromptText = 'Dr\195\188cke ~INPUT_CONTEXT~ um den Computer des CBRN-Erkunders zu \195\182ffnen',
   IntervalMs = 1000,              -- Telemetrie-Takt (Position/Kurs/Speed/Wetter)

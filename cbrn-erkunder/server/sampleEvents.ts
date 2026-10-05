@@ -6,23 +6,24 @@ import { list } from './db.js';
 import { randomBytes } from 'node:crypto';
 
 type Pt = { x: number; y: number; z: number };
-interface Cfg { points: Map<number, { sample: Pt; storage: Pt }>; interactDistance: number; returnDistance: number; collectionDuration: number; maxSamples: number; allowWithoutIncident: boolean; useInventory: boolean; kitItem: string; containerItem: string; containerType: string; analysisDurations: Record<string, number> }
+interface Cfg { requireJob?: boolean; points: Map<number, { sample: Pt; storage: Pt }>; interactDistance: number; returnDistance: number; collectionDuration: number; maxSamples: number; allowWithoutIncident: boolean; useInventory: boolean; kitItem: string; containerItem: string; containerType: string; analysisDurations: Record<string, number> }
 interface P { kit: boolean; license: string; active?: { token: string; start: number; net: number; dur: number; noIncident: boolean; by: string } }
 
-const DEFAULT: Cfg = { points: new Map(), interactDistance: 2.0, returnDistance: 1.5, collectionDuration: 5000, maxSamples: 20, allowWithoutIncident: true, useInventory: true, kitItem: 'sample_collection_kit', containerItem: 'sample_container', containerType: 'UNIVERSAL SAMPLE CONTAINER', analysisDurations: {} };
+const DEFAULT: Cfg & { requireJob?: boolean } = { points: new Map(), interactDistance: 2.0, returnDistance: 1.5, collectionDuration: 5000, maxSamples: 20, allowWithoutIncident: true, useInventory: true, kitItem: 'sample_collection_kit', containerItem: 'sample_container', containerType: 'UNIVERSAL SAMPLE CONTAINER', analysisDurations: {} };
 let cfg: Cfg | null = null;
-const cfx = () => (globalThis as any).exports;
+const cfx = (): any => { try { if (typeof exports !== 'undefined') return exports; } catch { /* kein freier Name */ } return (globalThis as any).exports; };
 const self = () => GetCurrentResourceName();
 
-/** Konfiguration aus der Lua-Seite (sample_config.lua) – wird beim ersten Bedarf geladen. */
+function setCfg(c: any): Cfg {
+  const points = new Map<number, { sample: Pt; storage: Pt }>(); for (const p of c.points ?? []) points.set(p.model >>> 0, { sample: p.sample, storage: p.storage });
+  const n: Cfg = { ...DEFAULT, ...c, points }; cfg = n; applySampleConfig({ maxSamples: n.maxSamples, containerType: n.containerType, analysisDurations: n.analysisDurations });
+  return n;
+}
+/** Konfiguration aus der Lua-Seite (sample_config.lua): kommt per lokalem Event von bridge.lua; Export-Aufruf nur als Reserve. */
 export function getCfg(force = false): Cfg {
   if (cfg && !force) return cfg;
-  try {
-    const c = cfx()[self()].getSampleConfig(); if (!c) return cfg ?? DEFAULT;
-    const points = new Map<number, { sample: Pt; storage: Pt }>(); for (const p of c.points ?? []) points.set(p.model >>> 0, { sample: p.sample, storage: p.storage });
-    const n: Cfg = { ...DEFAULT, ...c, points }; cfg = n; applySampleConfig({ maxSamples: n.maxSamples, containerType: n.containerType, analysisDurations: n.analysisDurations });
-    return n;
-  } catch { return cfg ?? DEFAULT; }
+  try { const c = cfx()[self()].getSampleConfig(); if (c) return setCfg(c); } catch { /* Event liefert die Konfiguration */ }
+  return cfg ?? DEFAULT;
 }
 
 const players = new Map<number, P>();
@@ -40,8 +41,7 @@ export function worldPoint(ent: number, off: Pt): Pt {
 }
 
 // ---- Berechtigung / Inventar
-const adminOk = (src: number) => { try { return !!cfx()[self()].isAdmin(src); } catch { return false; } };
-const jobOk = (src: number) => { try { return !!cfx()[self()].jobAllowed(src); } catch { return true; } };
+const jobOk = (src: number) => { if (!getCfg().requireJob) return true; try { return !!cfx()[self()].jobAllowed(src); } catch { return false; } };
 const inv = () => getCfg().useInventory && GetResourceState('ox_inventory') === 'started';
 const ox = () => cfx().ox_inventory;
 const hasKit = (src: number, p: P) => (inv() ? Number(ox().Search(src, 'count', getCfg().kitItem)) > 0 : p.kit);
@@ -59,7 +59,9 @@ const carryingOf = (p: P) => list('samples', "WHERE collected_license = ? AND st
 const safeName = (src: number, given?: unknown) => { const g = String(given ?? '').trim().slice(0, 60); return g.length >= 2 ? g : (GetPlayerName(src) ?? `Spieler ${src}`); };
 
 export function registerSampleEvents() {
-  setTimeout(() => getCfg(true), 1500);
+  on('cbrn:sampleConfig', (c: any) => { try { setCfg(c); } catch (e) { console.error('[cbrn] Konfiguration ungültig', e); } });
+  emit('cbrn:cfg:request'); // Konfiguration von bridge.lua anfordern
+  setTimeout(() => emit('cbrn:cfg:request'), 3000);
 
   onNet('cbrn:sample:takeKit', (netId: number) => {
     const src = source, p = pl(src), c = getCfg();
@@ -141,15 +143,7 @@ export function registerSampleEvents() {
   // Spec-Events zum Abfragen (Computer nutzt die API; diese liefern dasselbe für Skripte/Debug)
   onNet('cbrn:sample:get', (id: string) => { const s = publicSample(String(id), false); emitNet('cbrn:sample:data', source, s); });
   onNet('cbrn:sample:getAll', () => emitNet('cbrn:sample:data', source, list('samples', "WHERE collected_license = ? ORDER BY ts DESC LIMIT 50", [pl(source).license]).map((s: any) => publicSample(s.id, false))));
-  onNet('cbrn:sample:debug', () => { const src = source; if (!adminOk(src)) return; const p = pl(src); res(src, 'debug', true, { state: { kit: hasKit(src, p), active: p.active ? { ...p.active, token: '…' } : null, carrying: carryingOf(p)?.id ?? null, license: p.license, inventory: inv(), points: [...getCfg().points.keys()] } }); });
-
-  // Admin: /offset, /debugsample, /debugsamplepoint
-  onNet('cbrn:admin:request', (action: string) => {
-    const src = source;
-    if (!adminOk(src)) return fail(src, 'admin', 'Dafür fehlt dir die Berechtigung (ACE cbrn.offset).');
-    emitNet('cbrn:admin:grant', src, action);
-  });
-  onNet('cbrn:offset:report', (text: string) => { if (adminOk(source)) console.log(`\n[cbrn] OFFSET ermittelt von ${GetPlayerName(source)} – in sample_config.lua eintragen:\n\n${String(text).slice(0, 800)}\n`); });
+  onNet('cbrn:sample:debug', () => { const src = source; const p = pl(src); res(src, 'debug', true, { state: { kit: hasKit(src, p), active: p.active ? { net: p.active.net, dur: p.active.dur } : null, carrying: carryingOf(p)?.id ?? null, inventory: inv(), points: [...getCfg().points.keys()], requireJob: !!getCfg().requireJob } }); });
 
   on('playerDropped', () => { players.delete(source); }); // getragene Proben bleiben in der Datenbank (Status TRANSPORT) und kommen per sync zurück
 }
