@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events';
 import { db, get, list, insert, update, now, getSetting, setSetting, audit } from './db.js';
-import { smokeAt, hasFire, activeFires, GAS_BG, GAS_ALARM } from './fire.js';
+import { FIRE_TYPES, smokeAt, hasFire, activeFires, GAS_BG, GAS_ALARM } from './fire.js';
 import { offsetToLL, llToOffset, distM, bearing, compass, MODE, gameToLL } from './geo.js';
 
 // ---------------------------------------------------------------------------------------------
@@ -50,6 +50,10 @@ export function resetDevices() { for (const k of Object.keys(devices)) delete de
 
 // ---- Laufzeitzustand
 export interface Run { id: string; vehicle_id: string; name: string; started_at: string; started_by: string; dist: number; points: number; maxDose: number; maxPid: number; source: string; mission_id: string | null; mode: 'CBRN' | 'BRAND'; start: { lat: number; lon: number } | null }
+/** z_fire-Rauch am Fahrzeug (vom Client gemeldet): Entfernung zum nächsten Rauch in m, null = nichts / z_fire aus. */
+const zSmoke: Record<string, { ring: number | false; at: number }> = {};
+const RING_F: Record<number, number> = { 10: 1, 25: 0.7, 50: 0.4, 100: 0.15 };
+export function zSmokeFactor(vid: string) { const z = zSmoke[vid]; return z && z.ring !== false && Date.now() - z.at < 6000 ? RING_F[z.ring] ?? 0 : 0; }
 export const state = {
   drive: process.env.DEV_DRIVE === '1', s: 0, s2: 0, speed: 12, seen: {} as Record<string, number>, // m/s
   weather: { temperature: 11.4, humidity: 78, pressure: 1014, wind_speed: 3.4, wind_from: 315, cloud_okta: 5, precipitation: 0 },
@@ -100,8 +104,10 @@ export function mgmgChannels(mode: string = 'CBRN'): string[] { return mode === 
 export const BRAND_CHANNELS = ['O2', 'CO', 'CO2', 'HCN', 'HCl'];
 
 /** Rauchgasmessung am Brand: Gase aus der Rauchfahne der eingezeichneten Brandstellen (SIMULATION). */
-function brandReadings(x: number, y: number, speed: number) {
-  const { gases, density } = smokeAt(x, y, state.weather.wind_from, state.tick * 2);
+function brandReadings(x: number, y: number, speed: number, vid = '') {
+  const { gases, density: d0 } = smokeAt(x, y, state.weather.wind_from, state.tick * 2); let density = d0;
+  const zf = zSmokeFactor(vid); // z_fire-Rauch: Standardmischung Gebäudebrand, wirkt zusätzlich (größerer Wert gewinnt)
+  if (zf > 0) { const m = FIRE_TYPES.GEBAEUDE.gases; for (const k of Object.keys(gases)) gases[k] = Math.max(gases[k], m[k] * zf); density = Math.max(density, zf); }
   const g = (k: string) => Math.max(0, GAS_BG[k] + gases[k] + rnd(Math.max(0.02, gases[k] * 0.05)));
   const o2 = +(BG.o2 + rnd(0.05) - Math.max(0, gases.CO2) / 10000).toFixed(1);
   const mg: Record<string, number> = { O2: o2, CO: +g('CO').toFixed(0), CO2: +g('CO2').toFixed(0), HCN: +g('HCN').toFixed(1), NO2: +g('NO2').toFixed(1), HCl: +g('HCl').toFixed(1), SO2: +g('SO2').toFixed(1), H2S: 0, LEL: 0, CH4: 0 };
@@ -113,8 +119,8 @@ function brandReadings(x: number, y: number, speed: number) {
     dose: { value: +dose.toFixed(3), unit: 'µSv/h' }, como: { value: +cps.toFixed(1), unit: 'cps' }, fmg: { speed_kmh: +(speed * 3.6).toFixed(0) } };
 }
 
-export function readingsAt(x: number, y: number, speed: number, mode: string = 'CBRN') {
-  if (mode === 'BRAND') return brandReadings(x, y, speed) as any;
+export function readingsAt(x: number, y: number, speed: number, mode: string = 'CBRN', vid = '') {
+  if (mode === 'BRAND') return brandReadings(x, y, speed, vid) as any;
   const { c, A } = truthAt(x, y);
   const sc = A?.sc, ref = A?.ref;
   const chem = !!sc && (sc.category === 'C' || sc.category === 'U') && ref;
@@ -239,13 +245,14 @@ export function weatherNow() { const w = state.weather; return { ts: now(), temp
 
 // ---- FiveM-Adapter-Eingang (optional). Die Weboberfläche setzt FiveM nicht voraus.
 export interface FivemIn {
-  vehicle?: string; lat?: number; lon?: number; x?: number; y?: number; speed_kmh?: number; heading?: number; player?: string; mission?: string; in_vehicle?: boolean;
+  vehicle?: string; lat?: number; lon?: number; x?: number; y?: number; speed_kmh?: number; heading?: number; player?: string; mission?: string; in_vehicle?: boolean; smoke_ring?: number | false;
   weather?: { type?: string; wind_speed?: number; wind_from?: number; hour?: number; minute?: number };
 }
 export function ingestFivem(d: FivemIn) {
   const id = d.vehicle ?? (list('vehicles')[0]?.id as string); const v = id ? get('vehicles', id) : null; if (!v) return false;
   const was = fivemConnected(id);
   if (d.weather?.type) state.gameWeather = { type: String(d.weather.type).toUpperCase(), wind_speed: d.weather.wind_speed ?? 0, wind_from: d.weather.wind_from ?? 0, hour: d.weather.hour ?? 12, minute: d.weather.minute ?? 0, at: Date.now() };
+  if (d.smoke_ring !== undefined) zSmoke[id] = { ring: d.smoke_ring, at: Date.now() };
   const hasPos = (d.lat != null && d.lon != null) || (d.x != null && d.y != null);
   state.seen[id] = Date.now();
   if (hasPos) {
@@ -273,7 +280,7 @@ export function startRun(userLabel: string, vehicleId: string, name?: string, st
   if (state.runs[vehicleId]) return { error: 'Auf diesem Fahrzeug läuft bereits eine Messfahrt' };
   const inc = activeIncident(); if (!inc) return { error: 'Kein aktiver Einsatz – bitte zuerst einen Einsatz anlegen' };
   if (mode !== 'CBRN' && mode !== 'BRAND') return { error: 'Unbekannter Modus' };
-  if (mode === 'BRAND' && !hasFire()) return { error: 'Keine Brandstelle eingezeichnet – bitte zuerst auf der Karte die Brandstelle markieren' };
+  if (mode === 'BRAND' && !hasFire() && !zSmokeFactor(vehicleId)) return { error: 'Keine Brandstelle eingezeichnet und kein z_fire-Rauch in der Nähe – bitte Brandstelle auf der Karte markieren' };
   if (mode === 'CBRN' && inc.category === 'F') return { error: 'Brandeinsatz – bitte als Messfahrt „Brandeinsatz (Rauchgas)“ starten' };
   if (!start || !Number.isFinite(start.lat) || !Number.isFinite(start.lon)) return { error: 'Startposition fehlt – bitte den Standort auf der Karte markieren' };
   // Ohne FiveM-Verbindung gilt die markierte Position als Fahrzeugposition; mit FiveM kommt alles Weitere laufend aus GTA.
@@ -337,11 +344,11 @@ function tick() {
     else if (state.drive && idx === 0) { state.s += state.speed * dt; ({ x, y } = routePos(state.s)); speed = state.speed; const ll = offsetToLL(x, y); const h = bearing({ lat: v.lat, lon: v.lon }, ll); update('vehicles', v.id, { lat: ll.lat, lon: ll.lon, heading: h, speed: speed * 3.6 }); } // nur Entwicklung (DEV_DRIVE=1)
     else { ({ x, y } = llToOffset(v.lat, v.lon)); if (v.speed) update('vehicles', v.id, { speed: 0 }); }
     const cur = get('vehicles', v.id)!; const pos = { lat: cur.lat, lon: cur.lon };
-    const r = readingsAt(x!, y!, speed, state.runs[v.id]?.mode ?? 'CBRN');
+    const r = readingsAt(x!, y!, speed, state.runs[v.id]?.mode ?? 'CBRN', v.id);
     const T = (state.track[v.id] ??= { len: 0, last: null }); const R = state.runs[v.id];
     if (T.last) { const dd = distM(T.last, pos); T.len += dd; if (R) R.dist += dd; } T.last = pos;
     if (R) { if (devState(v.id, 'dlm') === 'ready' || devState(v.id, 'fmg') === 'ready') R.maxDose = Math.max(R.maxDose, r.dose.value); if (devState(v.id, 'pid') === 'ready') R.maxPid = Math.max(R.maxPid, r.pid.value); if (state.tick % 5 === 0) saveRun(R); }
-    const payload = { vehicle_id: v.id, ts: now(), lat: pos.lat, lon: pos.lon, speed_kmh: +(speed * 3.6).toFixed(0), heading: cur.heading, ...r, track_km: +(T.len / 1000).toFixed(2), mode: state.runs[v.id]?.mode ?? 'CBRN', run: runInfo(v.id), devices: deviceInfo(v.id), mp_count: (db.prepare('SELECT COUNT(*) c FROM measurements WHERE vehicle_id = ?').get(v.id) as any).c };
+    const payload = { vehicle_id: v.id, ts: now(), lat: pos.lat, lon: pos.lon, speed_kmh: +(speed * 3.6).toFixed(0), heading: cur.heading, ...r, track_km: +(T.len / 1000).toFixed(2), mode: state.runs[v.id]?.mode ?? 'CBRN', z_smoke: zSmokeFactor(v.id) > 0, run: runInfo(v.id), devices: deviceInfo(v.id), mp_count: (db.prepare('SELECT COUNT(*) c FROM measurements WHERE vehicle_id = ?').get(v.id) as any).c };
     state.live[v.id] = payload; emit('reading.live', payload); emit('vehicle.position', cur);
     const mission = activeMissionFor(v.id);
     if (R || mission) evaluateAndStore(cur, pos, r, mission, !!R && state.tick % 2 === 0 && (speed > 0 || state.tick % 10 === 0));

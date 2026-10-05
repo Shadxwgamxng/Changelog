@@ -38,8 +38,8 @@ export function RunCard({ compact }: { compact?: boolean }) {
     {pick && <Modal title="Messfahrt starten – eigenen Standort markieren" wide onClose={() => setPick(false)}>
       <div className="lbl mb-1">Art der Messfahrt</div>
       <div className="flex gap-2 mb-3">
-        {([['CBRN', 'CBRN-Einsatz', 'Gefahrstoffe: PID, IMS, Dosisleistung …', incident?.category === 'F'], ['BRAND', 'Brandeinsatz', 'Rauchgasmessung an den eingezeichneten Brandstellen', !(fires.data ?? []).length]] as [string, string, string, boolean][]).map(([k, t, d, dis]) => (
-          <button key={k} disabled={dis} onClick={() => setMode(k as any)} className={`flex-1 text-left p-2 rounded border ${mode === k ? 'border-accent bg-accent/10' : 'border-line'} ${dis ? 'opacity-40' : ''}`}><div className="font-semibold text-[13px]">{t}</div><div className="text-[11.5px] text-dim">{dis && k === 'BRAND' ? 'Zuerst Brandstelle auf der Karte einzeichnen' : dis ? 'Nicht möglich bei Brandeinsatz' : d}</div></button>))}
+        {([['CBRN', 'CBRN-Einsatz', 'Gefahrstoffe: PID, IMS, Dosisleistung …', incident?.category === 'F'], ['BRAND', 'Brandeinsatz', 'Rauchgasmessung an den eingezeichneten Brandstellen', !(fires.data ?? []).length && !live[own]?.z_smoke]] as [string, string, string, boolean][]).map(([k, t, d, dis]) => (
+          <button key={k} disabled={dis} onClick={() => setMode(k as any)} className={`flex-1 text-left p-2 rounded border ${mode === k ? 'border-accent bg-accent/10' : 'border-line'} ${dis ? 'opacity-40' : ''}`}><div className="font-semibold text-[13px]">{t}</div><div className="text-[11.5px] text-dim">{dis && k === 'BRAND' ? 'Zuerst Brandstelle einzeichnen oder an z_fire-Rauch heranfahren' : dis ? 'Nicht möglich bei Brandeinsatz' : d}</div></button>))}
       </div>
       <div className="text-[12.5px] text-dim mb-2">Markiere auf der Karte, wo sich das Fahrzeug jetzt befindet.</div>
       <MapPicker value={pos} onChange={setPos} hint={fv} hintLabel="Aktuelle FiveM-Position" color="#f0500a" height={340} />

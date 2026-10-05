@@ -4609,6 +4609,12 @@ function setDevicePower(by, vid, key, on2) {
 function resetDevices() {
   for (const k of Object.keys(devices2)) delete devices2[k];
 }
+var zSmoke = {};
+var RING_F = { 10: 1, 25: 0.7, 50: 0.4, 100: 0.15 };
+function zSmokeFactor(vid) {
+  const z = zSmoke[vid];
+  return z && z.ring !== false && Date.now() - z.at < 6e3 ? RING_F[z.ring] ?? 0 : 0;
+}
 var state = {
   drive: process.env.DEV_DRIVE === "1",
   s: 0,
@@ -4666,8 +4672,15 @@ function mgmgChannels(mode = "CBRN") {
   return mode === "BRAND" ? BRAND_CHANNELS : getSetting("mgmg_channels", ["O2", "CO", "H2S", "LEL", "CH4"]);
 }
 var BRAND_CHANNELS = ["O2", "CO", "CO2", "HCN", "HCl"];
-function brandReadings(x, y, speed) {
-  const { gases, density } = smokeAt(x, y, state.weather.wind_from, state.tick * 2);
+function brandReadings(x, y, speed, vid = "") {
+  const { gases, density: d0 } = smokeAt(x, y, state.weather.wind_from, state.tick * 2);
+  let density = d0;
+  const zf = zSmokeFactor(vid);
+  if (zf > 0) {
+    const m = FIRE_TYPES.GEBAEUDE.gases;
+    for (const k of Object.keys(gases)) gases[k] = Math.max(gases[k], m[k] * zf);
+    density = Math.max(density, zf);
+  }
   const g = (k) => Math.max(0, GAS_BG[k] + gases[k] + rnd(Math.max(0.02, gases[k] * 0.05)));
   const o2 = +(BG.o2 + rnd(0.05) - Math.max(0, gases.CO2) / 1e4).toFixed(1);
   const mg = { O2: o2, CO: +g("CO").toFixed(0), CO2: +g("CO2").toFixed(0), HCN: +g("HCN").toFixed(1), NO2: +g("NO2").toFixed(1), HCl: +g("HCl").toFixed(1), SO2: +g("SO2").toFixed(1), H2S: 0, LEL: 0, CH4: 0 };
@@ -4685,8 +4698,8 @@ function brandReadings(x, y, speed) {
     fmg: { speed_kmh: +(speed * 3.6).toFixed(0) }
   };
 }
-function readingsAt(x, y, speed, mode = "CBRN") {
-  if (mode === "BRAND") return brandReadings(x, y, speed);
+function readingsAt(x, y, speed, mode = "CBRN", vid = "") {
+  if (mode === "BRAND") return brandReadings(x, y, speed, vid);
   const { c, A } = truthAt(x, y);
   const sc = A == null ? void 0 : A.sc, ref = A == null ? void 0 : A.ref;
   const chem = !!sc && (sc.category === "C" || sc.category === "U") && ref;
@@ -4824,6 +4837,7 @@ function ingestFivem(d) {
   if (!v) return false;
   const was = fivemConnected(id);
   if ((_b = d.weather) == null ? void 0 : _b.type) state.gameWeather = { type: String(d.weather.type).toUpperCase(), wind_speed: d.weather.wind_speed ?? 0, wind_from: d.weather.wind_from ?? 0, hour: d.weather.hour ?? 12, minute: d.weather.minute ?? 0, at: Date.now() };
+  if (d.smoke_ring !== void 0) zSmoke[id] = { ring: d.smoke_ring, at: Date.now() };
   const hasPos = d.lat != null && d.lon != null || d.x != null && d.y != null;
   state.seen[id] = Date.now();
   if (hasPos) {
@@ -4862,7 +4876,7 @@ function startRun(userLabel, vehicleId, name, start, mode = "CBRN") {
   const inc = activeIncident();
   if (!inc) return { error: "Kein aktiver Einsatz \u2013 bitte zuerst einen Einsatz anlegen" };
   if (mode !== "CBRN" && mode !== "BRAND") return { error: "Unbekannter Modus" };
-  if (mode === "BRAND" && !hasFire()) return { error: "Keine Brandstelle eingezeichnet \u2013 bitte zuerst auf der Karte die Brandstelle markieren" };
+  if (mode === "BRAND" && !hasFire() && !zSmokeFactor(vehicleId)) return { error: "Keine Brandstelle eingezeichnet und kein z_fire-Rauch in der N\xE4he \u2013 bitte Brandstelle auf der Karte markieren" };
   if (mode === "CBRN" && inc.category === "F") return { error: "Brandeinsatz \u2013 bitte als Messfahrt \u201EBrandeinsatz (Rauchgas)\u201C starten" };
   if (!start || !Number.isFinite(start.lat) || !Number.isFinite(start.lon)) return { error: "Startposition fehlt \u2013 bitte den Standort auf der Karte markieren" };
   if (!fivemConnected(vehicleId)) {
@@ -4979,7 +4993,7 @@ function tick() {
     }
     const cur = get("vehicles", v.id);
     const pos = { lat: cur.lat, lon: cur.lon };
-    const r = readingsAt(x, y, speed, ((_a = state.runs[v.id]) == null ? void 0 : _a.mode) ?? "CBRN");
+    const r = readingsAt(x, y, speed, ((_a = state.runs[v.id]) == null ? void 0 : _a.mode) ?? "CBRN", v.id);
     const T2 = state.track[v.id] ??= { len: 0, last: null };
     const R2 = state.runs[v.id];
     if (T2.last) {
@@ -4993,7 +5007,7 @@ function tick() {
       if (devState(v.id, "pid") === "ready") R2.maxPid = Math.max(R2.maxPid, r.pid.value);
       if (state.tick % 5 === 0) saveRun(R2);
     }
-    const payload = { vehicle_id: v.id, ts: now(), lat: pos.lat, lon: pos.lon, speed_kmh: +(speed * 3.6).toFixed(0), heading: cur.heading, ...r, track_km: +(T2.len / 1e3).toFixed(2), mode: ((_b = state.runs[v.id]) == null ? void 0 : _b.mode) ?? "CBRN", run: runInfo(v.id), devices: deviceInfo(v.id), mp_count: db.prepare("SELECT COUNT(*) c FROM measurements WHERE vehicle_id = ?").get(v.id).c };
+    const payload = { vehicle_id: v.id, ts: now(), lat: pos.lat, lon: pos.lon, speed_kmh: +(speed * 3.6).toFixed(0), heading: cur.heading, ...r, track_km: +(T2.len / 1e3).toFixed(2), mode: ((_b = state.runs[v.id]) == null ? void 0 : _b.mode) ?? "CBRN", z_smoke: zSmokeFactor(v.id) > 0, run: runInfo(v.id), devices: deviceInfo(v.id), mp_count: db.prepare("SELECT COUNT(*) c FROM measurements WHERE vehicle_id = ?").get(v.id).c };
     state.live[v.id] = payload;
     emit2("reading.live", payload);
     emit2("vehicle.position", cur);

@@ -35,6 +35,18 @@ local function weatherPayload()
   return { type = w, wind_speed = GetWindSpeed(), wind_from = windFrom(), hour = GetClockHours(), minute = GetClockMinutes() }
 end
 
+-- z_fire: Rauch in der Naehe erkennen (Export getSmokeInRange). Wir kennen nur die Anwesenheit -> mehrere Radien
+-- abfragen; der kleinste Radius mit Rauch bestimmt die ungefaehre Entfernung zum Rauch.
+local SMOKE_RINGS = { 10.0, 25.0, 50.0, 100.0 }
+local function smokeRing(pos)
+  if Config.UseZFire == false or GetResourceState('z_fire') ~= 'started' then return nil end
+  for _, r in ipairs(SMOKE_RINGS) do
+    local ok, found = pcall(function() return exports['z_fire']:getSmokeInRange(pos, r + 0.0) end)
+    if ok and type(found) == 'table' and next(found) ~= nil then return r end
+  end
+  return false
+end
+
 -- Telemetrie: erst nach Anmeldung am Computer (currentVehicle gesetzt) und nur aus einem konfigurierten Fahrzeug
 CreateThread(function()
   local n = 0
@@ -48,6 +60,8 @@ CreateThread(function()
       data.speed_kmh = GetEntitySpeed(veh) * 3.6
       data.heading = GetEntityHeading(veh)
       data.in_vehicle = true
+      local sr = smokeRing(c)
+      if sr ~= nil then data.smoke_ring = sr end -- false = z_fire aktiv, kein Rauch in 100 m
       if Config.SendWeather and (n % 3 == 1) then data.weather = weatherPayload() end
       TriggerServerEvent('cbrn:telemetry', data)
     end
