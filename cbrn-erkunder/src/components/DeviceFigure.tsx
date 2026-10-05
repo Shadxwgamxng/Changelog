@@ -5,6 +5,7 @@ import { useLive } from '../store';
 import { useApi } from '../store';
 import { fmtPos, num, time } from '../lib/format';
 import { doseStatus, pidStatus, useSession } from './Readouts';
+import { IMG } from './deviceImages';
 
 export interface Spot { n: number; x: number; y: number; side: 'l' | 'r'; ly: number; title: string; v: string; sub?: string; color?: string; lines: [string, string][] }
 const COL = { body: '#2a2a2a', body2: '#1a1a1a', edge: '#4a4a4a', screen: '#0b1a14', ok: '#3fb950', warn: '#d29922', bad: '#e5534b', acc: '#58a6ff', dim: '#817d78', txt: '#ebe9e6', yellow: '#d29922' };
@@ -129,47 +130,83 @@ function TubesArt({ tube }: { tube: any }) {
   </g>);
 }
 
+/* ------------------------------------------------------------------ Gerätebilder (vom Nutzer gelieferte Grafiken) */
+const BOX_H = 396, BOX_Y = 22;
+const imgUrl = (id: string) => `${import.meta.env.BASE_URL}devices/${id}.png`;
+const box = (id: string) => { const g = IMG[id]; const w = BOX_H * g.aspect; return { x: 380 - w / 2, y: BOX_Y, w, h: BOX_H, g }; };
+const pt = (id: string, name: string): [number, number] => { const b = box(id); const [u, v] = b.g.pts[name]; return [b.x + u * b.w, b.y + v * b.h]; };
+const lcd = (id: string) => { const b = box(id); const [u0, v0, u1, v1] = b.g.lcd; return { x: b.x + u0 * b.w, y: b.y + v0 * b.h, w: (u1 - u0) * b.w, h: (v1 - v0) * b.h }; };
+const LCD_BG: Record<string, string> = { como: '#d7dc2e', mgmg: '#a9c79b', pid: '#b9d3a8', dlm: '#8d9b8c', ims: '#8f9c90' };
+const INK = '#16221a'; const MONO = "'Geist Mono Variable', monospace";
+
+function ImgArt({ id, r, channels }: { id: string; r: any; channels: string[] }) {
+  const b = box(id); const L = lcd(id);
+  const dose = r?.dose.value ?? 0, st = doseStatus(dose);
+  let content: ReactNode = null;
+  if (id === 'pid') { const v = r?.pid.value ?? 0; content = (<><text x={L.x + L.w / 2} y={L.y + L.h * 0.62} fontSize={L.h * 0.38} fontWeight="bold" textAnchor="middle" fill={INK} fontFamily={MONO}>{num(v, 1)}</text><text x={L.x + L.w / 2} y={L.y + L.h * 0.9} fontSize={L.h * 0.15} textAnchor="middle" fill={INK} fontFamily={MONO}>ppm · {pidStatus(v)}</text></>); }
+  if (id === 'dlm') content = (<><text x={L.x + 6} y={L.y + L.h * 0.22} fontSize={L.h * 0.13} fill={INK} fontFamily={MONO}>DOSISLEISTUNG</text><text x={L.x + L.w / 2} y={L.y + L.h * 0.6} fontSize={L.h * 0.3} fontWeight="bold" textAnchor="middle" fill={INK} fontFamily={MONO}>{num(dose, 3)}</text><text x={L.x + L.w / 2} y={L.y + L.h * 0.8} fontSize={L.h * 0.15} textAnchor="middle" fill={INK} fontFamily={MONO}>µSv/h · {st}</text><rect x={L.x + 6} y={L.y + L.h * 0.86} width={L.w - 12} height={4} fill="#00000030" /><rect x={L.x + 6} y={L.y + L.h * 0.86} width={(L.w - 12) * Math.min(1, Math.log10(Math.max(dose, 0.01) / 0.01) / 4)} height={4} fill={INK} /></>);
+  if (id === 'como') { const v = r?.como.value ?? 0; content = (<><text x={L.x + 6} y={L.y + L.h * 0.2} fontSize={L.h * 0.14} fill={INK} fontFamily={MONO}>KONTAMINATION</text><text x={L.x + L.w / 2} y={L.y + L.h * 0.7} fontSize={L.h * 0.42} fontWeight="bold" textAnchor="middle" fill={INK} fontFamily={MONO}>{num(v, 1)}</text><text x={L.x + L.w - 6} y={L.y + L.h * 0.92} fontSize={L.h * 0.16} textAnchor="end" fill={INK} fontFamily={MONO}>cps</text></>); }
+  if (id === 'ims') { const i = r?.ims; const lv = i?.level; content = (<><text x={L.x + 4} y={L.y + L.h * 0.42} fontSize={L.h * 0.36} fontWeight="bold" fill={INK} fontFamily={MONO}>{lv ? (lv === 'moegliche_identifikation' ? 'MÖGL. STOFF' : lv.toUpperCase()) : 'KEIN TREFFER'}</text><text x={L.x + 4} y={L.y + L.h * 0.85} fontSize={L.h * 0.3} fill={INK} fontFamily={MONO}>{i?.confidence != null ? `Konfidenz ${i.confidence} %` : 'Konfidenz –'}</text></>); }
+  if (id === 'mgmg') {
+    const ch = r?.mgmg.channels ?? {}; const NM: Record<string, string> = { O2: 'O₂', CO: 'CO', H2S: 'H₂S', LEL: 'EX', CH4: 'CH₄' }; const U: Record<string, string> = { O2: '%', CO: 'ppm', H2S: 'ppm', LEL: '%UEG', CH4: 'ppm' };
+    const rowH = (L.h * 0.84) / Math.max(1, channels.slice(0, 5).length);
+    content = (<>{channels.slice(0, 5).map((k, idx) => (<g key={k}><line x1={L.x} x2={L.x + L.w} y1={L.y + (idx + 1) * rowH} y2={L.y + (idx + 1) * rowH} stroke="#00000030" /><text x={L.x + 3} y={L.y + idx * rowH + rowH * 0.72} fontSize={rowH * 0.62} fill={INK}>{NM[k] ?? k}</text><text x={L.x + L.w - 3} y={L.y + idx * rowH + rowH * 0.72} fontSize={rowH * 0.58} fontWeight="bold" textAnchor="end" fill={INK} fontFamily={MONO}>{ch[k] == null ? '–' : num(ch[k], k === 'O2' || k === 'LEL' || k === 'H2S' ? 1 : 0)} {U[k]}</text></g>))}</>);
+  }
+  const lv = r?.ims?.level; const lit = lv === 'moegliche_identifikation' ? 9 : lv === 'verdacht' ? 6 : lv === 'hinweis' ? 3 : 0;
+  return (<g filter="url(#shadow)">
+    <image href={imgUrl(id)} x={b.x} y={b.y} width={b.w} height={b.h} preserveAspectRatio="xMidYMid meet" />
+    <rect x={L.x} y={L.y} width={L.w} height={L.h} rx={2} fill={LCD_BG[id]} />
+    {content}
+    {id === 'ims' && Array.from({ length: 9 }, (_, k) => { const [lx, ly] = pt('ims', 'leds'); return <circle key={k} cx={lx - 40 + k * 10} cy={ly} r={3} fill={k < lit ? '#ff3b30' : '#444'} />; })}
+  </g>);
+}
+
 /* ------------------------------------------------------------------ Spots (Beschriftungen mit Live-Werten) */
 function useSpots(id: string, ctx: any): Spot[] {
   const { r, dur, pos, mission, run, weather, trackKm, mpCount, tube, hist, channels } = ctx; const L: Spot[] = []; let n = 0;
   const P = (x: number, y: number, side: 'l' | 'r', ly: number, title: string, v: string, sub: string | undefined, color: string | undefined, lines: [string, string][]) => L.push({ n: ++n, x, y, side, ly, title, v, sub, color, lines });
-  const common = (x: number, y: number, ly: number) => P(x, y, 'r', ly, 'Auftrag / GPS', mission ? `#${mission.id}` : run ? run.id : '–', pos, undefined, [['Auftrag', mission ? `#${mission.id} · ${mission.sector_name}` : '–'], ['Messfahrt', run ? `${run.name} (${run.id})` : '–'], ['GPS', 'FIX'], ['Position', pos], ['Messdauer', dur]]);
+  const common = (x: number, y: number, ly: number, side: 'l' | 'r' = 'r') => P(x, y, side, ly, 'Auftrag / GPS', mission ? `#${mission.id}` : run ? run.id : '–', pos, undefined, [['Auftrag', mission ? `#${mission.id} · ${mission.sector_name}` : '–'], ['Messfahrt', run ? `${run.name} (${run.id})` : '–'], ['GPS', 'FIX'], ['Position', pos], ['Messdauer', dur]]);
+  const A = (n: string): [number, number] => pt(id, n); const C = (): [number, number] => { const g = lcd(id); return [g.x + g.w - 2, g.y + 2]; };
   if (id === 'pid') { const v = r?.pid.value ?? 0; const st = pidStatus(v);
-    P(380, 140, 'l', 70, 'Display · Messwert', `${num(v, 1)} ppm`, st, stCol(st), [['Messwert', `${num(v, 1)}`], ['Einheit', 'ppm (VOC)'], ['Status', st], ['Einordnung', 'SCREENING / HINWEIS – keine sichere Stoffidentifikation']]);
-    P(380, 34, 'r', 20, 'Probeneinlass (Sonde)', 'Gasprobe', 'Staubfilter', undefined, [['Funktion', 'Ansaugen der Luftprobe zum Detektor'], ['Hinweis', 'Messung im Gasraum, nicht in Flüssigkeiten']]);
-    P(380, 290, 'l', 250, 'UV-Lampe (Photoionisation)', '10,6 eV', 'Ansprechen: IE < 10,6 eV', '#b784f0', [['Lampe', '10,6 eV'], ['Prinzip', 'Photoionisation flüchtiger Verbindungen'], ['Kein Ansprechen', 'z. B. Chlor (IE 11,48 eV), CO, CO₂, Acetonitril']]);
-    P(380, 238, 'r', 120, 'Tasten · Status', 'ONLINE', `Messdauer ${dur}`, COL.ok, [['Status', 'ONLINE'], ['Messdauer', dur], ['Bedienung', 'Start/Stopp, Nullabgleich, Quittieren (Simulation)']]);
-    P(464, 112, 'r', 210, 'GPS / Position', 'FIX', pos, COL.acc, [['GPS', 'FIX'], ['Position', pos]]);
-    P(360, 345, 'l', 340, 'Mögliche Stoffgruppen', r?.pid.groups.length ? r.pid.groups[0] : '–', r?.pid.groups.slice(1, 3).join(' · '), undefined, [['Stoffgruppen', r?.pid.groups.length ? r.pid.groups.join(', ') : '– (kein erhöhter Wert)']]);
-    common(380, 372, 330);
+    P(...C(), 'l', 40, 'Display · Messwert', `${num(v, 1)} ppm`, st, stCol(st), [['Messwert', `${num(v, 1)}`], ['Einheit', 'ppm (VOC)'], ['Status', st], ['Einordnung', 'SCREENING / HINWEIS – keine sichere Stoffidentifikation']]);
+    P(...A('antenna'), 'r', 20, 'Probeneinlass (Sonde)', 'Gasprobe', 'Staubfilter', undefined, [['Funktion', 'Ansaugen der Luftprobe zum Detektor'], ['Hinweis', 'Messung im Gasraum, nicht in Flüssigkeiten']]);
+    P(...A('inlet'), 'r', 110, 'UV-Lampe (Photoionisation)', '10,6 eV', 'Ansprechen: IE < 10,6 eV', '#b784f0', [['Lampe', '10,6 eV'], ['Prinzip', 'Photoionisation flüchtiger Verbindungen'], ['Kein Ansprechen', 'z. B. Chlor (IE 11,48 eV), CO, CO₂, Acetonitril']]);
+    P(...A('leds'), 'l', 150, 'Alarm-LEDs · Status', 'ONLINE', `Messdauer ${dur}`, COL.ok, [['Status', 'ONLINE'], ['Messdauer', dur], ['Alarmanzeige', 'LED/Signalton bei Überschreitung (Simulation)']]);
+    P(...A('keys'), 'r', 200, 'Tasten', 'Bedienung', 'Start/Stopp, Nullabgleich, Quittieren', undefined, [['Bedienung', 'Start/Stopp, Nullabgleich, Quittieren (Simulation)']]);
+    P(...A('battery'), 'l', 260, 'Mögliche Stoffgruppen', r?.pid.groups.length ? r.pid.groups[0] : '–', r?.pid.groups.slice(1, 3).join(' · '), undefined, [['Stoffgruppen', r?.pid.groups.length ? r.pid.groups.join(', ') : '– (kein erhöhter Wert)']]);
+    common(...A('conn'), 300);
   }
-  if (id === 'ims') { const i = r?.ims; const lv = i?.level;
-    P(393, 140, 'l', 20, 'Display · Ergebnis', lv ? i.result.split(' – ')[0] : 'KEIN TREFFER', lv && i.group ? i.group : undefined, lv ? COL.warn : COL.ok, [['Status', i?.state ?? '–'], ['Ergebnis', i?.result ?? '–'], ['Einstufung', lv ? lv.replace('_', ' ') : '–'], ['Zeit', time(r?.ts)]]);
-    P(273, 74, 'l', 110, 'Probeneinlass', 'Gasprobe', 'beheizter Einlass', undefined, [['Funktion', 'Ansaugen der Probe in die Driftröhre']]);
-    P(380, 276, 'l', 200, 'Driftröhre (Ionenmobilität)', 'Messprinzip', 'Ionen trennen nach Beweglichkeit', COL.acc, [['Prinzip', 'Ionenmobilitätsspektrometrie'], ['Ablauf', 'Ionisation → Gate → Driftregion → Kollektor']]);
-    P(430, 146, 'r', 20, 'Status / Messmodus', i?.state ?? '–', `Modus ${i?.mode ?? '–'}`, COL.ok, [['Status', i?.state ?? '–'], ['Messmodus', i?.mode ?? '–']]);
-    P(466, 206, 'r', 110, 'Konfidenz / Bibliothek', i?.confidence != null ? `${i.confidence} %` : '–', 'Bibliothek: Stoffdatenbank (lokal)', undefined, [['Konfidenz (simuliert)', i?.confidence != null ? `${i.confidence} %` : '–'], ['Bibliothek', 'Stoffdatenbank (lokal)'], ['Mögliche Stoffgruppe', i?.group ?? '–']]);
-    common(500, 270, 200);
-    P(430, 170, 'r', 290, 'Alarm-LED', lv ? 'AKTIV' : 'AUS', undefined, lv ? COL.warn : COL.ok, [['Alarm', lv ? 'Hinweis/Verdacht aktiv' : 'kein Treffer']]);
+  if (id === 'ims') { const i = r?.ims; const lv = i?.level; const g = lcd(id);
+    P(...C(), 'l', 40, 'Display · Ergebnis', lv ? i.result.split(' – ')[0] : 'KEIN TREFFER', lv && i.group ? i.group : undefined, lv ? COL.warn : COL.ok, [['Status', i?.state ?? '–'], ['Ergebnis', i?.result ?? '–'], ['Einstufung', lv ? lv.replace('_', ' ') : '–'], ['Zeit', time(r?.ts)]]);
+    P(...A('inlet'), 'l', 130, 'Probeneinlass', 'Gasprobe', 'Ansaugen der Probe', undefined, [['Funktion', 'Ansaugen der Probe in die Driftröhre']]);
+    P(...A('cap'), 'r', 20, 'Detektor (Ionenmobilität)', 'Messprinzip', 'Ionen trennen nach Beweglichkeit', COL.acc, [['Prinzip', 'Ionenmobilitätsspektrometrie'], ['Ablauf', 'Ionisation → Gate → Driftregion → Kollektor']]);
+    P(...A('brand'), 'r', 105, 'Status / Messmodus', i?.state ?? '–', `Modus ${i?.mode ?? '–'}`, COL.ok, [['Status', i?.state ?? '–'], ['Messmodus', i?.mode ?? '–']]);
+    P(g.x + g.w, g.y + g.h / 2, 'r', 190, 'Konfidenz / Bibliothek', i?.confidence != null ? `${i.confidence} %` : '–', 'Bibliothek: Stoffdatenbank (lokal)', undefined, [['Konfidenz (simuliert)', i?.confidence != null ? `${i.confidence} %` : '–'], ['Bibliothek', 'Stoffdatenbank (lokal)'], ['Mögliche Stoffgruppe', i?.group ?? '–']]);
+    P(...A('leds'), 'l', 230, 'Alarm-LED-Balken', lv ? 'AKTIV' : 'AUS', lv ? lv.replace('_', ' ') : undefined, lv ? COL.warn : COL.ok, [['Alarm', lv ? 'Hinweis/Verdacht aktiv' : 'kein Treffer']]);
+    common(...A('conn'), 290);
   }
   if (id === 'mgmg') { const ch = r?.mgmg.channels ?? {}; const U: Record<string, string> = { O2: '% vol', CO: 'ppm', H2S: 'ppm', LEL: '%LEL', CH4: 'ppm' }; const NM: Record<string, string> = { O2: 'O₂', CO: 'CO', H2S: 'H₂S', LEL: 'EX', CH4: 'CH₄' };
     const TH: Record<string, string> = { O2: 'Demo-Schwelle < 19,5 %', CO: 'Demo-Schwelle > 30 ppm', H2S: 'Demo-Schwelle > 5 ppm', LEL: 'Demo-Schwelle > 10 %UEG', CH4: 'keine Schwelle hinterlegt' };
-    channels.slice(0, 5).forEach((k: string, idx: number) => { const v = ch[k]; P(456, 130 + idx * 36 - 6, idx < 3 ? 'r' : 'l', idx < 3 ? 20 + idx * 90 : 120 + (idx - 3) * 100, `Kanal ${NM[k] ?? k}`, v == null ? '–' : `${num(v, k === 'O2' || k === 'LEL' || k === 'H2S' ? 1 : 0)} ${U[k]}`, TH[k], undefined, [['Messwert', v == null ? '–' : `${v} ${U[k]}`], ['Schwelle', TH[k]]]); });
-    P(324 + 28 * 2, 60, 'l', 20, 'Sensorik (Kanäle konfigurierbar)', `${channels.length} Kanäle`, channels.map((k: string) => NM[k]).join(' · '), COL.acc, [['Aktive Kanäle', channels.map((k: string) => NM[k]).join(', ')], ['Konfiguration', 'System → Konfiguration']]);
-    common(380, 380, 320);
+    const g = lcd(id); const nCh = Math.max(1, channels.slice(0, 5).length); const rowH = (g.h * 0.84) / nCh;
+    channels.slice(0, 5).forEach((k: string, idx: number) => { const v = ch[k]; P(g.x + g.w + 13, g.y + idx * rowH + rowH * 0.5, idx < 3 ? 'r' : 'l', idx < 3 ? 20 + idx * 78 : 140 + (idx - 3) * 80, `Kanal ${NM[k] ?? k}`, v == null ? '–' : `${num(v, k === 'O2' || k === 'LEL' || k === 'H2S' ? 1 : 0)} ${U[k]}`, TH[k], undefined, [['Messwert', v == null ? '–' : `${v} ${U[k]}`], ['Schwelle', TH[k]]]); });
+    P(...A('sensor'), 'l', 20, 'Sensorik (Kanäle konfigurierbar)', `${channels.length} Kanäle`, channels.map((k: string) => NM[k]).join(' · '), COL.acc, [['Aktive Kanäle', channels.map((k: string) => NM[k]).join(', ')], ['Konfiguration', 'System → Konfiguration']]);
+    P(...A('led'), 'r', 250, 'Statusleuchte', ch.O2 != null && ch.O2 < 19.5 ? 'ALARM' : 'OK', undefined, COL.ok, [['Status', 'OK, solange keine Demo-Schwelle überschritten ist']]);
+    common(...A('keys'), 300, 'l');
   }
-  if (id === 'dlm') { const v = r?.dose.value ?? 0; const st = doseStatus(v); const t = hist.length > 5 ? (hist.at(-1).dose > hist.at(-6).dose * 1.05 ? '▲ steigend' : hist.at(-1).dose < hist.at(-6).dose * 0.95 ? '▼ fallend' : '► stabil') : '–';
-    P(478, 112, 'l', 40, 'Anzeige · Dosisleistung', `${num(v, 3)} µSv/h`, st, stCol(st), [['Messwert', num(v, 3)], ['Einheit', 'µSv/h'], ['Status', st], ['Alarm (Demo)', '≥ 1 µSv/h'], ['Hinweis (Demo)', '≥ 0,3 µSv/h']]);
-    P(478, 189, 'r', 20, 'Balkenanzeige (log.)', t, 'Trend', undefined, [['Trend', t]]);
-    P(380, 380, 'r', 170, 'Sonde (Detektor)', 'Gamma', 'am Kabel', COL.acc, [['Messgröße', 'Ortsdosisleistung'], ['Detektor', 'NICHT VERFÜGBAR (Gerätedaten: QUELLE ERFORDERLICH)']]);
-    P(280, 304, 'l', 250, 'Status-LED', st === 'NORMAL' ? 'OK' : st, undefined, stCol(st), [['Status', st]]);
-    common(380, 256, 320);
+  if (id === 'dlm') { const v = r?.dose.value ?? 0; const st = doseStatus(v); const g = lcd(id); const t = hist.length > 5 ? (hist.at(-1).dose > hist.at(-6).dose * 1.05 ? '▲ steigend' : hist.at(-1).dose < hist.at(-6).dose * 0.95 ? '▼ fallend' : '► stabil') : '–';
+    P(...C(), 'l', 40, 'Anzeige · Dosisleistung', `${num(v, 3)} µSv/h`, st, stCol(st), [['Messwert', num(v, 3)], ['Einheit', 'µSv/h'], ['Status', st], ['Alarm (Demo)', '≥ 1 µSv/h'], ['Hinweis (Demo)', '≥ 0,3 µSv/h']]);
+    P(g.x + g.w - 6, g.y + g.h - 6, 'r', 20, 'Balkenanzeige (log.)', t, 'Trend', undefined, [['Trend', t]]);
+    P(...A('conn'), 'r', 160, 'Sondenanschluss (Detektor)', 'Gamma', 'externe Sonde möglich', COL.acc, [['Messgröße', 'Ortsdosisleistung'], ['Detektor', 'NICHT VERFÜGBAR (Gerätedaten: QUELLE ERFORDERLICH)']]);
+    P(...A('led'), 'l', 140, 'Status-LED', st === 'NORMAL' ? 'OK' : st, undefined, stCol(st), [['Status', st]]);
+    P(...A('keys'), 'r', 250, 'Tasten', 'Menü · Info · Mute', undefined, undefined, [['Bedienung', 'Menü, Info, Alarm stumm, Display (Simulation)']]);
+    common(...A('brand'), 240, 'l');
   }
   if (id === 'como') { const v = r?.como.value ?? 0;
-    P(380, 130, 'l', 40, 'Anzeige · Zählrate', `${num(v, 1)} cps`, 'Kontaminationsnachweis', undefined, [['Messwert', num(v, 1)], ['Einheit', 'cps (Zählrate)'], ['Hinweis', 'Umrechnung in Bq/cm² benötigt Kalibrierdaten – NICHT VERFÜGBAR']]);
-    P(676, 376, 'r', 150, 'Flächensonde', 'Kontamination', 'Abstand zur Oberfläche beachten', COL.acc, [['Funktion', 'Nachweis von Oberflächenkontamination'], ['Gerät', 'CoMo 170 ZS-2 (Bezeichnung nach BBK)']]);
-    P(300, 262, 'l', 250, 'Status-LED', 'ONLINE', undefined, COL.ok, [['Status', 'ONLINE']]);
-    common(380, 214, 320);
+    P(...C(), 'l', 40, 'Anzeige · Zählrate', `${num(v, 1)} cps`, 'Kontaminationsnachweis', undefined, [['Messwert', num(v, 1)], ['Einheit', 'cps (Zählrate)'], ['Hinweis', 'Umrechnung in Bq/cm² benötigt Kalibrierdaten – NICHT VERFÜGBAR']]);
+    P(...A('plate'), 'r', 150, 'Messfläche (Sonde)', 'Kontamination', 'Abstand zur Oberfläche beachten', COL.acc, [['Funktion', 'Nachweis von Oberflächenkontamination'], ['Gerät', 'CoMo 170 ZS-2 (Bezeichnung nach BBK)']]);
+    P(...A('keypad'), 'l', 150, 'Tasten · Status', 'ONLINE', undefined, COL.ok, [['Status', 'ONLINE'], ['Bedienung', 'Nullpunkt, Lautstärke, Messbereich (Simulation)']]);
+    P(...A('speaker'), 'r', 40, 'Akustik (Zählrate)', 'Lautsprecher', undefined, undefined, [['Funktion', 'Hörbare Zählrate / Alarmton']]);
+    common(...A('handle'), 260, 'l');
   }
   if (id === 'fmg') { const st = doseStatus(r?.dose.value ?? 0);
     P(435, 85, 'l', 40, 'Gamma-Detektor (Dach)', `${num(r?.dose.value ?? 0, 3)} µSv/h`, st, stCol(st), [['Messwert', `${num(r?.dose.value ?? 0, 3)} µSv/h`], ['Messstatus', st], ['Prinzip', 'Fahrzeuggesteuerte, kontinuierliche Gamma-Messung']]);
@@ -192,6 +229,7 @@ function useSpots(id: string, ctx: any): Spot[] {
 /* ------------------------------------------------------------------ Komponente */
 function Art({ id, ctx }: { id: string; ctx: any }) {
   const { r } = ctx;
+  if (IMG[id]) return <ImgArt id={id} r={r} channels={ctx.channels} />;
   switch (id) {
     case 'pid': return <PidArt r={r} />; case 'ims': return <ImsArt r={r} />; case 'mgmg': return <MgmgArt r={r} channels={ctx.channels} />; case 'dlm': return <DlmArt r={r} />;
     case 'como': return <ComoArt r={r} />; case 'fmg': return <FmgArt r={r} drive={ctx.drive} />; case 'tubes': return <TubesArt tube={ctx.tube} />; default: return null;
@@ -209,7 +247,7 @@ function useCtx(tubeId?: string) {
 
 export function DeviceThumb({ id }: { id: string }) {
   const ctx = useCtx();
-  return (<svg viewBox="100 0 560 440" className="w-full h-40"><Defs /><Art id={id} ctx={ctx} /></svg>);
+  return (<svg viewBox={IMG[id] ? `${380 - BOX_H * IMG[id].aspect / 2 - 10} ${BOX_Y - 6} ${BOX_H * IMG[id].aspect + 20} ${BOX_H + 12}` : '100 0 560 440'} className="w-full h-44"><Defs /><Art id={id} ctx={ctx} /></svg>);
 }
 
 export function DeviceFigure({ id }: { id: string }) {
@@ -236,7 +274,7 @@ export function DeviceFigure({ id }: { id: string }) {
               </g>);
           })}
         </svg>
-        <div className="text-[11px] text-dim px-2 pb-1">Schematische Eigen-Illustration (keine Herstellerabbildung). Werte: SIMULIERT. Zahl anklicken für Details.</div>
+        <div className="text-[11px] text-dim px-2 pb-1">{IMG[id] ? 'Grafik: vom Betreiber bereitgestellt (Display-Anzeige und Beschriftungen von der App ergänzt).' : 'Schematische Eigen-Illustration (keine Herstellerabbildung).'} Werte: SIMULIERT. Zahl anklicken für Details.</div>
       </div>
       <div className="panel col-span-4 p-0 overflow-auto" style={{ maxHeight: 600 }}>
         <div className="panel-h">Gerätedaten</div>

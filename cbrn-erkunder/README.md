@@ -31,7 +31,7 @@ Dunkle, neutrale Oberfläche mit orangem Akzent, Geist-Schrift (lokal eingebunde
 
 ## Geräte-Grafiken
 
-Jede Geräteseite (Messgeräte → Gerät anklicken) zeigt eine **eigene Vektorgrafik** des Geräts mit nummerierten Beschriftungen und den Live-Werten (Display, Sonde/Einlass, Status, GPS, Auftrag …); Zahl anklicken für Details. Die Grafiken sind eigene schematische Zeichnungen typischer Bauformen – keine Herstellerfotos und keine Nachzeichnungen urheberrechtlich geschützter Abbildungen. Quelle: `src/components/DeviceFigure.tsx`.
+Jede Geräteseite (Messgeräte → Gerät anklicken) zeigt eine **eigene Vektorgrafik** des Geräts mit nummerierten Beschriftungen und den Live-Werten (Display, Sonde/Einlass, Status, GPS, Auftrag …); Zahl anklicken für Details. Für CoMo, MGMG, PID, Dosisleistungsmesser und IMS werden die vom Betreiber gelieferten Grafikdateien verwendet (`public/devices/<gerät>.png`; Display-Fläche und Beschriftungsanker in `src/components/deviceImages.ts`), FMG und Prüfröhrchen sind eigene schematische Zeichnungen (`src/components/DeviceFigure.tsx`). Eigene Bilder austauschen: Datei ersetzen und Display-/Ankerkoordinaten in `deviceImages.ts` anpassen.
 
 ## GTA-5-Karte
 
