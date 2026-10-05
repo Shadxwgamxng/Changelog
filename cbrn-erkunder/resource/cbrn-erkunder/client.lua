@@ -1,4 +1,4 @@
--- CBRN-Erkunder: Bordcomputer im Fahrzeug (nur Beifahrerplätze) + Telemetrie an den Server-Teil.
+-- CBRN-Erkunder: Bordcomputer im Fahrzeug (Beifahrer: E, Fahrer: J) + Telemetrie an den Server-Teil.
 -- Es werden KEINE Messwerte erzeugt – die bleiben Simulation des Backends.
 local open = false
 local currentVehicle = nil -- Fahrzeug-ID aus der Anmeldung in der Web-App (z. B. FFW-11-71-01)
@@ -7,6 +7,7 @@ local WEATHER_HASH = {}
 for _, w in ipairs(WEATHER) do WEATHER_HASH[GetHashKey(w)] = w end
 
 AddTextEntry('CBRN_PC_PROMPT', Config.PromptText)
+AddTextEntry('CBRN_PC_PROMPT_DRIVER', Config.DriverPromptText or 'Dr\195\188cke ~y~J~s~ um den Computer des CBRN-Erkunders zu \195\182ffnen')
 
 local function modelAllowed(veh)
   local m = GetEntityModel(veh)
@@ -14,13 +15,12 @@ local function modelAllowed(veh)
   return false
 end
 
--- Fahrzeug, in dem ich auf einem BEIFAHRERPLATZ sitze und das einem konfigurierten Modell entspricht (sonst 0)
-local function passengerVehicle()
+-- Konfiguriertes Fahrzeug, in dem ich sitze (sonst 0); zweiter Wert: true = Fahrersitz
+local function seatVehicle()
   local ped = PlayerPedId()
   local veh = GetVehiclePedIsIn(ped, false)
-  if veh == 0 or not modelAllowed(veh) then return 0 end
-  if GetPedInVehicleSeat(veh, -1) == ped then return 0 end -- Fahrer: kein Zugriff
-  return veh
+  if veh == 0 or not modelAllowed(veh) then return 0, false end
+  return veh, GetPedInVehicleSeat(veh, -1) == ped
 end
 
 local function windFrom()
@@ -86,18 +86,26 @@ end
 -- Hinweis + Öffnen (nur Beifahrer); geöffnet wird mit Config.Control (E)
 CreateThread(function()
   while true do
-    if not open and passengerVehicle() ~= 0 then
-      BeginTextCommandDisplayHelp('CBRN_PC_PROMPT')
+    local veh, driver = seatVehicle()
+    if not open and veh ~= 0 then
+      BeginTextCommandDisplayHelp(driver and 'CBRN_PC_PROMPT_DRIVER' or 'CBRN_PC_PROMPT')
       EndTextCommandDisplayHelp(0, false, false, -1)
-      if IsControlJustPressed(0, Config.Control) then setOpen(true) end
+      if not driver and IsControlJustPressed(0, Config.Control) then setOpen(true) end -- Fahrer oeffnet per J (Key-Mapping unten)
       Wait(0)
     else
       Wait(open and 400 or 500)
-      -- Computer schließt sich, wenn man aussteigt oder auf den Fahrersitz wechselt
-      if open and passengerVehicle() == 0 then setOpen(false) end
+      -- Computer schließt sich, wenn man aussteigt
+      if open and veh == 0 then setOpen(false) end
     end
   end
 end)
+
+-- Fahrer: Computer mit J (aenderbar unter Einstellungen > Tastenbelegung > FiveM)
+RegisterCommand('cbrn_open_pc', function()
+  local veh, driver = seatVehicle()
+  if not open and veh ~= 0 and driver then setOpen(true) end
+end, false)
+RegisterKeyMapping('cbrn_open_pc', 'CBRN-Erkunder: Computer \195\182ffnen (Fahrer)', 'keyboard', Config.DriverKey or 'J')
 
 -- Bruecke NUI <-> Server-Skript: Anfragen der Oberflaeche laufen als Events zum Server, Antworten kommen in Teilen zurueck
 local pending, parts = {}, {}

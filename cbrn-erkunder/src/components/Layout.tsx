@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { Activity, Biohazard, ClipboardList, CloudSun, FileText, FlaskConical, Gauge, History, LayoutDashboard, Map as MapIcon, MapPin, LogOut, PanelLeft, Radiation, RadioTower, Search as SearchIcon, Settings, TestTube2, Truck, Users } from 'lucide-react';
+import { Activity, Biohazard, ClipboardList, CloudSun, FileText, FlaskConical, Gauge, History, LayoutDashboard, Map as MapIcon, MapPin, LogOut, PanelLeft, Radiation, RadioTower, Search as SearchIcon, Settings, TestTube2, Truck, Users, Wind } from 'lucide-react';
 import { Logo } from './Logo';
 import { useLive } from '../store';
 import { api } from '../api';
@@ -10,7 +10,7 @@ import { STATUS_COLOR, time } from '../lib/format';
 const I = 17;
 export const NAV: { group: string; items: [string, string, ReactNode][] }[] = [
   { group: 'Einsatz', items: [['/', 'Dashboard', <LayoutDashboard size={I} />], ['/karte', 'Einsatzkarte', <MapIcon size={I} />], ['/live', 'Live-Messung', <Activity size={I} />], ['/auftraege', 'Messaufträge', <ClipboardList size={I} />], ['/messpunkte', 'Messpunkte', <MapPin size={I} />], ['/proben', 'Proben', <TestTube2 size={I} />], ['/wetter', 'Wetter', <CloudSun size={I} />]] },
-  { group: 'Technik', items: [['/geraete', 'Messgeräte', <Gauge size={I} />], ['/fahrzeug', 'Fahrzeug', <Truck size={I} />], ['/besatzung', 'Besatzung', <Users size={I} />], ['/messleitung', 'CBRN-Messleitung', <RadioTower size={I} />]] },
+  { group: 'Technik', items: [['/geraete', 'Messgeräte', <Gauge size={I} />], ['/fahrzeug', 'Fahrzeug', <Truck size={I} />], ['/besatzung', 'Besatzung', <Users size={I} />], ['/atemschutz', 'Atemschutz', <Wind size={I} />], ['/messleitung', 'CBRN-Messleitung', <RadioTower size={I} />]] },
   { group: 'Wissen', items: [['/stoffe', 'Stoffdatenbank', <FlaskConical size={I} />], ['/radionuklide', 'Radionuklid-Datenbank', <Radiation size={I} />], ['/bio', 'Biologische Datenbank', <Biohazard size={I} />]] },
   { group: 'Auswertung', items: [['/berichte', 'Einsatzberichte', <FileText size={I} />], ['/historie', 'Historie', <History size={I} />], ['/system', 'System', <Settings size={I} />]] },
 ];

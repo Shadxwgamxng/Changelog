@@ -3,6 +3,7 @@ import { emit, activeIncident, state, stopRun, systemStatus, resetDevices } from
 import { crewOf } from './auth.js';
 import { publicSample } from './samples.js';
 import { compass } from './geo.js';
+import { resetAgs } from './ags.js';
 import { addFire, listFires, FIRE_SIZES, FIRE_TYPES } from './fire.js';
 
 // ---------------------------------------------------------------------------------------------
@@ -75,7 +76,7 @@ export function endIncident(by: string, id: string, form: any = {}) {
   const f = form ?? {}; const missing = REQUIRED.filter(([k]) => !String(f[k] ?? '').trim()).map(([, l]) => l);
   if (missing.length) return { error: `Einsatzbericht unvollständig: ${missing.join(', ')}` };
   for (const vid of Object.keys(state.runs)) stopRun(by, vid);
-  resetDevices();
+  resetDevices(); resetAgs();
   const ended = now(); const t = (v: any) => String(v ?? '').trim() || null;
   const crew = list('incident_crew', 'WHERE incident_id = ? ORDER BY since', [id]).map((c: any) => ({ name: c.name, funktion: c.funktion, vehicle_id: c.vehicle_id, vehicle: get('vehicles', c.vehicle_id)?.name ?? c.vehicle_id }));
   const people = new Set(crew.map((c: any) => c.name.toLowerCase())).size;

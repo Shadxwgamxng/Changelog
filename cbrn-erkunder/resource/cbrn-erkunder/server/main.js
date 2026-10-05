@@ -4478,6 +4478,91 @@ function seedIfEmpty() {
 // server/sim.ts
 var import_node_events = require("node:events");
 
+// server/ags.ts
+var AGS_SLOTS = ["Fahrer", "Beifahrer", "Hinten links", "Hinten rechts"];
+var AGS_FULL = 300;
+var AGS_WARN = 100;
+var AGS_WHISTLE = 55;
+var devs = {};
+var newTotal = () => 600 + Math.round(Math.random() * 300);
+var mk = () => ({ bar: AGS_FULL, wearer: null, since: null, total_s: newTotal(), warned: 0 });
+var of = (vid) => devs[vid] ??= AGS_SLOTS.map(mk);
+var err = (m, code = 409) => Object.assign(new Error(m), { statusCode: code });
+function agsList(vid) {
+  return of(vid).map((d, i) => {
+    const rate = AGS_FULL / d.total_s, worn = !!d.wearer;
+    const status = d.bar <= 0 ? "LEER" : d.bar <= AGS_WHISTLE ? "PFEIFE" : d.bar <= AGS_WARN ? "WARNUNG" : worn ? "ANGELEGT" : "BEREIT";
+    return {
+      slot: i + 1,
+      label: AGS_SLOTS[i],
+      bar: Math.max(0, +d.bar.toFixed(1)),
+      wearer: d.wearer,
+      worn,
+      since: d.since,
+      status,
+      rate_bar_s: worn ? +rate.toFixed(4) : 0,
+      whistle_s: Math.max(0, Math.round((d.bar - AGS_WHISTLE) / rate)),
+      empty_s: Math.max(0, Math.round(d.bar / rate))
+    };
+  });
+}
+var push = (vid) => emit2("ags.changed", { vehicle_id: vid, devices: agsList(vid) });
+var dev = (vid, slot) => {
+  const d = of(vid)[slot - 1];
+  if (!d) throw err("Atemschutzger\xE4t unbekannt", 404);
+  return d;
+};
+function agsDon(vid, slot, by) {
+  const d = dev(vid, slot);
+  if (d.wearer) throw err(`Ger\xE4t ist bereits von ${d.wearer} angelegt`);
+  if (of(vid).some((x) => x.wearer === by)) throw err("Du tr\xE4gst bereits ein Atemschutzger\xE4t \u2013 bitte erst ablegen");
+  if (d.bar <= 0) throw err("Flasche ist leer \u2013 bitte Flasche wechseln");
+  d.wearer = by;
+  d.since = (/* @__PURE__ */ new Date()).toISOString();
+  audit(by, "don", "ags", `${vid}#${slot}`, { bar: d.bar });
+  push(vid);
+  return agsList(vid);
+}
+function agsDoff(vid, slot, by) {
+  const d = dev(vid, slot);
+  if (!d.wearer) throw err("Ger\xE4t ist nicht angelegt");
+  audit(by, "doff", "ags", `${vid}#${slot}`, { bar: +d.bar.toFixed(0), wearer: d.wearer });
+  d.wearer = null;
+  d.since = null;
+  push(vid);
+  return agsList(vid);
+}
+function agsRefill(vid, slot, by) {
+  const d = dev(vid, slot);
+  if (d.wearer) throw err("Ger\xE4t ist angelegt \u2013 erst ablegen");
+  Object.assign(d, mk());
+  audit(by, "refill", "ags", `${vid}#${slot}`);
+  push(vid);
+  return agsList(vid);
+}
+function resetAgs() {
+  for (const k of Object.keys(devs)) delete devs[k];
+}
+function tickAgs(dt, n) {
+  for (const [vid, list2] of Object.entries(devs)) {
+    let any = false;
+    list2.forEach((d, i) => {
+      if (!d.wearer || d.bar <= 0) return;
+      any = true;
+      d.bar = Math.max(0, d.bar - AGS_FULL / d.total_s * dt);
+      const lvl = d.bar <= 0 ? 3 : d.bar <= AGS_WHISTLE ? 2 : d.bar <= AGS_WARN ? 1 : 0;
+      if (lvl > d.warned) {
+        d.warned = lvl;
+        const v = get("vehicles", vid);
+        const txt = lvl === 1 ? `Atemschutz ${AGS_SLOTS[i]} (${d.wearer}): Restdruck unter ${AGS_WARN} bar` : lvl === 2 ? `Atemschutz ${AGS_SLOTS[i]} (${d.wearer}): Pfeife \u2013 Restdruck ${AGS_WHISTLE} bar, sofort R\xFCckzug!` : `Atemschutz ${AGS_SLOTS[i]} (${d.wearer}): Flasche leer`;
+        if (v) createAlarm({ source: "AGS", category: "ATEMSCHUTZ", description: txt, lat: v.lat, lon: v.lon, vehicle_id: vid }, `${vid}-ags-${i}-${lvl}`);
+        push(vid);
+      }
+    });
+    if (any && n % 5 === 0) push(vid);
+  }
+}
+
 // server/fire.ts
 var FIRE_SIZES = {
   klein: { f: 0.5, r: 150, label: "klein" },
@@ -4492,7 +4577,7 @@ var FIRE_TYPES = {
 };
 var GAS_BG = { CO: 0.5, CO2: 420, HCN: 0, NO2: 0, HCl: 0, SO2: 0, VOC: 0.1 };
 var GAS_ALARM = { CO: 30, CO2: 5e3, HCN: 2, NO2: 0.5, HCl: 2, SO2: 0.5 };
-var err = (msg, code = 400) => Object.assign(new Error(msg), { statusCode: code });
+var err2 = (msg, code = 400) => Object.assign(new Error(msg), { statusCode: code });
 var activeIncidentId = () => {
   var _a;
   return (_a = db.prepare("SELECT id FROM incidents WHERE status = 'AKTIV' ORDER BY created_at DESC LIMIT 1").get()) == null ? void 0 : _a.id;
@@ -4531,9 +4616,9 @@ function listFires() {
 }
 function addFire(by, b) {
   const incident = activeIncidentId();
-  if (!incident) throw err("Kein aktiver Einsatz");
+  if (!incident) throw err2("Kein aktiver Einsatz");
   const lat = Number(b.lat), lon = Number(b.lon);
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) throw err("Bitte die Brandstelle auf der Karte markieren");
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) throw err2("Bitte die Brandstelle auf der Karte markieren");
   const size = FIRE_SIZES[String(b.size)] ? String(b.size) : "mittel";
   const type = FIRE_TYPES[String(b.type)] ? String(b.type) : "GEBAEUDE";
   const n = (db.prepare("SELECT COUNT(*) c FROM incident_fires").get().c ?? 0) + 1;
@@ -4545,7 +4630,7 @@ function addFire(by, b) {
 }
 function removeFire(by, id) {
   const f = get("incident_fires", id);
-  if (!f || !f.active) throw err("Brandstelle nicht gefunden", 404);
+  if (!f || !f.active) throw err2("Brandstelle nicht gefunden", 404);
   update("incident_fires", id, { active: 0 });
   audit(by, "extinguish", "fire", id);
   emit2("fires.changed", listFires());
@@ -4889,10 +4974,10 @@ function startRun(userLabel, vehicleId, name, start, mode = "CBRN") {
   state.runs[vehicleId] = R2;
   (state.track[vehicleId] ??= { len: 0, last: null }).last = null;
   insert("runs", { id: R2.id, vehicle_id: R2.vehicle_id, name: R2.name, started_at: R2.started_at, started_by: userLabel, distance_m: 0, points: 0, source: R2.source, mission_id: R2.mission_id, mode, start_lat: start.lat, start_lon: start.lon, incident_id: inc.id });
-  const dev = fivemConnected(vehicleId) ? Math.round(distM(start, { lat: get("vehicles", vehicleId).lat, lon: get("vehicles", vehicleId).lon })) : 0;
-  audit(userLabel, "start", "run", R2.id, { source: R2.source, vehicle: vehicleId, start, deviation_m: dev });
+  const dev2 = fivemConnected(vehicleId) ? Math.round(distM(start, { lat: get("vehicles", vehicleId).lat, lon: get("vehicles", vehicleId).lon })) : 0;
+  audit(userLabel, "start", "run", R2.id, { source: R2.source, vehicle: vehicleId, start, deviation_m: dev2 });
   emit2("run.started", runInfo(vehicleId));
-  return { run: runInfo(vehicleId), deviation_m: dev };
+  return { run: runInfo(vehicleId), deviation_m: dev2 };
 }
 function stopRun(userLabel, vehicleId) {
   const R2 = state.runs[vehicleId];
@@ -4959,6 +5044,7 @@ function startSim() {
 function tick() {
   state.tick++;
   const dt = 2;
+  tickAgs(dt, state.tick);
   weatherStep();
   if (state.tick % 5 === 0) emit2("weather.updated", weatherNow());
   if (state.tick % 30 === 0) {
@@ -5393,7 +5479,7 @@ function applySampleConfig(c) {
     for (const [k, v] of Object.entries(c.analysisDurations)) if (Number(v) > 0) SC.analysisDurations[k] = Number(v);
   }
 }
-var err2 = (msg, code = 400) => Object.assign(new Error(msg), { statusCode: code });
+var err3 = (msg, code = 400) => Object.assign(new Error(msg), { statusCode: code });
 var nextSeq = (key) => {
   const n = getSetting(key, 0) + 1;
   setSetting(key, n);
@@ -5432,9 +5518,9 @@ function resolveVehicleId(x, y) {
   return crewed.length === 1 ? crewed[0].id : null;
 }
 function createSample(n) {
-  if (!SAMPLE_TYPES[n.type]) throw err2("Ung\xFCltige Probenart");
+  if (!SAMPLE_TYPES[n.type]) throw err3("Ung\xFCltige Probenart");
   const source2 = String(n.source ?? "").trim();
-  if (source2.length < 2 || source2.length > 120) throw err2("Bitte die Herkunft der Probe angeben (2\u2013120 Zeichen)");
+  if (source2.length < 2 || source2.length > 120) throw err3("Bitte die Herkunft der Probe angeben (2\u2013120 Zeichen)");
   const description = String(n.description ?? "").trim().slice(0, 300);
   const id = `P-${(/* @__PURE__ */ new Date()).getFullYear()}-${String(nextSeq("sample_seq")).padStart(6, "0")}`;
   const ll = gameToLL(n.pos.x, n.pos.y);
@@ -5475,10 +5561,10 @@ function createSample(n) {
 }
 function labelSample(id, label, info, by) {
   const s = get("samples", id);
-  if (!s) throw err2("Probe nicht gefunden", 404);
-  if (!["COLLECTED", "TRANSPORT"].includes(s.status)) throw err2("Die Probe kann nicht mehr beschriftet werden");
+  if (!s) throw err3("Probe nicht gefunden", 404);
+  if (!["COLLECTED", "TRANSPORT"].includes(s.status)) throw err3("Die Probe kann nicht mehr beschriftet werden");
   label = String(label ?? "").trim();
-  if (label.length < 1 || label.length > 60) throw err2("Bitte eine Bezeichnung angeben (max. 60 Zeichen)");
+  if (label.length < 1 || label.length > 60) throw err3("Bitte eine Bezeichnung angeben (max. 60 Zeichen)");
   info = String(info ?? "").trim().slice(0, 120);
   update("samples", id, { label, info, status: "TRANSPORT", transport_status: "TRANSPORT", updated_at: now() });
   logEvent(id, "BESCHRIFTET", `${label}${info ? " \u2013 " + info : ""}`, by);
@@ -5488,14 +5574,14 @@ function labelSample(id, label, info, by) {
 }
 function storeSample(id, by, vehicleId) {
   const s = get("samples", id);
-  if (!s) throw err2("Probe nicht gefunden", 404);
-  if (s.status !== "TRANSPORT") throw err2(s.status === "COLLECTED" ? "Die Probe muss zuerst beschriftet werden" : "Die Probe ist bereits eingelagert");
+  if (!s) throw err3("Probe nicht gefunden", 404);
+  if (s.status !== "TRANSPORT") throw err3(s.status === "COLLECTED" ? "Die Probe muss zuerst beschriftet werden" : "Die Probe ist bereits eingelagert");
   if (!s.vehicle_id) {
-    if (!vehicleId) throw err2("Kein angemeldetes CBRN-Fahrzeug erkannt \u2013 bitte am Bordcomputer anmelden.");
+    if (!vehicleId) throw err3("Kein angemeldetes CBRN-Fahrzeug erkannt \u2013 bitte am Bordcomputer anmelden.");
     update("samples", id, { vehicle_id: vehicleId });
     s.vehicle_id = vehicleId;
   }
-  if (storedCount(s.vehicle_id) >= SC.maxSamples) throw err2("PROBENLAGER VOLL \u2013 Es k\xF6nnen keine weiteren Proben eingelagert werden.", 409);
+  if (storedCount(s.vehicle_id) >= SC.maxSamples) throw err3("PROBENLAGER VOLL \u2013 Es k\xF6nnen keine weiteren Proben eingelagert werden.", 409);
   update("samples", id, { status: "STORED", transport_status: "EINGELAGERT", stored_at: now(), updated_at: now() });
   logEvent(id, "EINGELAGERT", `Probenlager ${s.vehicle_id}`, by);
   audit(by, "store", "sample", id);
@@ -5506,8 +5592,8 @@ function storeSample(id, by, vehicleId) {
 }
 function archiveSample(id, by) {
   const s = get("samples", id);
-  if (!s) throw err2("Probe nicht gefunden", 404);
-  if (s.status !== "COMPLETED") throw err2("Nur abgeschlossene Proben k\xF6nnen archiviert werden");
+  if (!s) throw err3("Probe nicht gefunden", 404);
+  if (s.status !== "COMPLETED") throw err3("Nur abgeschlossene Proben k\xF6nnen archiviert werden");
   update("samples", id, { status: "ARCHIVED", updated_at: now() });
   logEvent(id, "ARCHIVIERT", null, by);
   audit(by, "archive", "sample", id);
@@ -5516,9 +5602,9 @@ function archiveSample(id, by) {
 }
 function startAnalysis(id, type, by, comment) {
   const s = get("samples", id);
-  if (!s) throw err2("Probe nicht gefunden", 404);
-  if (!ANALYSIS_TYPES[type]) throw err2("Ung\xFCltige Analyseart");
-  if (!["STORED", "COMPLETED"].includes(s.status)) throw err2(s.status === "ANALYSIS" ? "F\xFCr diese Probe l\xE4uft bereits eine Analyse" : "Nur eingelagerte Proben k\xF6nnen analysiert werden");
+  if (!s) throw err3("Probe nicht gefunden", 404);
+  if (!ANALYSIS_TYPES[type]) throw err3("Ung\xFCltige Analyseart");
+  if (!["STORED", "COMPLETED"].includes(s.status)) throw err3(s.status === "ANALYSIS" ? "F\xFCr diese Probe l\xE4uft bereits eine Analyse" : "Nur eingelagerte Proben k\xF6nnen analysiert werden");
   const aid = `A-${String(nextSeq("analysis_seq")).padStart(5, "0")}`;
   const dur = SC.analysisDurations[type] ?? 6e4;
   insert("sample_analyses", { id: aid, sample_id: id, type, status: "RUNNING", started_at: now(), duration_ms: dur, by_user: by, comment: String(comment ?? "").trim().slice(0, 200) || null, result: null });
@@ -5677,6 +5763,7 @@ function endIncident(by, id, form = {}) {
   if (missing.length) return { error: `Einsatzbericht unvollst\xE4ndig: ${missing.join(", ")}` };
   for (const vid of Object.keys(state.runs)) stopRun(by, vid);
   resetDevices();
+  resetAgs();
   const ended = now();
   const t = (v) => String(v ?? "").trim() || null;
   const crew = list("incident_crew", "WHERE incident_id = ? ORDER BY since", [id]).map((c) => {
@@ -5935,6 +6022,11 @@ function registerRoutes(app) {
     if (!v) throw nf("Fahrzeug");
     const { x, y } = llToOffset(v.lat, v.lon);
     return { ...spectrumAt(x, y), label: "SIMULIERTE AUSWERTUNG", data_source: "SIMULATED" };
+  });
+  app.get("/api/ags", async (req) => agsList(need(req, 1).vehicle_id));
+  for (const [act, fn] of [["don", agsDon], ["doff", agsDoff], ["refill", agsRefill]]) app.post(`/api/ags/:slot/${act}`, async (req) => {
+    const u = need(req, 1);
+    return fn(u.vehicle_id, Number(req.params.slot), u.name);
   });
   app.get("/api/fires", async () => listFires());
   app.post("/api/fires", async (req, rep) => {

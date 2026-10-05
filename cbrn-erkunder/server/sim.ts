@@ -1,5 +1,6 @@
 import { EventEmitter } from 'node:events';
 import { db, get, list, insert, update, now, getSetting, setSetting, audit } from './db.js';
+import { tickAgs } from './ags.js';
 import { FIRE_TYPES, smokeAt, hasFire, activeFires, GAS_BG, GAS_ALARM } from './fire.js';
 import { offsetToLL, llToOffset, distM, bearing, compass, MODE, gameToLL } from './geo.js';
 
@@ -327,7 +328,7 @@ export function startSim() {
   timer = setInterval(() => { try { tick(); } catch (e) { console.error('sim tick', e); } }, 2000);
 }
 function tick() {
-  state.tick++; const dt = 2;
+  state.tick++; const dt = 2; tickAgs(dt, state.tick);
   weatherStep();
   if (state.tick % 5 === 0) emit('weather.updated', weatherNow());
   if (state.tick % 30 === 0) { const w = weatherNow(); db.prepare('INSERT INTO weather_records(ts,temperature,humidity,pressure,wind_speed,wind_from,cloud_okta,precipitation) VALUES(?,?,?,?,?,?,?,?)').run(w.ts, w.temperature, w.humidity, w.pressure, w.wind_speed, w.wind_from, w.cloud_okta, w.precipitation); }

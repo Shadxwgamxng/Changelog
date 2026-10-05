@@ -5,6 +5,8 @@ Config = {
   Models = { 'ELWBlaichach' },
   Control = 38,                   -- Taste zum Oeffnen: 38 = E (INPUT_CONTEXT)
   PromptText = 'Dr\195\188cke ~INPUT_CONTEXT~ um den Computer des CBRN-Erkunders zu \195\182ffnen',
+  DriverKey = 'J',                -- Taste des FAHRERS zum Oeffnen (Beifahrer: Control oben)
+  DriverPromptText = 'Dr\195\188cke ~y~J~s~ um den Computer des CBRN-Erkunders zu \195\182ffnen',
   IntervalMs = 1000,              -- Telemetrie-Takt (Position/Kurs/Speed/Wetter)
 
   -- GetWindDirection() liefert je nach Server-/Wettersystem die Richtung, in die der Wind WEHT.

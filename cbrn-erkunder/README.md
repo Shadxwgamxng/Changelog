@@ -66,3 +66,8 @@ Analyse: Dauer je Art in `Config.Sample.AnalysisDurations`; das Ergebnis wird au
 - **Messfahrt starten:** Auswahl **CBRN-Einsatz** oder **Brandeinsatz**. Brandeinsatz braucht mindestens eine eingezeichnete Brandstelle; bei reinem Brandeinsatz ist nur der Brandmodus möglich.
 - **Brandmodus:** Das MGMG zeigt O₂, CO, CO₂, HCN, HCl, der PID VOC; Werte folgen der Rauchfahne (Wind). Schwellen sind Simulationswerte. Proben im Rauch liefern als Analyse nur die Stoffgruppe „Brandrauch“.
 - Alle Werte sind **simuliert**. Eine automatische Übernahme von z_fire-Bränden ist nicht eingebaut (die Brandstellen werden manuell eingezeichnet).
+
+## Atemschutzüberwachung & Fahrer-Taste
+
+- Der **Fahrer** öffnet den Computer mit **J** (Key-Mapping `cbrn_open_pc`, in `config.lua` → `DriverKey`), Beifahrer weiter mit E.
+- Menü **Atemschutz**: 4 Geräte (Fahrer, Beifahrer, hinten links/rechts). Anlegen/Ablegen am Computer, 300 bar Fülldruck, je Flasche 10–15 min Vorrat (zufällig, Simulation). Warnung bei 100 bar, Pfeife bei 55 bar, Alarm bei leer; „Flasche wechseln“ füllt wieder auf. Eine Person kann nur ein Gerät tragen.

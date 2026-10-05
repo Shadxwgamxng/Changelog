@@ -14,6 +14,7 @@ import Samples from './pages/Samples';
 import Weather from './pages/Weather';
 import Measurements from './pages/Measurements';
 import Vehicle, { Crew } from './pages/Vehicle';
+import Atemschutz from './pages/Atemschutz';
 import Mlk from './pages/Mlk';
 import Reports from './pages/Reports';
 import History from './pages/History';
@@ -46,6 +47,7 @@ export default function App() {
         <Route path="messpunkte" element={<Measurements />} />
         <Route path="fahrzeug" element={<Vehicle />} />
         <Route path="besatzung" element={<Crew />} />
+        <Route path="atemschutz" element={<Atemschutz />} />
         <Route path="messleitung" element={<Mlk />} />
         <Route path="berichte" element={<Reports />} />
         <Route path="historie" element={<History />} />
