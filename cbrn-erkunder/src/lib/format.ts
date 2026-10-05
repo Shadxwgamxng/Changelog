@@ -14,8 +14,9 @@ export const DATA_SRC: Record<string, string> = { REAL: 'REAL DATA', SIMULATED: 
 export const STATUS_COLOR = (s?: string | null) => {
   const t = (s ?? '').toUpperCase();
   if (/ALARM|HOCH|OFFLINE|OFFEN|ABGEBROCHEN/.test(t)) return '#e5534b';
+  if (/STARTET/.test(t)) return '#d29922';
   if (/ERHÖHT|AUSWERTUNG|VERDACHT|ÜBERMITTELT|NACHBESTELLEN|HINWEIS/.test(t)) return '#d29922';
-  if (/ONLINE|OK|NORMAL|AKTIV|VERFÜGBAR|EINSATZBEREIT|ABGESCHLOSSEN|FIX|VERIFIZIERT|BEFUND|CONNECTED/.test(t) && !/NOT/.test(t)) return '#3fb950';
+  if (/ONLINE|OK|NORMAL|AKTIV|VERFÜGBAR|EINSATZBEREIT|ABGESCHLOSSEN|FIX|VERIFIZIERT|BEFUND|CONNECTED|BETRIEBSBEREIT/.test(t) && !/NOT/.test(t)) return '#3fb950';
   return '#817d78';
 };
 export const ROLE_LVL: Record<string, number> = { erkunder: 1, truppfuehrer: 2, messleitung: 3, admin: 4 };

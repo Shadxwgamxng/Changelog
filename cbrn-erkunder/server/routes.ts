@@ -1,6 +1,6 @@
 import type { App as FastifyInstance, Req as FastifyRequest } from './router.js';
 import { db, get, list, insert, update, remove, audit, now, getSetting, setSetting, TABLES, columns } from './db.js';
-import { state, emit, fivemConnected, systemStatus, weatherNow, ingestFivem, spectrumAt, currentSnapshotAt, completeLab, mgmgChannels, activeIncident, routeLL, levelText, startRun, stopRun, runInfo } from './sim.js';
+import { state, emit, fivemConnected, systemStatus, weatherNow, ingestFivem, spectrumAt, currentSnapshotAt, completeLab, mgmgChannels, activeIncident, devState, setDevicePower, routeLL, levelText, startRun, stopRun, runInfo } from './sim.js';
 import { analyze } from './analysis.js';
 import { ORIGIN_LABEL } from './data/derive.js';
 import { SECTORS, sectorPolygon, llToOffset, compass, CENTER, MODE } from './geo.js';
@@ -127,6 +127,9 @@ export function registerRoutes(app: FastifyInstance) {
     return rows.reverse();
   });
 
+  // ---------- Geräte ein-/ausschalten (Aufwärmzeit)
+  app.post('/api/devices/:key/power', async (req) => { const u = need(req); const r = setDevicePower(u.id, u.vehicle_id, (req.params as any).key, !!(req.body as any)?.on); if ((r as any).error) throw Object.assign(new Error((r as any).error), { statusCode: 400 }); return r; });
+
   // ---------- Messfahrten
   app.get('/api/runs', async () => list('runs', '', [], 'ORDER BY started_at DESC LIMIT 100').map((r: any) => (state.runs[r.vehicle_id]?.id === r.id ? { ...r, distance_m: Math.round(state.runs[r.vehicle_id].dist), active: true } : r)));
   app.get('/api/runs/active', async (req) => ({ run: runInfo(user(req).vehicle_id) }));
@@ -202,7 +205,8 @@ export function registerRoutes(app: FastifyInstance) {
     const mission = list('missions', "WHERE vehicle_id = ? AND status = 'IN BEARBEITUNG' LIMIT 1", [v.id])[0];
     const kinds = ['FEST', 'FLÜSSIG', 'LUFT', 'BIOLOGISCH', 'RADIOLOGISCH', 'CHEMISCH'];
     const kind = kinds.includes(b.kind) ? b.kind : 'FLÜSSIG';
-    const readings = { PID: `${snap.r.pid.value} ppm`, Dosisleistung: `${snap.r.dose.value} µSv/h`, IMS: snap.r.ims.result, pH: b.ph ?? 'NICHT GEMESSEN', ...(b.readings ?? {}) };
+    const rd = (k: string) => devState(v.id, k) === 'ready'; const NB = 'GERÄT NICHT BETRIEBSBEREIT';
+    const readings = { PID: rd('pid') ? `${snap.r.pid.value} ppm` : NB, Dosisleistung: rd('dlm') ? `${snap.r.dose.value} µSv/h` : NB, IMS: rd('ims') ? snap.r.ims.result : NB, pH: b.ph ?? 'NICHT GEMESSEN', ...(b.readings ?? {}) };
     const row = { id, ts: now(), lat: v.lat, lon: v.lon, kind, description: b.description ?? '', color: b.color ?? null, consistency: b.consistency ?? null, odor: b.odor ?? null, turbidity: b.turbidity ?? null,
       readings, weather: wx, location: b.location ?? null, taken_by: b.taken_by ?? u.id, mission_id: mission?.id ?? b.mission_id ?? null, vehicle_id: v.id, transport_status: 'ENTNOMMEN', lab_status: 'AUSSTEHEND',
       onsite_assessment: snap.r.ims.level ? levelText(snap.r.ims.level).toUpperCase() : 'UNBEKANNT', lab_result: null, truth_ref: snap.truth ?? (kind === 'BIOLOGISCH' && activeIncident()?.ref_type === 'biological' ? { type: 'biological', id: activeIncident().ref_id } : null), updated_at: now() };

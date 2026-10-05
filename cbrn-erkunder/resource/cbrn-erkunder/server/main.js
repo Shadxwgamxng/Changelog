@@ -4498,6 +4498,37 @@ function routePos(s) {
   const f = (s - CUM[i - 1]) / (CUM[i] - CUM[i - 1]);
   return { x: ROUTE[i - 1].x + (ROUTE[i].x - ROUTE[i - 1].x) * f, y: ROUTE[i - 1].y + (ROUTE[i].y - ROUTE[i - 1].y) * f };
 }
+var DEVICE_WARM = { pid: 25e3, ims: 4e4, mgmg: 3e4, dlm: 2e4, como: 25e3, fmg: 3e4 };
+var devices2 = {};
+function devState(vid, key) {
+  var _a;
+  const d = (_a = devices2[vid]) == null ? void 0 : _a[key];
+  if (!(d == null ? void 0 : d.on)) return "off";
+  return Date.now() - d.since >= (DEVICE_WARM[key] ?? 0) ? "ready" : "warmup";
+}
+function deviceInfo(vid) {
+  var _a;
+  const o = {};
+  for (const k of Object.keys(DEVICE_WARM)) {
+    const d = (_a = devices2[vid]) == null ? void 0 : _a[k];
+    o[k] = { on: !!(d == null ? void 0 : d.on), elapsed_ms: (d == null ? void 0 : d.on) ? Date.now() - d.since : 0, warm_ms: DEVICE_WARM[k] };
+  }
+  return o;
+}
+function setDevicePower(by, vid, key, on2) {
+  var _a;
+  if (!(key in DEVICE_WARM)) return { error: "Unbekanntes Ger\xE4t" };
+  const cur = (_a = devices2[vid]) == null ? void 0 : _a[key];
+  if (on2 && (cur == null ? void 0 : cur.on)) return { devices: deviceInfo(vid) };
+  if (!on2 && !(cur == null ? void 0 : cur.on)) return { devices: deviceInfo(vid) };
+  (devices2[vid] ??= {})[key] = { on: on2, since: Date.now() };
+  audit(by, on2 ? "power_on" : "power_off", "device", `${vid}/${key}`);
+  emit("device.changed", { vehicle_id: vid, devices: deviceInfo(vid) });
+  return { devices: deviceInfo(vid) };
+}
+function resetDevices() {
+  for (const k of Object.keys(devices2)) delete devices2[k];
+}
 var state = {
   drive: process.env.DEV_DRIVE === "1",
   s: 0,
@@ -4650,14 +4681,15 @@ function evaluateAndStore(v, pos, r, mission, forceRoutine) {
   const base = { lat: pos.lat, lon: pos.lon, vehicle_id: v.id, mission_id: (mission == null ? void 0 : mission.id) ?? null, run_id: ((_a = state.runs[v.id]) == null ? void 0 : _a.id) ?? null, incident_id: ((_b = activeIncident()) == null ? void 0 : _b.id) ?? null };
   const rows = [];
   const throttle = state.tick % 3 === 0;
-  if (r.pid.value >= 2 && throttle) rows.push({ ...base, device: "PID", value: r.pid.value, unit: "ppm", status: r.pid.value >= 50 ? "HOCH" : "ERH\xD6HT", level: "hinweis", headline: "Erh\xF6hte VOC-Anzeige (Screening)", candidates: r.pid.groups, remark: null });
-  if (r.ims.level && throttle) rows.push({ ...base, device: "IMS", value: r.ims.confidence, unit: r.ims.confidence != null ? "%" : null, status: r.ims.level === "moegliche_identifikation" ? "AUSWERTUNG ERFORDERLICH" : "ERH\xD6HT", level: r.ims.level, headline: r.ims.result, substance_id: r.ims.level === "moegliche_identifikation" ? r.ims.substance_id : null, candidates: r.ims.candidates, remark: null });
+  const ok2 = (k) => devState(v.id, k) === "ready";
+  if (ok2("pid") && r.pid.value >= 2 && throttle) rows.push({ ...base, device: "PID", value: r.pid.value, unit: "ppm", status: r.pid.value >= 50 ? "HOCH" : "ERH\xD6HT", level: "hinweis", headline: "Erh\xF6hte VOC-Anzeige (Screening)", candidates: r.pid.groups, remark: null });
+  if (ok2("ims") && r.ims.level && throttle) rows.push({ ...base, device: "IMS", value: r.ims.confidence, unit: r.ims.confidence != null ? "%" : null, status: r.ims.level === "moegliche_identifikation" ? "AUSWERTUNG ERFORDERLICH" : "ERH\xD6HT", level: r.ims.level, headline: r.ims.result, substance_id: r.ims.level === "moegliche_identifikation" ? r.ims.substance_id : null, candidates: r.ims.candidates, remark: null });
   const ch = r.mgmg.channels;
   const bad = ch.O2 != null && ch.O2 < 19.5 || (ch.CO ?? 0) > 30 || (ch.H2S ?? 0) > 5 || (ch.LEL ?? 0) > 10;
   const raised = (ch.CO ?? 0) > 5 || (ch.H2S ?? 0) > 0.5 || (ch.LEL ?? 0) > 1;
-  if ((bad || raised) && throttle) rows.push({ ...base, device: "MGMG", value: ch.LEL ?? null, unit: "%LEL", channels: ch, status: bad ? "ALARM" : "ERH\xD6HT", level: "hinweis", headline: bad ? "Grenzwert-/Alarmschwelle \xFCberschritten" : "Kanalanzeige erh\xF6ht", remark: null });
-  if (r.dose.value >= 0.3 && throttle) rows.push({ ...base, device: "DLM", value: r.dose.value, unit: "\xB5Sv/h", status: r.dose.value >= 1 ? "ALARM" : "ERH\xD6HT", level: "hinweis", headline: "Erh\xF6hte Dosisleistung", remark: null });
-  if (forceRoutine) rows.push({ ...base, device: "FMG", value: r.dose.value, unit: "\xB5Sv/h", status: "NORMAL", level: null, headline: "FMG-Routinemesspunkt", remark: null });
+  if (ok2("mgmg") && (bad || raised) && throttle) rows.push({ ...base, device: "MGMG", value: ch.LEL ?? null, unit: "%LEL", channels: ch, status: bad ? "ALARM" : "ERH\xD6HT", level: "hinweis", headline: bad ? "Grenzwert-/Alarmschwelle \xFCberschritten" : "Kanalanzeige erh\xF6ht", remark: null });
+  if (ok2("dlm") && r.dose.value >= 0.3 && throttle) rows.push({ ...base, device: "DLM", value: r.dose.value, unit: "\xB5Sv/h", status: r.dose.value >= 1 ? "ALARM" : "ERH\xD6HT", level: "hinweis", headline: "Erh\xF6hte Dosisleistung", remark: null });
+  if (ok2("fmg") && forceRoutine) rows.push({ ...base, device: "FMG", value: r.dose.value, unit: "\xB5Sv/h", status: "NORMAL", level: null, headline: "FMG-Routinemesspunkt", remark: null });
   const saved = rows.map((row) => storeMeasurement(row));
   for (const m of saved) {
     if (m.device === "IMS" && m.level === "moegliche_identifikation") {
@@ -4852,11 +4884,11 @@ function tick() {
     }
     T2.last = pos;
     if (R2) {
-      R2.maxDose = Math.max(R2.maxDose, r.dose.value);
-      R2.maxPid = Math.max(R2.maxPid, r.pid.value);
+      if (devState(v.id, "dlm") === "ready" || devState(v.id, "fmg") === "ready") R2.maxDose = Math.max(R2.maxDose, r.dose.value);
+      if (devState(v.id, "pid") === "ready") R2.maxPid = Math.max(R2.maxPid, r.pid.value);
       if (state.tick % 5 === 0) saveRun(R2);
     }
-    const payload = { vehicle_id: v.id, ts: now(), lat: pos.lat, lon: pos.lon, speed_kmh: +(speed * 3.6).toFixed(0), heading: cur.heading, ...r, track_km: +(T2.len / 1e3).toFixed(2), run: runInfo(v.id), mp_count: db.prepare("SELECT COUNT(*) c FROM measurements WHERE vehicle_id = ?").get(v.id).c };
+    const payload = { vehicle_id: v.id, ts: now(), lat: pos.lat, lon: pos.lon, speed_kmh: +(speed * 3.6).toFixed(0), heading: cur.heading, ...r, track_km: +(T2.len / 1e3).toFixed(2), run: runInfo(v.id), devices: deviceInfo(v.id), mp_count: db.prepare("SELECT COUNT(*) c FROM measurements WHERE vehicle_id = ?").get(v.id).c };
     state.live[v.id] = payload;
     emit("reading.live", payload);
     emit("vehicle.position", cur);
@@ -5131,7 +5163,7 @@ function buildReport(missionId, author) {
     const s = get("substances", id);
     return { id, name: s == null ? void 0 : s.name, cas: s == null ? void 0 : s.cas, category: s == null ? void 0 : s.cbrn_category, quality: s == null ? void 0 : s.quality, source: (_a2 = get("sources", s == null ? void 0 : s.source_id)) == null ? void 0 : _a2.name };
   });
-  const devices2 = [...new Set(meas.map((x) => x.device))];
+  const devices3 = [...new Set(meas.map((x) => x.device))];
   const anomalies = meas.filter((x) => x.status !== "NORMAL");
   return {
     kind: "EINSATZBERICHT",
@@ -5144,7 +5176,7 @@ function buildReport(missionId, author) {
     crew: crewOf(m.vehicle_id),
     start: from,
     end: m.ended_at ?? null,
-    devices: devices2,
+    devices: devices3,
     measurement_count: meas.length,
     measurements: meas,
     anomalies: anomalies.length,
@@ -5330,6 +5362,7 @@ function endIncident(by, id, form = {}) {
   const missing = REQUIRED.filter(([k]) => !String(f[k] ?? "").trim()).map(([, l]) => l);
   if (missing.length) return { error: `Einsatzbericht unvollst\xE4ndig: ${missing.join(", ")}` };
   for (const vid of Object.keys(state.runs)) stopRun(by, vid);
+  resetDevices();
   const ended = now();
   const t = (v) => String(v ?? "").trim() || null;
   const crew = list("incident_crew", "WHERE incident_id = ? ORDER BY since", [id]).map((c) => {
@@ -5610,6 +5643,13 @@ function registerRoutes(app) {
     const rows = run ? db.prepare("SELECT lat,lon,ts FROM measurements WHERE run_id = ? ORDER BY seq DESC LIMIT 1500").all(run) : db.prepare("SELECT lat,lon,ts FROM measurements WHERE vehicle_id = ? ORDER BY seq DESC LIMIT 400").all(vid);
     return rows.reverse();
   });
+  app.post("/api/devices/:key/power", async (req) => {
+    var _a;
+    const u = need(req);
+    const r = setDevicePower(u.id, u.vehicle_id, req.params.key, !!((_a = req.body) == null ? void 0 : _a.on));
+    if (r.error) throw Object.assign(new Error(r.error), { statusCode: 400 });
+    return r;
+  });
   app.get("/api/runs", async () => list("runs", "", [], "ORDER BY started_at DESC LIMIT 100").map((r) => {
     var _a;
     return ((_a = state.runs[r.vehicle_id]) == null ? void 0 : _a.id) === r.id ? { ...r, distance_m: Math.round(state.runs[r.vehicle_id].dist), active: true } : r;
@@ -5774,7 +5814,9 @@ function registerRoutes(app) {
     const mission = list("missions", "WHERE vehicle_id = ? AND status = 'IN BEARBEITUNG' LIMIT 1", [v.id])[0];
     const kinds = ["FEST", "FL\xDCSSIG", "LUFT", "BIOLOGISCH", "RADIOLOGISCH", "CHEMISCH"];
     const kind = kinds.includes(b.kind) ? b.kind : "FL\xDCSSIG";
-    const readings = { PID: `${snap.r.pid.value} ppm`, Dosisleistung: `${snap.r.dose.value} \xB5Sv/h`, IMS: snap.r.ims.result, pH: b.ph ?? "NICHT GEMESSEN", ...b.readings ?? {} };
+    const rd = (k) => devState(v.id, k) === "ready";
+    const NB = "GER\xC4T NICHT BETRIEBSBEREIT";
+    const readings = { PID: rd("pid") ? `${snap.r.pid.value} ppm` : NB, Dosisleistung: rd("dlm") ? `${snap.r.dose.value} \xB5Sv/h` : NB, IMS: rd("ims") ? snap.r.ims.result : NB, pH: b.ph ?? "NICHT GEMESSEN", ...b.readings ?? {} };
     const row = {
       id,
       ts: now(),

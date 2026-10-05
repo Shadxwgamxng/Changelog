@@ -1,5 +1,7 @@
 // Eigene, vektorgrafische Illustrationen der Messgeräte (keine Fotos, keine Nachzeichnung von Herstellerbildern).
 // Die Geräte sind als typische Bauformen dargestellt; Live-Werte erscheinen direkt im Display bzw. an den Beschriftungen.
+import { devCalc, type DevCalc } from '../lib/devices';
+import { useNow } from './DevicePower';
 import { useMemo, useState, type ReactNode } from 'react';
 import { useLive } from '../store';
 import { useApi } from '../store';
@@ -102,8 +104,10 @@ function ComoArt({ r }: { r: any }) {
 // FMG: vom Betreiber geliefertes Fahrzeugbild (public/devices/fmg.png, 939×412), Anker als Bruchteile der Bildfläche
 const FMG_BOX = { x: 170, y: 128, w: 420, h: 420 * 412 / 939 };
 const fmgPt = (fx: number, fy: number): [number, number] => [FMG_BOX.x + fx * FMG_BOX.w, FMG_BOX.y + fy * FMG_BOX.h];
-function FmgArt(_p: { r: any; drive: boolean }) {
-  return (<g filter="url(#shadow)"><image href={imgUrl('fmg')} x={FMG_BOX.x} y={FMG_BOX.y} width={FMG_BOX.w} height={FMG_BOX.h} preserveAspectRatio="xMidYMid meet" /></g>);
+function FmgArt({ r, now }: { r: any; drive: boolean; now: number }) {
+  const c = devCalc(r?.devices, 'fmg', now); const S = { x: FMG_BOX.x + FMG_BOX.w / 2 - 90, y: FMG_BOX.y + FMG_BOX.h + 14, w: 180, h: 34 };
+  return (<g><g filter="url(#shadow)"><image href={imgUrl('fmg')} x={FMG_BOX.x} y={FMG_BOX.y} width={FMG_BOX.w} height={FMG_BOX.h} preserveAspectRatio="xMidYMid meet" /></g>
+    {c.state !== 'ready' && <g><BootScreen L={S} c={c} bg="#10140f" /><text x={S.x + S.w / 2} y={S.y - 5} fontSize={9} textAnchor="middle" fill={COL.dim}>FMG-DISPLAY</text></g>}</g>);
 }
 function TubesArt({ tube }: { tube: any }) {
   return (<g filter="url(#shadow)">
@@ -130,8 +134,20 @@ const lcd = (id: string) => { const b = box(id); const [u0, v0, u1, v1] = b.g.lc
 const LCD_BG: Record<string, string> = { como: '#d7dc2e', mgmg: '#a9c79b', pid: '#b9d3a8', dlm: '#8d9b8c', ims: '#8f9c90' };
 const INK = '#16221a'; const MONO = "'Geist Mono Variable', monospace";
 
-function ImgArt({ id, r, channels }: { id: string; r: any; channels: string[] }) {
-  const b = box(id); const L = lcd(id);
+/** Display-Anzeige, solange das Gerät aus ist oder startet: kleine Fortschrittsleiste auf dem Bildschirm */
+function BootScreen({ L, c, bg }: { L: { x: number; y: number; w: number; h: number }; c: DevCalc; bg: string }) {
+  const bw = L.w * 0.8, bx = L.x + L.w * 0.1, by = L.y + L.h * 0.55, bh = Math.max(4, L.h * 0.16);
+  return (<g>
+    <rect x={L.x} y={L.y} width={L.w} height={L.h} rx={2} fill={bg} />
+    {c.state === 'off' ? <text x={L.x + L.w / 2} y={L.y + L.h * 0.62} fontSize={L.h * 0.26} textAnchor="middle" fill="#4b5a4d" fontFamily={MONO} fontWeight="bold">AUS</text> : (<>
+      <text x={L.x + L.w / 2} y={L.y + L.h * 0.38} fontSize={L.h * 0.19} textAnchor="middle" fill="#9fd9ae" fontFamily={MONO}>STARTET</text>
+      <rect x={bx} y={by} width={bw} height={bh} rx={bh / 2} fill="none" stroke="#9fd9ae" strokeWidth={1} />
+      <rect x={bx + 1.5} y={by + 1.5} width={Math.max(0, (bw - 3) * c.progress)} height={bh - 3} rx={(bh - 3) / 2} fill="#9fd9ae" />
+      <text x={L.x + L.w / 2} y={L.y + L.h * 0.93} fontSize={L.h * 0.15} textAnchor="middle" fill="#9fd9ae" fontFamily={MONO}>{Math.round(c.progress * 100)} %</text></>)}
+  </g>);
+}
+function ImgArt({ id, r, channels, now }: { id: string; r: any; channels: string[]; now: number }) {
+  const b = box(id); const L = lcd(id); const dc = devCalc(r?.devices, id, now);
   const dose = r?.dose.value ?? 0, st = doseStatus(dose);
   let content: ReactNode = null;
   if (id === 'pid') { const v = r?.pid.value ?? 0; content = (<><text x={L.x + L.w / 2} y={L.y + L.h * 0.62} fontSize={L.h * 0.38} fontWeight="bold" textAnchor="middle" fill={INK} fontFamily={MONO}>{num(v, 1)}</text><text x={L.x + L.w / 2} y={L.y + L.h * 0.9} fontSize={L.h * 0.15} textAnchor="middle" fill={INK} fontFamily={MONO}>ppm · {pidStatus(v)}</text></>); }
@@ -146,9 +162,8 @@ function ImgArt({ id, r, channels }: { id: string; r: any; channels: string[] })
   const lv = r?.ims?.level; const lit = lv === 'moegliche_identifikation' ? 9 : lv === 'verdacht' ? 6 : lv === 'hinweis' ? 3 : 0;
   return (<g filter="url(#shadow)">
     <image href={imgUrl(id)} x={b.x} y={b.y} width={b.w} height={b.h} preserveAspectRatio="xMidYMid meet" />
-    <rect x={L.x} y={L.y} width={L.w} height={L.h} rx={2} fill={LCD_BG[id]} />
-    {content}
-    {id === 'ims' && Array.from({ length: 9 }, (_, k) => { const [lx, ly] = pt('ims', 'leds'); return <circle key={k} cx={lx - 40 + k * 10} cy={ly} r={3} fill={k < lit ? '#ff3b30' : '#444'} />; })}
+    {dc.state === 'ready' ? (<><rect x={L.x} y={L.y} width={L.w} height={L.h} rx={2} fill={LCD_BG[id]} />{content}</>) : <BootScreen L={L} c={dc} bg="#0e130f" />}
+    {id === 'ims' && dc.state === 'ready' && Array.from({ length: 9 }, (_, k) => { const [lx, ly] = pt('ims', 'leds'); return <circle key={k} cx={lx - 40 + k * 10} cy={ly} r={3} fill={k < lit ? '#ff3b30' : '#444'} />; })}
   </g>);
 }
 
@@ -220,20 +235,20 @@ function useSpots(id: string, ctx: any): Spot[] {
 /* ------------------------------------------------------------------ Komponente */
 function Art({ id, ctx }: { id: string; ctx: any }) {
   const { r } = ctx;
-  if (IMG[id]) return <ImgArt id={id} r={r} channels={ctx.channels} />;
+  if (IMG[id]) return <ImgArt id={id} r={r} channels={ctx.channels} now={ctx.now} />;
   switch (id) {
     case 'pid': return <PidArt r={r} />; case 'ims': return <ImsArt r={r} />; case 'mgmg': return <MgmgArt r={r} channels={ctx.channels} />; case 'dlm': return <DlmArt r={r} />;
-    case 'como': return <ComoArt r={r} />; case 'fmg': return <FmgArt r={r} drive={ctx.drive} />; case 'tubes': return <TubesArt tube={ctx.tube} />; default: return null;
+    case 'como': return <ComoArt r={r} />; case 'fmg': return <FmgArt r={r} drive={ctx.drive} now={ctx.now} />; case 'tubes': return <TubesArt tube={ctx.tube} />; default: return null;
   }
 }
 function useCtx(tubeId?: string) {
-  const { live, vehicles, hist, trackKm, mpCount, meta, own, status } = useLive(); const drive = status?.fivem === 'CONNECTED'; const dur = useSession();
+  const { live, vehicles, hist, trackKm, mpCount, meta, own, status } = useLive(); const drive = status?.fivem === 'CONNECTED'; const dur = useSession(); const now = useNow(500);
   const tubes = useApi<any[]>('/test-tubes').data ?? []; const missions = useApi<any[]>('/missions', ['mission.updated']).data ?? [];
   const r = live[own]; const v = vehicles.find((x) => x.id === own);
   return useMemo(() => ({
-    vname: v?.name ?? '–', r, dur, hist, trackKm, mpCount, drive, tubes, tube: tubes.find((t) => t.id === tubeId) ?? tubes[0], channels: (meta?.mgmg_channels ?? ['O2', 'CO', 'H2S', 'LEL', 'CH4']) as string[],
+    vname: v?.name ?? '–', r, now, dur, hist, trackKm, mpCount, drive, tubes, tube: tubes.find((t) => t.id === tubeId) ?? tubes[0], channels: (meta?.mgmg_channels ?? ['O2', 'CO', 'H2S', 'LEL', 'CH4']) as string[],
     pos: v ? fmtPos(meta?.map?.mode, v.lat, v.lon) : '–', mission: missions.find((m) => m.vehicle_id === own && m.status === 'IN BEARBEITUNG'), run: r?.run ?? null,
-  }), [r, dur, hist, trackKm, mpCount, drive, tubes, tubeId, meta, v, missions]);
+  }), [r, now, dur, hist, trackKm, mpCount, drive, tubes, tubeId, meta, v, missions]);
 }
 
 export function DeviceThumb({ id }: { id: string }) {
@@ -242,7 +257,7 @@ export function DeviceThumb({ id }: { id: string }) {
 }
 
 export function DeviceFigure({ id }: { id: string }) {
-  const [tubeId, setTubeId] = useState<string | undefined>(); const ctx = useCtx(tubeId); const spots = useSpots(id, ctx); const [sel, setSel] = useState<number>(1);
+  const [tubeId, setTubeId] = useState<string | undefined>(); const ctx = useCtx(tubeId); const spots = useSpots(id, devCalc(ctx.r?.devices, id, ctx.now).state === 'ready' || id === 'tubes' ? ctx : { ...ctx, r: null }); const [sel, setSel] = useState<number>(1);
   const cur = spots.find((s) => s.n === sel) ?? spots[0];
   return (
     <div className="grid grid-cols-12 gap-3 mb-3">

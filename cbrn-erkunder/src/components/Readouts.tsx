@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { DeviceOff, useDev } from './DevicePower';
 import { Field, Badge, StatusBadge, LevelBadge, CatBadge, SimNote, Panel, Na } from './ui';
 import { useApi, useLive } from '../store';
 import { num, time, NA } from '../lib/format';
@@ -8,7 +9,7 @@ export const doseStatus = (v: number) => (v >= 1 ? 'ALARM' : v >= 0.3 ? 'ERHÖHT
 
 export function useSession() { const { hist } = useLive(); const s = hist[0]?.t ?? Date.now(); const d = Math.max(0, Math.round((Date.now() - s) / 1000)); return `${String(Math.floor(d / 3600)).padStart(2, '0')}:${String(Math.floor(d / 60) % 60).padStart(2, '0')}:${String(d % 60).padStart(2, '0')}`; }
 
-export function ImsPanel({ r, link = true }: { r: any; link?: boolean }) {
+function ImsInner({ r, link = true }: { r: any; link?: boolean }) {
   const sub = useApi<any>(r?.ims?.substance_id ? `/substances/${r.ims.substance_id}` : null, [], [r?.ims?.substance_id]);
   if (!r) return <Panel title="IMS – Ionenmobilitätsspektrometer">Keine Daten</Panel>;
   const i = r.ims;
@@ -34,7 +35,7 @@ export function ImsPanel({ r, link = true }: { r: any; link?: boolean }) {
   );
 }
 
-export function PidPanel({ r, link = true }: { r: any; link?: boolean }) {
+function PidInner({ r, link = true }: { r: any; link?: boolean }) {
   const dur = useSession(); if (!r) return null; const v = r.pid.value; const st = pidStatus(v);
   return (
     <Panel title="PID" right={link && <Link className="text-accent" to="/geraete/pid">Gerätepage →</Link>} className="h-full">
@@ -46,7 +47,7 @@ export function PidPanel({ r, link = true }: { r: any; link?: boolean }) {
   );
 }
 
-export function MgmgPanel({ r, link = true }: { r: any; link?: boolean }) {
+function MgmgInner({ r, link = true }: { r: any; link?: boolean }) {
   const { meta } = useLive(); if (!r) return null; const ch = r.mgmg.channels as Record<string, number | null>;
   const U: Record<string, [string, string]> = { O2: ['O₂', '% vol'], CO: ['CO', 'ppm'], H2S: ['H₂S', 'ppm'], LEL: ['EX', '%LEL'], CH4: ['CH₄', 'ppm'] };
   const warn = (k: string, v: number) => (k === 'O2' ? v < 19.5 : k === 'CO' ? v > 30 : k === 'H2S' ? v > 5 : k === 'LEL' ? v > 10 : false);
@@ -62,7 +63,7 @@ export function MgmgPanel({ r, link = true }: { r: any; link?: boolean }) {
   );
 }
 
-export function RadPanel({ r, link = true }: { r: any; link?: boolean }) {
+function RadInner({ r, link = true }: { r: any; link?: boolean }) {
   const { hist } = useLive(); if (!r) return null; const st = doseStatus(r.dose.value);
   return (
     <Panel title="Radiologische Messung" right={link && <Link className="text-accent" to="/geraete/dlm">Gerätepage →</Link>} className="h-full">
@@ -72,7 +73,7 @@ export function RadPanel({ r, link = true }: { r: any; link?: boolean }) {
   );
 }
 
-export function FmgPanel({ r, link = true }: { r: any; link?: boolean }) {
+function FmgInner({ r, link = true }: { r: any; link?: boolean }) {
   const { trackKm, mpCount } = useLive(); if (!r) return null; const st = doseStatus(r.dose.value);
   return (
     <Panel title="FMG – Fahrzeuggesteuertes Messsystem Gamma" right={link && <Link className="text-accent" to="/geraete/fmg">Gerätepage →</Link>} className="h-full">
@@ -83,4 +84,16 @@ export function FmgPanel({ r, link = true }: { r: any; link?: boolean }) {
     </Panel>
   );
 }
+
+function Gate({ k, title, to, link, children }: { k: string; title: string; to: string; link?: boolean; children: React.ReactNode }) {
+  const d = useDev(k);
+  if (d.ready) return <>{children}</>;
+  return (<Panel title={title} right={link !== false && <Link className="text-accent" to={`/geraete/${to}`}>Gerätepage →</Link>} className="h-full"><DeviceOff k={k} /></Panel>);
+}
+type P = { r: any; link?: boolean };
+export const ImsPanel = (p: P) => <Gate k="ims" title="IMS" to="ims" link={p.link}><ImsInner {...p} /></Gate>;
+export const PidPanel = (p: P) => <Gate k="pid" title="PID" to="pid" link={p.link}><PidInner {...p} /></Gate>;
+export const MgmgPanel = (p: P) => <Gate k="mgmg" title="MGMG" to="mgmg" link={p.link}><MgmgInner {...p} /></Gate>;
+export const RadPanel = (p: P) => <Gate k="dlm" title="Radiologische Messung" to="dlm" link={p.link}><RadInner {...p} /></Gate>;
+export const FmgPanel = (p: P) => <Gate k="fmg" title="FMG – Fahrzeuggesteuertes Messsystem Gamma" to="fmg" link={p.link}><FmgInner {...p} /></Gate>;
 export { Na, NA };

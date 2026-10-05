@@ -5,6 +5,8 @@ import { SpectrumChart, TimeChart } from '../components/Charts';
 import { useApi, useLive } from '../store';
 import { num, time, dt } from '../lib/format';
 import { DeviceFigure, DeviceThumb } from '../components/DeviceFigure';
+import { AllPower, PowerButton, stateText, useNow } from '../components/DevicePower';
+import { devCalc } from '../lib/devices';
 
 const CUR = (id: string, r: any): [string, string, string] => {
   if (!r) return ['–', '', 'OFFLINE'];
@@ -20,17 +22,18 @@ const CUR = (id: string, r: any): [string, string, string] => {
 export const dev_id = (d: any) => (d.id === 'como' ? 'como' : d.id);
 
 export default function Devices() {
-  const devs = useApi<any[]>('/devices'); const { live, own } = useLive(); const r = live[own];
+  const devs = useApi<any[]>('/devices'); const { live, own } = useLive(); const r = live[own]; const now = useNow(500);
   return (
-    <Page title="Messgeräte" sub="Ausstattung gemäß öffentlich dokumentierter Beschreibung der neuen ErkW-Generation (BBK)">
+    <Page title="Messgeräte" sub="Ausstattung gemäß öffentlich dokumentierter Beschreibung der neuen ErkW-Generation (BBK)" right={<AllPower />}>
       <div className="grid grid-cols-3 gap-3">
-        {(devs.data ?? []).map((d) => { const [v, u, st] = CUR(d.id, r); return (
+        {(devs.data ?? []).map((d) => { const dc = devCalc(r?.devices, d.id, now); const [v0, u0, st0] = CUR(d.id, r); const hasPwr = d.id !== 'tubes'; const ready = !hasPwr || dc.state === 'ready'; const v = ready ? v0 : dc.state === 'off' ? 'AUS' : `${Math.round(dc.progress * 100)} %`; const u = ready ? u0 : ''; const st = ready ? st0 : dc.state === 'off' ? 'AUS' : 'STARTET'; return (
           <Link key={d.id} to={`/geraete/${d.id}`} className="panel p-3 hover:border-accent block">
             <DeviceThumb id={d.id} />
-            <div className="flex justify-between"><b className="text-[14px]">{d.short}</b><StatusBadge s={d.id === 'tubes' ? 'VERFÜGBAR' : 'ONLINE'} /></div>
+            <div className="flex justify-between"><b className="text-[14px]">{d.short}</b><StatusBadge s={d.id === 'tubes' ? 'VERFÜGBAR' : stateText(dc)} /></div>
             <div className="text-dim text-[12px] mb-2">{d.name}</div>
             <div className="flex items-end gap-2"><span className="font-mono text-[22px]">{v}</span><span className="text-dim">{u}</span><span className="ml-auto"><StatusBadge s={st} /></span></div>
             <div className="text-[11px] text-dim mt-2">{d.description}</div>
+            {hasPwr && <div className="mt-3"><PowerButton k={d.id} /></div>}
           </Link>); })}
       </div>
     </Page>
@@ -39,18 +42,18 @@ export default function Devices() {
 
 export function DevicePage() {
   const { id = 'pid' } = useParams(); const dev = useApi<any[]>('/devices').data?.find((d) => d.id === id);
-  const { live, hist, own } = useLive(); const r = live[own]; const dur = useSession();
+  const { live, hist, own } = useLive(); const r = live[own]; const dur = useSession(); const now = useNow(500);
   const missions = useApi<any[]>('/missions', ['mission.updated']); const mission = missions.data?.find((m) => m.vehicle_id === own && m.status === 'IN BEARBEITUNG');
   const key = id === 'ims' ? 'IMS' : id === 'pid' ? 'PID' : id === 'mgmg' ? 'MGMG' : id === 'dlm' ? 'DLM' : id === 'fmg' ? 'FMG' : id;
   const mh = useApi<any[]>(`/measurements?vehicle_id=${own}&device=${key}&limit=40`, ['measurement.created', 'poll'], [key]);
   const spec = useApi<any>(id === 'dlm' || id === 'como' ? `/live/spectrum?vehicle=${own}` : null, ['poll'], [r?.ts]);
   const tubes = useApi<any[]>(id === 'tubes' ? '/test-tubes' : null);
   if (!dev) return <Page title="Gerät"><Empty>Gerät nicht gefunden</Empty></Page>;
-  const [v, u, st] = CUR(id, r);
+  const [v, u, st] = CUR(id, r); const dc = devCalc(r?.devices, id, now); const hasPwr = id !== 'tubes';
   return (
-    <Page title={dev.short} sub={dev.name} right={<Link className="btn" to="/geraete">← Geräte</Link>}>
+    <Page title={dev.short} sub={dev.name} right={<>{hasPwr && <PowerButton k={id} />}<Link className="btn" to="/geraete">← Geräte</Link></>}>
       <div className="panel p-3 mb-3 grid grid-cols-6 gap-4">
-        <Field label="Status"><StatusBadge s="ONLINE" /></Field><Field label="Aktueller Messwert">{v}</Field><Field label="Einheit">{u || '–'}</Field>
+        <Field label="Status"><span className="flex items-center gap-2"><StatusBadge s={hasPwr ? stateText(dc) : 'VERFÜGBAR'} /></span></Field><Field label="Aktueller Messwert">{!hasPwr || dc.state === 'ready' ? v : '–'}</Field><Field label="Einheit">{u || '–'}</Field>
         <Field label="Messdauer">{dur}</Field><Field label="GPS"><StatusBadge s="FIX" /></Field><Field label="Auftrag">{mission ? `#${mission.id}` : '–'}</Field>
       </div>
       <DeviceFigure id={id} />

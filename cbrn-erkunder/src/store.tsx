@@ -44,7 +44,8 @@ export function LiveProvider({ children }: { children: ReactNode }) {
   }, []);
   useEffect(() => { const f = () => { setToken(null); setSession(null); }; window.addEventListener('cbrn-auth-lost', f); return () => window.removeEventListener('cbrn-auth-lost', f); }, []);
 
-  const applyLive = useCallback((d: any) => { setLive((p) => ({ ...p, ...d.vehicles })); setWeather(d.weather); setStatus((s: any) => ({ ...s, ...d.status })); }, []);
+  const stamp = (p: any) => { if (p?.devices) p.devices._at = Date.now(); return p; };
+  const applyLive = useCallback((d: any) => { Object.values(d.vehicles ?? {}).forEach(stamp); setLive((p) => ({ ...p, ...d.vehicles })); setWeather(d.weather); setStatus((s: any) => ({ ...s, ...d.status })); }, []);
   const loadAll = useCallback(() => { api('/system/status').then(setStatus).catch(() => {}); api('/vehicles').then(setVehicles).catch(() => {}); api('/live').then(applyLive).catch(() => {}); api('/incident').then((i) => { setIncident(i && i.id ? i : null); setIncidentLoaded(true); }).catch(() => setIncidentLoaded(true)); }, [applyLive]);
   useEffect(() => { if (session) { setHist([]); loadAll(); } }, [session, loadAll]);
 
@@ -60,12 +61,13 @@ export function LiveProvider({ children }: { children: ReactNode }) {
       switch (e.type) {
           case 'hello': case 'system.status': setStatus((s: any) => ({ ...s, ...e.payload })); break;
           case 'reading.live': {
-            const p = e.payload; setLive((l) => ({ ...l, [p.vehicle_id]: p }));
+            const p = stamp(e.payload); setLive((l) => ({ ...l, [p.vehicle_id]: p }));
             if (p.vehicle_id === ownRef.current) setHist((h) => [...h.slice(-179), { t: Date.parse(e.ts), pid: p.pid.value, dose: p.dose.value, speed: p.speed_kmh }]);
             break;
           }
           case 'vehicle.position': case 'vehicle.status': setVehicles((vs) => vs.map((v) => (v.id === e.payload.id ? e.payload : v))); break;
           case 'incident.changed': setIncident(e.payload && e.payload.id ? e.payload : null); setRev((r) => ({ ...r, [e.type]: (r[e.type] ?? 0) + 1 })); break;
+          case 'device.changed': setLive((l) => ({ ...l, [e.payload.vehicle_id]: { ...l[e.payload.vehicle_id], devices: stamp({ ...e.payload.devices }) } })); break;
           case 'map.changed': setMeta((m: any) => (m ? { ...m, map: { ...m.map, ...e.payload } } : m)); break;
           case 'weather.updated': setWeather(e.payload); break;
           case 'alarm.created': setToasts((t) => [...t.slice(-3), e.payload]); setTimeout(() => setToasts((t) => t.slice(1)), 9000); setRev((r) => ({ ...r, [e.type]: (r[e.type] ?? 0) + 1 })); break;

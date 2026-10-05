@@ -5,6 +5,7 @@ import { useApi, useLive } from '../store';
 import { EndIncidentModal } from '../components/IncidentReport';
 import { Btn } from '../components/ui';
 import { useState } from 'react';
+import { devCalc, DEVICE_KEYS } from '../lib/devices';
 import { RunCard } from '../components/RunCard';
 import { WeatherCopy } from '../components/WeatherCopy';
 import { num, STATUS_COLOR, fmtPos } from '../lib/format';
@@ -16,6 +17,7 @@ export default function Dashboard() {
   const samples = useApi<any[]>('/samples', ['sample.created', 'sample.updated']);
   const alarms = useApi<any[]>('/alarms', ['alarm.created']);
   const devices = useApi<any[]>('/devices');
+  const readyN = DEVICE_KEYS.filter((k) => devCalc(r?.devices, k).state === 'ready').length;
   const activeM = (missions.data ?? []).filter((m) => ['ÜBERMITTELT', 'ANGENOMMEN', 'IN BEARBEITUNG'].includes(m.status));
   const open = (alarms.data ?? []).filter((a) => a.status === 'OFFEN');
   return (
@@ -25,7 +27,7 @@ export default function Dashboard() {
         <Stat label="Fahrzeug" value={<span className="text-[15px]">{v?.name ?? '–'}</span>} sub={<StatusBadge s={v?.status} />} />
         <Stat label="GPS" value={<span style={{ color: STATUS_COLOR(v?.gps_fix ? 'FIX' : 'KEIN') }}>{v?.gps_fix ? 'FIX' : 'KEIN FIX'}</span>} sub={r ? fmtPos(meta?.map?.mode, r.lat, r.lon) : ''} />
         <Stat label="DFÜ" value={<span style={{ color: STATUS_COLOR(v?.link) }}>{v?.link ?? '–'}</span>} />
-        <Stat label="Messgeräte" value={`${devices.data?.length ?? 7} / ${devices.data?.length ?? 7}`} sub="alle betriebsbereit" />
+        <Stat label="Messgeräte" value={`${readyN} / ${DEVICE_KEYS.length}`} sub="betriebsbereit" />
         <Stat label="Aktive Aufträge" value={activeM.length} />
         <Stat label="Messpunkte" value={mpCount.toLocaleString('de-DE')} />
         <Stat label="Proben" value={samples.data?.length ?? 0} />
