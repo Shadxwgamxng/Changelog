@@ -53,7 +53,7 @@ export interface Run { id: string; vehicle_id: string; name: string; started_at:
 /** z_fire-Rauch am Fahrzeug (vom Client gemeldet): Entfernung zum nächsten Rauch in m, null = nichts / z_fire aus. */
 const zSmoke: Record<string, { ring: number | false; at: number }> = {};
 const RING_F: Record<number, number> = { 10: 1, 25: 0.7, 50: 0.4, 100: 0.15 };
-export function zSmokeFactor(vid: string) { const z = zSmoke[vid]; return z && z.ring !== false && Date.now() - z.at < 6000 ? RING_F[z.ring] ?? 0 : 0; }
+export function zSmokeFactor(vid: string) { const z = zSmoke[vid]; return z && z.ring !== false && Date.now() - z.at < 20000 ? RING_F[z.ring] ?? 0 : 0; }
 export const state = {
   drive: process.env.DEV_DRIVE === '1', s: 0, s2: 0, speed: 12, seen: {} as Record<string, number>, // m/s
   weather: { temperature: 11.4, humidity: 78, pressure: 1014, wind_speed: 3.4, wind_from: 315, cloud_okta: 5, precipitation: 0 },

@@ -37,6 +37,7 @@ end
 
 -- z_fire: Rauch in der Naehe erkennen (Export getSmokeInRange). Wir kennen nur die Anwesenheit -> mehrere Radien
 -- abfragen; der kleinste Radius mit Rauch bestimmt die ungefaehre Entfernung zum Rauch.
+local lastSmokeCheck = nil
 local SMOKE_RINGS = { 10.0, 25.0, 50.0, 100.0 }
 local function smokeRing(pos)
   if Config.UseZFire == false or GetResourceState('z_fire') ~= 'started' then return nil end
@@ -60,8 +61,12 @@ CreateThread(function()
       data.speed_kmh = GetEntitySpeed(veh) * 3.6
       data.heading = GetEntityHeading(veh)
       data.in_vehicle = true
-      local sr = smokeRing(c)
-      if sr ~= nil then data.smoke_ring = sr end -- false = z_fire aktiv, kein Rauch in 100 m
+      local nowMs = GetGameTimer()
+      if nowMs - (lastSmokeCheck or -999999) >= (Config.SmokeCheckMs or 15000) then
+        lastSmokeCheck = nowMs
+        local sr = smokeRing(c)
+        if sr ~= nil then data.smoke_ring = sr end
+      end -- false = z_fire aktiv, kein Rauch in 100 m
       if Config.SendWeather and (n % 3 == 1) then data.weather = weatherPayload() end
       TriggerServerEvent('cbrn:telemetry', data)
     end

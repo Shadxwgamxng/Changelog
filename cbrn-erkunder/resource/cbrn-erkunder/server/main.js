@@ -4613,7 +4613,7 @@ var zSmoke = {};
 var RING_F = { 10: 1, 25: 0.7, 50: 0.4, 100: 0.15 };
 function zSmokeFactor(vid) {
   const z = zSmoke[vid];
-  return z && z.ring !== false && Date.now() - z.at < 6e3 ? RING_F[z.ring] ?? 0 : 0;
+  return z && z.ring !== false && Date.now() - z.at < 2e4 ? RING_F[z.ring] ?? 0 : 0;
 }
 var state = {
   drive: process.env.DEV_DRIVE === "1",
