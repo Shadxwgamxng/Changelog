@@ -12,6 +12,6 @@ Config = {
   -- false = Vektor zeigt dorthin, woher der Wind kommt
   WindVectorIsTravelDirection = true,
   SendWeather = true,
-  SmokeCheckMs = 15000,           -- Abstand der z_fire-Rauchabfrage (ms)
+  SmokeCheckMs = 20000,           -- Abstand der z_fire-Rauchabfrage (ms)
   UseZFire = true,                -- Rauch von z_fire (Export getSmokeInRange) fuer die Rauchgasmessung nutzen
 }

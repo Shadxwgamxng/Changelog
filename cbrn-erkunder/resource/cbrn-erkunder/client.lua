@@ -38,14 +38,17 @@ end
 -- z_fire: Rauch in der Naehe erkennen (Export getSmokeInRange). Wir kennen nur die Anwesenheit -> mehrere Radien
 -- abfragen; der kleinste Radius mit Rauch bestimmt die ungefaehre Entfernung zum Rauch.
 local lastSmokeCheck = nil
-local SMOKE_RINGS = { 10.0, 25.0, 50.0, 100.0 }
+local SMOKE_RINGS = { 100.0, 50.0, 25.0, 10.0 } -- grob -> fein: ohne Rauch genau EIN Aufruf
+local function smokeHas(pos, r)
+  local ok, found = pcall(function() return exports['z_fire']:getSmokeInRange(pos, r) end) -- keine Ausgabe, Fehler werden still ignoriert
+  return ok and type(found) == 'table' and next(found) ~= nil
+end
 local function smokeRing(pos)
   if Config.UseZFire == false or GetResourceState('z_fire') ~= 'started' then return nil end
-  for _, r in ipairs(SMOKE_RINGS) do
-    local ok, found = pcall(function() return exports['z_fire']:getSmokeInRange(pos, r + 0.0) end)
-    if ok and type(found) == 'table' and next(found) ~= nil then return r end
-  end
-  return false
+  if not smokeHas(pos, SMOKE_RINGS[1]) then return false end
+  local ring = SMOKE_RINGS[1]
+  for i = 2, #SMOKE_RINGS do if smokeHas(pos, SMOKE_RINGS[i]) then ring = SMOKE_RINGS[i] else break end end
+  return ring
 end
 
 -- Telemetrie: erst nach Anmeldung am Computer (currentVehicle gesetzt) und nur aus einem konfigurierten Fahrzeug
@@ -62,7 +65,7 @@ CreateThread(function()
       data.heading = GetEntityHeading(veh)
       data.in_vehicle = true
       local nowMs = GetGameTimer()
-      if nowMs - (lastSmokeCheck or -999999) >= (Config.SmokeCheckMs or 15000) then
+      if nowMs - (lastSmokeCheck or -999999) >= (Config.SmokeCheckMs or 20000) then
         lastSmokeCheck = nowMs
         local sr = smokeRing(c)
         if sr ~= nil then data.smoke_ring = sr end
