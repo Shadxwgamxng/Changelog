@@ -45,7 +45,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
   useEffect(() => { const f = () => { setToken(null); setSession(null); }; window.addEventListener('cbrn-auth-lost', f); return () => window.removeEventListener('cbrn-auth-lost', f); }, []);
 
   const applyLive = useCallback((d: any) => { setLive((p) => ({ ...p, ...d.vehicles })); setWeather(d.weather); setStatus((s: any) => ({ ...s, ...d.status })); }, []);
-  const loadAll = useCallback(() => { api('/system/status').then(setStatus).catch(() => {}); api('/vehicles').then(setVehicles).catch(() => {}); api('/live').then(applyLive).catch(() => {}); api('/incident').then((i) => { setIncident(i ?? null); setIncidentLoaded(true); }).catch(() => setIncidentLoaded(true)); }, [applyLive]);
+  const loadAll = useCallback(() => { api('/system/status').then(setStatus).catch(() => {}); api('/vehicles').then(setVehicles).catch(() => {}); api('/live').then(applyLive).catch(() => {}); api('/incident').then((i) => { setIncident(i && i.id ? i : null); setIncidentLoaded(true); }).catch(() => setIncidentLoaded(true)); }, [applyLive]);
   useEffect(() => { if (session) { setHist([]); loadAll(); } }, [session, loadAll]);
 
   // Heartbeat: hält die Besatzungsliste aktuell
@@ -65,7 +65,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
             break;
           }
           case 'vehicle.position': case 'vehicle.status': setVehicles((vs) => vs.map((v) => (v.id === e.payload.id ? e.payload : v))); break;
-          case 'incident.changed': setIncident(e.payload ?? null); setRev((r) => ({ ...r, [e.type]: (r[e.type] ?? 0) + 1 })); break;
+          case 'incident.changed': setIncident(e.payload && e.payload.id ? e.payload : null); setRev((r) => ({ ...r, [e.type]: (r[e.type] ?? 0) + 1 })); break;
           case 'weather.updated': setWeather(e.payload); break;
           case 'alarm.created': setToasts((t) => [...t.slice(-3), e.payload]); setTimeout(() => setToasts((t) => t.slice(1)), 9000); setRev((r) => ({ ...r, [e.type]: (r[e.type] ?? 0) + 1 })); break;
           default: setRev((r) => ({ ...r, [e.type]: (r[e.type] ?? 0) + 1 }));
@@ -75,7 +75,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
   }, [session]);
   // Fallback ohne WebSocket (z. B. NUI ohne WS-Zugriff): Polling
   useEffect(() => {
-    if (wsUp || !session) return; const t = setInterval(() => { api('/live').then(applyLive).catch(() => {}); api('/vehicles').then(setVehicles).catch(() => {}); api('/incident').then((i) => { setIncident(i ?? null); setIncidentLoaded(true); }).catch(() => setIncidentLoaded(true)); setRev((r) => ({ ...r, poll: (r.poll ?? 0) + 1, 'measurement.created': (r['measurement.created'] ?? 0) + 1 })); }, 3000);
+    if (wsUp || !session) return; const t = setInterval(() => { api('/live').then(applyLive).catch(() => {}); api('/vehicles').then(setVehicles).catch(() => {}); api('/incident').then((i) => { setIncident(i && i.id ? i : null); setIncidentLoaded(true); }).catch(() => setIncidentLoaded(true)); setRev((r) => ({ ...r, poll: (r.poll ?? 0) + 1, 'measurement.created': (r['measurement.created'] ?? 0) + 1 })); }, 3000);
     return () => clearInterval(t);
   }, [wsUp, session, applyLive]);
 

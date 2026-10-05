@@ -51,7 +51,6 @@ export default function Layout() {
         <div className="flex items-center gap-1.5 ml-2">
           <Badge color="#58a6ff">{session?.vehicle_name ?? v?.name}</Badge>
           <Badge color={fivem ? '#3fb950' : '#e5534b'}>{fivem ? 'FIVEM VERBUNDEN' : 'FIVEM GETRENNT'}</Badge>
-          <Badge color="#f0500a">SIMULATION</Badge>
           {incident && <button title="Zum Dashboard (Einsatz beenden dort)" onClick={() => nav('/')}><span className="inline-block max-w-[220px] truncate align-middle"><Badge color="#d29922">{incident.id} · {incident.name}</Badge></span></button>}
           {run && <Badge color="#e5534b" solid>● MESSFAHRT</Badge>}
           {fivem && gt && <Badge color="#58a6ff">SPIELZEIT {gt}</Badge>}

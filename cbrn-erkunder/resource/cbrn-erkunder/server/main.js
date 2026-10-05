@@ -6021,7 +6021,7 @@ boot({ dbFile: import_node_path3.default.join(RES_DIR, "data", "cbrn.db"), wasmF
         emitNet("cbrn:evt", src, JSON.stringify({ type: "hello", payload: systemStatus(), ts: (/* @__PURE__ */ new Date()).toISOString() }));
       }
     }
-    const text = JSON.stringify(res.body ?? {});
+    const text = JSON.stringify(res.body === void 0 ? {} : res.body);
     const total = Math.max(1, Math.ceil(text.length / CHUNK));
     for (let i = 0; i < total; i++) emitNet("cbrn:resp", src, id, i, total, res.status, text.slice(i * CHUNK, (i + 1) * CHUNK));
   });

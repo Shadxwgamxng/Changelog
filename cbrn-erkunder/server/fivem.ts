@@ -16,7 +16,7 @@ boot({ dbFile: path.join(RES_DIR, 'data', 'cbrn.db'), wasmFile: path.join(RES_DI
     try { res = await app.dispatch(String(method), String(url), body, { 'x-session': String(token ?? '') }); }
     catch (e: any) { res = { status: 500, body: { error: e?.message ?? 'Fehler' } }; }
     if (res.status !== 401 && token) { if (!subs.has(src)) { subs.add(src); emitNet('cbrn:evt', src, JSON.stringify({ type: 'hello', payload: systemStatus(), ts: new Date().toISOString() })); } }
-    const text = JSON.stringify(res.body ?? {}); const total = Math.max(1, Math.ceil(text.length / CHUNK));
+    const text = JSON.stringify(res.body === undefined ? {} : res.body); const total = Math.max(1, Math.ceil(text.length / CHUNK));
     for (let i = 0; i < total; i++) emitNet('cbrn:resp', src, id, i, total, res.status, text.slice(i * CHUNK, (i + 1) * CHUNK));
   });
   // Telemetrie aus dem Spiel (Position/Kurs/Speed/Wetter) – Messwerte bleiben Simulation
