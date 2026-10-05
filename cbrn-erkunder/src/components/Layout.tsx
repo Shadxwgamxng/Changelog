@@ -68,15 +68,7 @@ export default function Layout() {
           </div>))}
       </nav>
       <main className="min-w-0 min-h-0 relative overflow-hidden"><Outlet /></main>
-      <footer className="col-span-2 h-7 flex items-center gap-4 px-4 border-t border-line bg-bg2 text-[11.5px] text-dim no-print" style={{ gridColumn: '1 / -1' }}>
-        {[['Oberfläche', status?.web], ['Datenbank', status?.database], ['Server-Skript', status?.api], ['Live-Ereignisse', wsUp ? 'ONLINE' : 'OFFLINE']].map(([k, s]) => (
-          <span key={k as string} className="flex items-center gap-1.5"><i className="w-1.5 h-1.5 rounded-full inline-block" style={{ background: STATUS_COLOR(s as string) }} />{k}</span>))}
-        <span className="flex items-center gap-1.5"><i className="w-1.5 h-1.5 rounded-full inline-block" style={{ background: fivem ? '#3fb950' : '#817d78' }} />FiveM {fivem ? 'verbunden' : 'nicht verbunden'}</span>
-        <span>Datenquelle: {status?.data_source ?? '–'}</span>
-        <span className="flex-1" />
-        <span title={meta?.disclaimer}>Fachdaten ungeprüft · Messwerte simuliert · Kein offizielles Produkt einer Behörde</span>
-      </footer>
-      <div className="fixed right-4 bottom-12 z-50 space-y-2 w-80 no-print">
+      <div className="fixed right-4 bottom-4 z-50 space-y-2 w-80 no-print">
         {toasts.map((a, i) => (
           <div key={a.id + i} className="panel !border-bad/60 p-3 cursor-pointer shadow-2xl" onClick={() => { dismissToast(i); nav('/historie'); }}>
             <div className="flex justify-between items-center"><Badge color="#e5534b">ALARM {a.category}</Badge><span className="text-dim font-mono text-[11.5px]">{time(a.ts)}</span></div>
