@@ -2,31 +2,47 @@
 <html lang="de"><head><meta charset="utf-8"><title>CBRN Erkunder – Bordcomputer</title>
 <style>
   html,body{margin:0;height:100%;background:transparent;overflow:hidden;font-family:Segoe UI,Arial,sans-serif}
-  #wrap{display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);aspect-ratio:857/530;width:min(94vw,calc(92vh * 857 / 530));filter:drop-shadow(0 20px 40px #000c)}
-  #wrap.on{display:block}
-  /* Bildschirmfläche des Monitorbilds (in %) */
-  #screen{position:absolute;left:4.20%;top:6.98%;width:91.60%;height:86.42%;overflow:hidden;background:#0b0b0b}
-  iframe{position:absolute;left:0;top:0;border:0;transform-origin:0 0;width:1366px;height:791px}
-  #frame{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;user-select:none}
-  #hint{position:absolute;left:0;right:0;bottom:-26px;text-align:center;color:#d5dde6;font-size:12px;text-shadow:0 1px 3px #000}
+  /* Zentrierung per Flex (ganze Pixel) – kein translate/scale, damit die Schrift scharf bleibt */
+  #root{position:fixed;inset:0;display:none;align-items:center;justify-content:center}
+  #root.on{display:flex}
+  #wrap{position:relative;flex:none;border-radius:16px;background:linear-gradient(160deg,#34383e 0%,#1e2125 38%,#14161a 100%);
+    box-shadow:0 0 0 1px #0a0b0d,0 0 0 2px #3c4046 inset,0 1px 0 2px #4a4f56 inset,0 30px 70px rgba(0,0,0,.65),0 6px 18px rgba(0,0,0,.5)}
+  #screen{position:absolute;overflow:hidden;background:#0b0b0b;border-radius:3px;box-shadow:0 0 0 2px #050607,0 0 0 3px #2a2d32,0 0 22px rgba(0,0,0,.9) inset}
+  iframe{position:absolute;left:0;top:0;border:0;display:block;background:#0b0b0b}
+  #glare{position:absolute;pointer-events:none;border-radius:3px;background:linear-gradient(115deg,rgba(255,255,255,.055) 0%,rgba(255,255,255,0) 32%)}
+  #led{position:absolute;width:6px;height:6px;border-radius:50%;background:#3fb950;box-shadow:0 0 8px #3fb950,0 0 2px #fff inset}
+  #brand{position:absolute;left:0;right:0;text-align:center;color:#8d939b;font-size:13px;letter-spacing:.32em;font-weight:600;text-transform:uppercase;text-shadow:0 1px 0 #000}
+  #hint{position:absolute;left:0;right:0;text-align:center;color:#d5dde6;font-size:12px;text-shadow:0 1px 3px #000}
 </style></head>
 <body>
-<div id="wrap">
+<div id="root"><div id="wrap">
   <div id="screen"><iframe id="f" src="../app/index.html" allow="clipboard-write"></iframe></div>
-  <img id="frame" src="monitor.png" alt="">
-  <div id="hint">ESC – Computer schließen</div>
-</div>
+  <div id="glare"></div><div id="led"></div><div id="brand">CBRN&nbsp;Erkunder</div><div id="hint">ESC – Computer schließen</div>
+</div></div>
 <script>
-  const wrap = document.getElementById('wrap'), f = document.getElementById('f'), screen = document.getElementById('screen');
+  const root = document.getElementById('root'), wrap = document.getElementById('wrap'), f = document.getElementById('f'), screen = document.getElementById('screen');
+  const glare = document.getElementById('glare'), led = document.getElementById('led'), brand = document.getElementById('brand'), hint = document.getElementById('hint');
   const res = typeof GetParentResourceName === 'function' ? GetParentResourceName() : 'cbrn-erkunder';
   const post = (name, body) => fetch(`https://${res}/${name}`, { method: 'POST', body: JSON.stringify(body || {}) }).catch(() => {});
-  const fit = () => { f.style.transform = `scale(${screen.clientWidth / 1366})`; };
-  window.addEventListener('resize', fit);
+  const RATIO = 1.66, MIN_W = 1000; // Mindestbreite der Oberfläche in CSS-Pixeln
+  const px = (el, o) => Object.entries(o).forEach(([k, v]) => (el.style[k] = Math.round(v) + 'px'));
+  // Alles in ganzen Pixeln: Monitorgröße, Bildschirmfläche, Oberfläche (1:1, nur bei sehr kleinem Fenster verkleinert)
+  const fit = () => {
+    const W = Math.floor(Math.min(innerWidth * 0.94, innerHeight * 0.9 * RATIO)), H = Math.floor(W / RATIO);
+    px(wrap, { width: W, height: H });
+    const sx = W * 0.017, sy = H * 0.023, sw = W - 2 * sx, sh = sw * 9 / 16;
+    px(screen, { left: sx, top: sy, width: sw, height: sh }); px(glare, { left: sx, top: sy, width: sw, height: sh });
+    const logicalW = Math.max(Math.round(sw), MIN_W), k = Math.round(sw) / logicalW;
+    f.style.width = logicalW + 'px'; f.style.height = Math.round(sh / k) + 'px'; f.style.transform = k < 1 ? `scale(${k})` : 'none'; f.style.transformOrigin = '0 0';
+    const chinTop = sy + sh, chin = H - chinTop;
+    px(led, { left: W - sx - 22, top: chinTop + chin / 2 - 3 }); px(brand, { top: chinTop + chin / 2 - 8 }); px(hint, { top: H + 10 });
+  };
+  window.addEventListener('resize', fit); fit();
   window.addEventListener('message', (e) => {
     const d = e.data || {};
-    if (d.type === 'open') { wrap.classList.add('on'); fit(); }
+    if (d.type === 'open') { root.classList.add('on'); fit(); }
     else if (d.type === 'evt') f.contentWindow && f.contentWindow.postMessage({ cbrn: 'evt', data: d.data }, '*'); // Live-Ereignis vom Server
-    else if (d.type === 'close') wrap.classList.remove('on');
+    else if (d.type === 'close') root.classList.remove('on');
     else if (d.type === 'cbrn-vehicle') post('setVehicle', { vehicle: d.vehicle }); // aus der eingebetteten Web-App nach Anmeldung/Abmeldung
     else if (d.type === 'cbrn-close') post('close'); // ESC aus der eingebetteten Web-App
   });
