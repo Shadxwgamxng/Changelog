@@ -1,4 +1,4 @@
--- Interaktion am Fahrzeug: sichtbarer Kreis am (Offset-)Punkt. Im Kreis J gedrückt halten:
+-- Interaktion am Fahrzeug: kleiner Ring genau am (Offset-)Punkt. In Reichweite des Rings J gedrückt halten:
 --   kein Set  -> Probenentnahmeset nehmen · Set vorhanden -> Set zurückgeben · Probe getragen -> Probe abgeben.
 -- Der Punkt wird IMMER aus Fahrzeugposition + Rotation + lokalem Offset berechnet (keine Weltkoordinaten).
 CBRN = CBRN or {}
@@ -49,13 +49,18 @@ local function circleAction(veh)
   return { text = 'Probenentnahmeset nehmen', run = function() CBRN.takeKit(veh) end }
 end
 
-local function ring(p, r, inside)
-  local found, gz = GetGroundZFor_3dCoord(p.x, p.y, p.z + 0.5, false)
-  local z = (found and gz or (p.z - 1.0)) + 0.04
-  local c = inside and { 80, 220, 120 } or { 240, 80, 10 }
-  DrawMarker(25, p.x, p.y, z, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, r * 2.0, r * 2.0, 1.0, c[1], c[2], c[3], 200, false, false, 2, false, nil, nil, false)
-  DrawMarker(1, p.x, p.y, z - 0.02, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, r * 2.0, r * 2.0, 0.03, c[1], c[2], c[3], 55, false, false, 2, false, nil, nil, false)
-  return z
+--- Kleiner Ring genau am Punkt (zur Kamera gedreht, leicht pulsierend). Etwas zum Spieler hin versetzt, damit er nicht im Blech verschwindet.
+local function ring(p, inside, holdPct)
+  local pc = GetGameTimer()
+  local ped = GetEntityCoords(PlayerPedId())
+  local dx, dy, dz = ped.x - p.x, ped.y - p.y, ped.z - p.z
+  local l = math.sqrt(dx * dx + dy * dy + dz * dz)
+  local q = p
+  if l > 0.05 then q = vector3(p.x + dx / l * 0.08, p.y + dy / l * 0.08, p.z + dz / l * 0.08) end
+  local s = Config.Sample.MarkerSize * (1.0 + 0.07 * math.sin(pc / 170.0))
+  local c = (holdPct and holdPct > 0) and { 80, 220, 120 } or (inside and { 255, 255, 255 } or { 240, 80, 10 })
+  DrawMarker(25, q.x, q.y, q.z, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, s, s, s, c[1], c[2], c[3], 235, false, true, 2, false, nil, nil, false)
+  DrawMarker(28, q.x, q.y, q.z, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.03, 0.03, 0.03, c[1], c[2], c[3], 235, false, false, 2, false, nil, nil, false)
 end
 
 -- Kreis zeichnen und Halte-Aktion auswerten. Die Fahrzeugsuche läuft nur ca. 2x pro Sekunde; gezeichnet wird nur in der Nähe.
@@ -70,10 +75,10 @@ CreateThread(function()
       while DoesEntityExist(veh) and onFoot() do
         local p = CBRN.worldPoint(veh, 'sample')
         local pc = GetEntityCoords(PlayerPedId())
-        local d = #(vector3(pc.x, pc.y, 0.0) - vector3(p.x, p.y, 0.0)) -- waagerechter Abstand zum Punkt
+        local d = #(pc - p) -- Abstand zum Punkt (3D)
         if d > Config.Sample.CircleShowDistance + 3.0 then break end
-        local inside = d <= Config.Sample.CircleRadius and math.abs(pc.z - p.z) < 3.0
-        ring(p, Config.Sample.CircleRadius, inside)
+        local inside = d <= Config.Sample.CircleRadius
+        ring(p, inside, S.holdPct)
         local act = inside and circleAction(veh) or nil
         local changed = (inside ~= S.inCircle)
         S.inCircle, S.circleVeh, S.circleAction = inside, inside and veh or nil, act
