@@ -82,7 +82,7 @@ CreateThread(function()
         local inside = d <= Config.Sample.CircleRadius
         local onScreen, sx, sy = GetScreenCoordFromWorldCoord(p.x, p.y, p.z)
         local act = inside and circleAction(veh) or nil
-        if onScreen then sendPin(sx, sy, inside, act and act.text or nil, math.floor((S.holdPct or 0) * 100)) else hidePin() end
+        if onScreen and d <= Config.Sample.CircleShowDistance then sendPin(sx, sy, inside, act and act.text or nil, math.floor((S.holdPct or 0) * 100)) else hidePin() end -- Pin nur in unmittelbarer Nähe
         local changed = (inside ~= S.inCircle)
         S.inCircle, S.circleVeh, S.circleAction = inside, inside and veh or nil, act
         if act and CBRN.use and CBRN.use.isPressed then

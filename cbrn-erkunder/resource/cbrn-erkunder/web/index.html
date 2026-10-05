@@ -15,11 +15,12 @@
   /* Interaktions-Pin am Weltpunkt: Kreis mit Taste, in Reichweite mit Textschild und Halte-Fortschritt */
   #pin{position:fixed;left:0;top:0;display:none;pointer-events:none;z-index:6;will-change:transform}
   #pin.on{display:block}
-  #pinc{position:relative;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;box-sizing:border-box;border:2px solid rgba(255,255,255,.85);background:rgba(8,8,8,.42);display:flex;align-items:center;justify-content:center;color:#fff;font:700 15px/1 'Segoe UI',Arial,sans-serif;box-shadow:0 0 8px rgba(0,0,0,.65);transition:transform .12s,background .12s,border-color .12s;opacity:.8}
-  #pin.near #pinc{transform:scale(1.14);background:rgba(8,8,8,.72);border-color:#fff;opacity:1}
-  #pinr{position:absolute;inset:-6px;border-radius:50%;background:conic-gradient(#5fe08a calc(var(--p,0) * 1%),transparent 0);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2px));mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2px));display:none}
+  #pinc{position:relative;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;box-sizing:border-box;border:2px solid rgba(240,80,10,.85);background:rgba(10,10,10,.78);display:flex;align-items:center;justify-content:center;color:#fff;font:700 15px/1 'Segoe UI',Arial,sans-serif;box-shadow:0 0 8px rgba(0,0,0,.7);transition:transform .12s,border-color .12s;opacity:.9}
+  #pin.near #pinc{transform:scale(1.12);border-color:#f0500a;box-shadow:0 0 0 1px rgba(0,0,0,.6),0 0 12px rgba(240,80,10,.45);opacity:1}
+  #pinr{position:absolute;inset:-6px;border-radius:50%;background:conic-gradient(#f0500a calc(var(--p,0) * 1%),transparent 0);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2px));mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2px));display:none}
   #pin.hold #pinr{display:block}
-  #pinl{position:absolute;left:28px;top:0;transform:translateY(-50%);white-space:nowrap;background:#2f80ed;color:#fff;padding:5px 11px;border-radius:5px;font:600 13px/1.2 'Segoe UI',Arial,sans-serif;box-shadow:0 2px 10px rgba(0,0,0,.55);display:none}
+  #pinl{position:absolute;left:30px;top:0;transform:translateY(-50%);white-space:nowrap;background:rgba(12,12,12,.94);color:#ebe9e6;padding:6px 12px 6px 11px;border-radius:5px;border:1px solid #2a2a2a;border-left:3px solid #f0500a;font:600 13px/1.2 'Segoe UI',Arial,sans-serif;box-shadow:0 2px 12px rgba(0,0,0,.6);display:none}
+  #pinl b{color:#ff8a52;font-weight:800}
   #pin.near #pinl{display:block}
   /* HUD unten rechts (Probenentnahme, Offset Finder) – unabhängig vom Computer, ohne Fokus */
   #hud{position:fixed;right:28px;bottom:28px;width:350px;display:none;background:rgba(14,14,14,.94);border:1px solid #2a2a2a;border-left:3px solid #f0500a;border-radius:8px;color:#ebe9e6;font-size:13px;line-height:1.45;box-shadow:0 8px 28px rgba(0,0,0,.55);padding:12px 14px;pointer-events:none}
@@ -56,7 +57,7 @@
     pin.classList.add('on'); pin.classList.toggle('near', !!d.near); pin.classList.toggle('hold', (d.pct || 0) > 0);
     pin.style.transform = `translate(${Math.round(d.x * innerWidth)}px,${Math.round(d.y * innerHeight)}px)`;
     if (pink.textContent !== d.key) pink.textContent = d.key;
-    if (d.near) { const t = d.text ? `Halte „${d.key}“ gedrückt: ${d.text}` : ''; if (pinl.textContent !== t) pinl.textContent = t; pinl.style.display = d.text ? 'block' : 'none'; }
+    if (d.near) { const t = d.text ? `Halte <b>${esc(d.key)}</b> gedrückt: ${esc(d.text)}` : ''; if (pinl.dataset.t !== t) { pinl.innerHTML = t; pinl.dataset.t = t; } pinl.style.display = d.text ? 'block' : 'none'; }
     pinr.style.setProperty('--p', d.pct || 0);
   };
   // ---- HUD (unten rechts)
