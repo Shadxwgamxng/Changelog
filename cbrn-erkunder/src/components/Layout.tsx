@@ -49,11 +49,7 @@ export default function Layout() {
         <button className="icon-btn" onClick={() => setCollapsed((c) => !c)} title="Navigation ein-/ausklappen"><PanelLeft size={18} /></button>
         <button className="flex items-center gap-2.5" onClick={() => nav('/')}><Logo size={26} /><span className="font-semibold text-[14px] tracking-tight whitespace-nowrap">CBRN Erkunder</span></button>
         <div className="flex items-center gap-1.5 ml-2">
-          <Badge color="#58a6ff">{session?.vehicle_name ?? v?.name}</Badge>
-          <Badge color={fivem ? '#3fb950' : '#e5534b'}>{fivem ? 'FIVEM VERBUNDEN' : 'FIVEM GETRENNT'}</Badge>
-          {incident && <button title="Zum Dashboard (Einsatz beenden dort)" onClick={() => nav('/')}><span className="inline-block max-w-[220px] truncate align-middle"><Badge color="#d29922">{incident.id} · {incident.name}</Badge></span></button>}
           {run && <Badge color="#e5534b" solid>● MESSFAHRT</Badge>}
-          {fivem && gt && <Badge color="#58a6ff">SPIELZEIT {gt}</Badge>}
         </div>
         <div className="flex-1" />
         <Search />
