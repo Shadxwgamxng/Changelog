@@ -23,7 +23,6 @@ export function RunCard({ compact }: { compact?: boolean }) {
     <>
       <div className="flex items-center gap-3 flex-wrap">
         {run ? <Badge color="#e5534b" solid>● MESSFAHRT LÄUFT</Badge> : <Badge>KEINE MESSFAHRT</Badge>}
-        <Badge color={fivem ? '#3fb950' : '#d29922'}>{fivem ? 'POSITION AUS GTA' : 'WARTET AUF FIVEM'}</Badge>
         {!run ? <Btn kind="primary" onClick={() => { setPos(null); setPick(true); }} disabled={!incident}>▶ Messfahrt starten</Btn> : <Btn kind="danger" onClick={() => go('stop')}>■ Messfahrt beenden</Btn>}
         {err && <span className="text-bad">{err}</span>}{warn && <span className="text-warn text-[12px]">{warn}</span>}
       </div>
@@ -37,7 +36,7 @@ export function RunCard({ compact }: { compact?: boolean }) {
   return (<>
     <Panel title="Messfahrt" className={compact ? '' : 'mb-3'}>{body}</Panel>
     {pick && <Modal title="Messfahrt starten – eigenen Standort markieren" wide onClose={() => setPick(false)}>
-      <div className="text-[12.5px] text-dim mb-2">Markiere auf der Karte, wo sich das Fahrzeug jetzt befindet. {fivem ? 'Alles Weitere (Position, Geschwindigkeit, Kurs, Wetter) wird danach laufend aus FiveM übernommen.' : 'Ohne FiveM-Verbindung gilt der markierte Punkt als Fahrzeugposition.'}</div>
+      <div className="text-[12.5px] text-dim mb-2">Markiere auf der Karte, wo sich das Fahrzeug jetzt befindet.</div>
       <MapPicker value={pos} onChange={setPos} hint={fv} hintLabel="Aktuelle FiveM-Position" color="#f0500a" height={340} />
       {gta && fv && pos && dist > 30 && (<div className="mt-2 panel p-2 text-[12.5px] border-warn/50">Die markierte Stelle liegt <b>{Math.round(Math.abs(dE))} m {dE >= 0 ? 'östlich' : 'westlich'}</b> und <b>{Math.round(Math.abs(dN))} m {dN >= 0 ? 'nördlich' : 'südlich'}</b> der FiveM-Position.
         Stimmt die Karte nicht mit dem Spiel überein? <button className="text-accent underline" onClick={calibrate}>Karte kalibrieren</button> – das Kartenbild wird passend verschoben, die FiveM-Position bleibt der Standort.</div>)}

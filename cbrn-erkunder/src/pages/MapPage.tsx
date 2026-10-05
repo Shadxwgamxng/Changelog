@@ -14,7 +14,6 @@ export default function MapPage() {
     <div className="h-full flex">
       <div className="flex-1 min-w-0 relative">
         <MapView layers={layers} onSelect={setSel} follow={follow} />
-        <div className="absolute left-2 bottom-8 panel px-2 py-1 text-[11px] bg-panel/90">GTA V</div>
       </div>
       <aside className="w-72 shrink-0 border-l border-line bg-panel overflow-auto p-3 space-y-3">
         <RunCard compact />
