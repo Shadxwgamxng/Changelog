@@ -7,21 +7,28 @@ const FULL = 300, WARN = 100, WHISTLE = 55;
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 const COL: Record<string, string> = { BEREIT: '#58a6ff', ANGELEGT: '#3fb950', WARNUNG: '#d29922', PFEIFE: '#e5534b', LEER: '#e5534b' };
 
-/** Anzeige im Stil eines Atemschutz-Überwachungsgeräts: Bogen, Druck in bar, Zeit bis zur Pfeife. */
+/** Druckanzeige: Gerätebild (public/devices/agt.png, 603×1024) mit eigener Displayfläche (Bogen, bar, Zeit bis Pfeife). */
 function Gauge({ d, nowMs, base }: { d: any; nowMs: number; base: number }) {
   const el = d.worn ? (nowMs - base) / 1000 : 0; const bar = Math.max(0, d.bar - d.rate_bar_s * el);
   const whistle = d.worn && d.rate_bar_s > 0 ? Math.max(0, (bar - WHISTLE) / d.rate_bar_s) : d.whistle_s;
   const status = bar <= 0 ? 'LEER' : bar <= WHISTLE ? 'PFEIFE' : bar <= WARN ? 'WARNUNG' : d.worn ? 'ANGELEGT' : 'BEREIT'; const c = COL[status];
-  const R = 70, C = Math.PI * R, frac = Math.min(1, bar / FULL); const blink = (status === 'PFEIFE' || status === 'LEER') && Math.floor(nowMs / 500) % 2 === 0;
+  const alarm = status === 'PFEIFE' || status === 'LEER'; const blink = alarm && Math.floor(nowMs / 500) % 2 === 0;
+  const frac = Math.min(1, bar / FULL); const N = 24; const cx = 303, cy = 262, R = 118, R2 = 104; // Bogen aus Strichen
+  const ticks = Array.from({ length: N }, (_, i) => { const t = i / (N - 1), a = Math.PI * (0.72 - 0.44 * t); const on = t <= frac + 1e-6;
+    return <line key={i} x1={cx + R2 * Math.cos(a)} y1={cy - R2 * Math.sin(a)} x2={cx + R * Math.cos(a)} y2={cy - R * Math.sin(a)} stroke={on ? c : '#2b3036'} strokeWidth={i % 6 === 0 ? 7 : 5} strokeLinecap="round" />; });
   return (
-    <div className="panel p-3" style={{ borderColor: status === 'PFEIFE' || status === 'LEER' ? '#e5534b' : undefined, background: blink ? '#e5534b14' : undefined }}>
+    <div className="panel p-3" style={{ borderColor: alarm ? '#e5534b' : undefined, background: blink ? '#e5534b14' : undefined }}>
       <div className="flex items-center justify-between mb-1"><div className="lbl">{d.label}</div><span className="text-[11px] font-semibold" style={{ color: c }}>● {status}</span></div>
-      <svg viewBox="0 0 180 104" className="w-full max-w-[260px] mx-auto block">
-        <path d="M20 90 A70 70 0 0 1 160 90" fill="none" stroke="#2a2a2a" strokeWidth="9" strokeLinecap="round" />
-        <path d="M20 90 A70 70 0 0 1 160 90" fill="none" stroke={c} strokeWidth="9" strokeLinecap="round" strokeDasharray={`${C * frac} ${C}`} />
-        <text x="90" y="72" textAnchor="middle" fontSize="34" fontWeight="700" fill="currentColor" fontFamily="ui-monospace,monospace">{Math.round(bar)}</text>
-        <text x="90" y="86" textAnchor="middle" fontSize="10" fill="#817d78">bar</text>
-        <text x="90" y="101" textAnchor="middle" fontSize="13" fontWeight="600" fill="currentColor" fontFamily="ui-monospace,monospace">{mmss(whistle)} <tspan fontSize="9" fill="#817d78">bis Pfeife</tspan></text>
+      <svg viewBox="0 0 603 1024" className="w-full max-h-[400px] block mx-auto" style={{ aspectRatio: '603 / 1024' }}>
+        <image href="./devices/agt.png" x="0" y="0" width="603" height="1024" />
+        <rect x="208" y="120" width="192" height="238" rx="14" fill="#000" />
+        <g opacity={d.worn || d.bar < FULL ? 1 : 0.9}>{ticks}
+          <text x="303" y="255" textAnchor="middle" fontSize="80" fontWeight="700" fill="#fff" fontFamily="Arial,Helvetica,sans-serif">{Math.round(bar)}</text>
+          <text x="303" y="282" textAnchor="middle" fontSize="22" fontWeight="600" fill="#fff" fontFamily="Arial,Helvetica,sans-serif">bar</text>
+          <text x="285" y="324" textAnchor="middle" fontSize="44" fontWeight="700" fill={alarm || status === 'WARNUNG' ? c : '#fff'} fontFamily="Arial,Helvetica,sans-serif">{mmss(whistle)}</text>
+          <text x="360" y="324" textAnchor="middle" fontSize="20" fontWeight="600" fill="#fff" fontFamily="Arial,Helvetica,sans-serif">bar</text>
+          <text x="303" y="347" textAnchor="middle" fontSize="18" fontWeight="600" fill="#fff" fontFamily="Arial,Helvetica,sans-serif">time to whistle</text></g>
+        <rect x="205" y="682" width="196" height="38" rx="19" fill={d.worn ? (alarm ? (blink ? '#e5534b' : '#5a1f1b') : status === 'WARNUNG' ? '#d29922' : '#58b6ff') : '#1c2530'} opacity={d.worn ? 0.9 : 0.8} />
       </svg>
       <div className="text-center text-[12.5px] mt-1 h-5">{d.wearer ? <>Träger: <b>{d.wearer}</b> · seit {new Date(d.since).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</> : <span className="text-dim">nicht angelegt</span>}</div>
     </div>
