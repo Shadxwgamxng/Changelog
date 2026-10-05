@@ -1,7 +1,8 @@
--- Interaktion am Fahrzeug: Probenentnahmeset nehmen. Bevorzugt ox_target; ohne ox_target Fallback mit ox_lib-TextUI + E.
+-- Interaktion am Fahrzeug: sichtbarer Kreis am (Offset-)Punkt. Im Kreis J gedrückt halten:
+--   kein Set  -> Probenentnahmeset nehmen · Set vorhanden -> Set zurückgeben · Probe getragen -> Probe abgeben.
 -- Der Punkt wird IMMER aus Fahrzeugposition + Rotation + lokalem Offset berechnet (keine Weltkoordinaten).
 CBRN = CBRN or {}
-CBRN.State = CBRN.State or { kit = false, phase = 'idle', busy = false, sample = nil, veh = nil, atSample = false, atStorage = false }
+CBRN.State = CBRN.State or { kit = false, phase = 'idle', busy = false, sample = nil, veh = nil, atSample = false, atStorage = false, inCircle = false, holdPct = 0 }
 local S = CBRN.State
 
 local function modelOf(veh) return CBRN.u32(GetEntityModel(veh)) end
@@ -34,52 +35,62 @@ end
 
 local function onFoot() local ped = PlayerPedId(); return not IsPedInAnyVehicle(ped, false) and not IsEntityDead(ped) end
 
---- Darf an diesem Fahrzeug jetzt das Set genommen werden? (außerhalb des Fahrzeugs, nah genug am Punkt, noch kein Set)
-function CBRN.canTakeKit(veh)
-  if S.kit or not onFoot() then return false end
-  local d = CBRN.distanceTo(veh, 'sample')
-  return d ~= nil and d <= Config.Sample.InteractDistance
-end
-
 function CBRN.takeKit(veh)
   if S.kit then return lib.notify({ type = 'inform', description = 'Du hast bereits ein Probenentnahmeset.' }) end
   if not CBRN.Points[modelOf(veh)] then return lib.notify({ type = 'error', description = 'Kein Probenentnahmepunkt für dieses Fahrzeug konfiguriert.' }) end
   TriggerServerEvent('cbrn:sample:takeKit', VehToNet(veh))
 end
 
--- ---- ox_target (bevorzugt)
-local usingTarget = false
-CreateThread(function()
-  Wait(1000)
-  if GetResourceState('ox_target') ~= 'started' then return end
-  local models = {}
-  for m in pairs(CBRN.Points) do models[#models + 1] = m end
-  for _, name in ipairs(Config.Models or {}) do models[#models + 1] = CBRN.u32(GetHashKey(name)) end
-  if #models == 0 then return end
-  usingTarget = true
-  exports.ox_target:addModel(models, {
-    { name = 'cbrn_sample_kit', icon = 'fa-solid fa-vial', label = 'Probenentnahmeset nehmen', distance = Config.Sample.TargetDistance,
-      canInteract = function(entity) return CBRN.Points[modelOf(entity)] ~= nil and CBRN.canTakeKit(entity) end,
-      onSelect = function(data) CBRN.takeKit(data.entity) end },
-    { name = 'cbrn_sample_kit_return', icon = 'fa-solid fa-rotate-left', label = 'Probenentnahmeset zurückgeben', distance = Config.Sample.TargetDistance,
-      canInteract = function(entity) return S.kit and S.phase == 'idle' and not S.busy and CBRN.Points[modelOf(entity)] ~= nil and (CBRN.distanceTo(entity, 'sample') or 99) <= Config.Sample.InteractDistance end,
-      onSelect = function(data) TriggerServerEvent('cbrn:sample:returnKit', VehToNet(data.entity)) end },
-  })
-end)
+--- Was kann im Kreis gerade getan werden? (nil = nichts, z. B. während der Entnahme)
+local function circleAction(veh)
+  if S.busy or S.phase == 'collecting' then return nil end
+  if S.phase == 'carrying' then return { text = 'Probe abgeben', run = function() CreateThread(CBRN.returnSample) end } end
+  if S.kit then return { text = 'Probenentnahmeset zurückgeben', run = function() TriggerServerEvent('cbrn:sample:returnKit', VehToNet(veh)) end } end
+  return { text = 'Probenentnahmeset nehmen', run = function() CBRN.takeKit(veh) end }
+end
 
--- ---- Fallback ohne ox_target: TextUI + E in der Nähe des Entnahmepunkts (nur aktiv, wenn ein Fahrzeug nahe ist)
+local function ring(p, r, inside)
+  local found, gz = GetGroundZFor_3dCoord(p.x, p.y, p.z + 0.5, false)
+  local z = (found and gz or (p.z - 1.0)) + 0.04
+  local c = inside and { 80, 220, 120 } or { 240, 80, 10 }
+  DrawMarker(25, p.x, p.y, z, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, r * 2.0, r * 2.0, 1.0, c[1], c[2], c[3], 200, false, false, 2, false, nil, nil, false)
+  DrawMarker(1, p.x, p.y, z - 0.02, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, r * 2.0, r * 2.0, 0.03, c[1], c[2], c[3], 55, false, false, 2, false, nil, nil, false)
+  return z
+end
+
+-- Kreis zeichnen und Halte-Aktion auswerten. Die Fahrzeugsuche läuft nur ca. 2x pro Sekunde; gezeichnet wird nur in der Nähe.
 CreateThread(function()
-  Wait(2000)
-  if usingTarget or next(CBRN.Points) == nil then return end
-  local shown = false
+  local holdStart, lastSend = nil, 0
   while true do
-    local wait = 700
-    local veh = (onFoot() and not S.kit) and CBRN.nearestVehicle(8.0) or nil
-    if veh and CBRN.canTakeKit(veh) then
-      wait = 0
-      if not shown then lib.showTextUI('[E] Probenentnahmeset nehmen'); shown = true end
-      if IsControlJustReleased(0, 38) then CBRN.takeKit(veh) end
-    elseif shown then lib.hideTextUI(); shown = false end
+    local wait = 500
+    local veh = (onFoot() and next(CBRN.Points) ~= nil) and CBRN.nearestVehicle(Config.Sample.CircleShowDistance) or nil
+    if not veh then
+      if S.inCircle then S.inCircle, S.circleVeh, S.holdPct = false, nil, 0; if CBRN.refreshHud then CBRN.refreshHud(false) end end
+    else
+      while DoesEntityExist(veh) and onFoot() do
+        local p = CBRN.worldPoint(veh, 'sample')
+        local pc = GetEntityCoords(PlayerPedId())
+        local d = #(vector3(pc.x, pc.y, 0.0) - vector3(p.x, p.y, 0.0)) -- waagerechter Abstand zum Punkt
+        if d > Config.Sample.CircleShowDistance + 3.0 then break end
+        local inside = d <= Config.Sample.CircleRadius and math.abs(pc.z - p.z) < 3.0
+        ring(p, Config.Sample.CircleRadius, inside)
+        local act = inside and circleAction(veh) or nil
+        local changed = (inside ~= S.inCircle)
+        S.inCircle, S.circleVeh, S.circleAction = inside, inside and veh or nil, act
+        if act and CBRN.use and CBRN.use.isPressed then
+          holdStart = holdStart or GetGameTimer()
+          S.holdPct = math.min(1.0, (GetGameTimer() - holdStart) / Config.Sample.HoldTime)
+          if S.holdPct >= 1.0 then
+            holdStart, S.holdPct = nil, 0
+            act.run()
+            while CBRN.use.isPressed do Wait(0) end -- erst nach dem Loslassen weiter
+          end
+        else holdStart = nil; if S.holdPct ~= 0 then S.holdPct = 0; changed = true end end
+        if CBRN.refreshHud and (changed or (S.holdPct > 0 and GetGameTimer() - lastSend > 60)) then lastSend = GetGameTimer(); CBRN.refreshHud(false) end
+        Wait(0)
+      end
+      if S.inCircle then S.inCircle, S.circleVeh, S.holdPct = false, nil, 0; if CBRN.refreshHud then CBRN.refreshHud(false) end end
+    end
     Wait(wait)
   end
 end)

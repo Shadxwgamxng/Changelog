@@ -25,7 +25,9 @@ Config.AllowedJobs = { police = true, fire = true, ems = true }
 Config.Sample = {
   Debug = false,
   InteractDistance = 2.0,             -- max. Abstand zum Entnahmepunkt (m)
-  TargetDistance = 3.5,               -- Reichweite von ox_target am Fahrzeug
+  CircleRadius = 1.2,                 -- Radius des sichtbaren Kreises am Fahrzeugpunkt (m)
+  CircleShowDistance = 12.0,          -- ab dieser Entfernung wird der Kreis angezeigt (m)
+  HoldTime = 1000,                    -- so lange muss J im Kreis gehalten werden (ms)
   -- Wer darf /offset, /debugsample, /debugsamplepoint? Erlaubt ist, wer EINES davon erfüllt:
   --  1) ACE-Recht AdminAce:   add_ace group.admin cbrn.offset allow
   --  2) ACE 'command' (Standard-Admins: add_ace group.admin command allow)
@@ -38,7 +40,7 @@ Config.Sample = {
   KitItem = 'sample_collection_kit',
   ContainerItem = 'sample_container',
   ContainerType = 'UNIVERSAL SAMPLE CONTAINER',
-  Keys = { use = 'J', cancel = 'BACK' },   -- J: entnehmen/ablegen · Rücktaste: abbrechen (ESC öffnet das Pause-Menü und kann nicht belegt werden)
+  Keys = { use = 'J', cancel = 'BACK' },   -- J: im Kreis halten (Set nehmen / Probe abgeben), im Gelände tippen (Probe entnehmen) · Rücktaste: Entnahme abbrechen (ESC öffnet das Pause-Menü und kann nicht belegt werden)
   Anim = { scenario = 'CODE_HUMAN_MEDIC_KNEEL' },   -- alternativ: { dict = '...', clip = '...' }
   ReturnAnim = { scenario = 'CODE_HUMAN_MEDIC_KNEEL' },
   ReturnDuration = 2000,

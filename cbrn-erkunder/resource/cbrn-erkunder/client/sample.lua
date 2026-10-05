@@ -19,7 +19,9 @@ local lastHud = ''
 local function refreshHud(force)
   local d
   if S.phase == 'collecting' then return end -- Fortschritt zeichnet die Entnahme selbst
-  if S.phase == 'carrying' and S.sample then
+  if S.inCircle and S.circleAction and not S.busy then
+    d = { mode = 'hold', key = KEY_USE, text = S.circleAction.text, pct = math.floor((S.holdPct or 0) * 100) } -- im Kreis: J halten
+  elseif S.phase == 'carrying' and S.sample then
     d = { mode = 'taken', id = S.sample.id, label = S.sample.label, atPoint = S.atStorage, key = KEY_USE }
   elseif S.kit then
     d = { mode = 'kit', atPoint = S.atSample, key = KEY_USE, cancelKey = KEY_CANCEL }
@@ -37,19 +39,16 @@ end
 -- ---- Zustand beobachten (nur aktiv, solange Set oder Probe vorhanden – spart Leistung)
 CreateThread(function()
   while true do
-    if S.kit or S.phase == 'carrying' then
-      local veh = CBRN.nearestVehicle(12.0)
-      S.veh = veh; S.atStorage = false
-      S.atSample = not blocked() -- Probe darf überall entnommen werden (zu Fuß), nur nicht im Fahrzeug
-      if veh then
-        local dt = CBRN.distanceTo(veh, 'storage')
-        S.atStorage = dt ~= nil and dt <= Config.SampleReturnDistance
-      end
+    if S.kit or S.phase == 'carrying' or S.inCircle then
+      S.veh = S.circleVeh or CBRN.nearestVehicle(12.0)
+      S.atStorage = S.inCircle and true or false       -- Abgabe nur im Kreis am Fahrzeug
+      S.atSample = not blocked()                       -- Probe darf überall entnommen werden (zu Fuß), nur nicht im Fahrzeug
       refreshHud(false)
       Wait(200)
     else
       S.veh, S.atSample, S.atStorage = nil, false, false
-      Wait(600)
+      refreshHud(false)
+      Wait(500)
     end
   end
 end)
@@ -139,11 +138,12 @@ function CBRN.returnSample()
   TriggerServerEvent('cbrn:sample:return', VehToNet(S.veh))
 end
 
--- ---- Tasten (ox_lib): nur wirksam, wenn Set/Probe vorhanden – blockieren nichts dauerhaft
-lib.addKeybind({ name = 'cbrn_sample_use', description = 'CBRN: Probe entnehmen / ablegen', defaultMapper = 'keyboard', defaultKey = KEY_USE,
+-- ---- Tasten (ox_lib). J im Kreis am Fahrzeug = HALTEN (Set nehmen/zurückgeben, Probe abgeben, siehe interaction.lua);
+-- J im Gelände = kurz drücken: Probe entnehmen. Blockiert nichts dauerhaft.
+CBRN.use = lib.addKeybind({ name = 'cbrn_sample_use', description = 'CBRN: Probe entnehmen · im Kreis halten: Set/Probe', defaultMapper = 'keyboard', defaultKey = KEY_USE,
   onPressed = function()
-    if S.busy or blocked() then return end
-    if S.phase == 'carrying' then return CreateThread(CBRN.returnSample) end -- eigener Thread: enthält Wartezeiten/Animation
+    if S.inCircle or S.busy or blocked() then return end
+    if S.phase == 'carrying' then return notify('error', 'Du befindest dich nicht am vorgesehenen Probenablagepunkt.') end
     if S.kit and S.phase == 'idle' then
       CBRN.startCollection(false)
     end
@@ -152,10 +152,7 @@ lib.addKeybind({ name = 'cbrn_sample_cancel', description = 'CBRN: Probenentnahm
   onPressed = function()
     if S.phase == 'collecting' then S.cancel = true
     elseif S.phase == 'carrying' then notify('inform', 'Eine entnommene Probe kann nicht abgebrochen werden – lege sie am Fahrzeug ab.')
-    elseif S.kit and not S.busy then
-      if S.veh and (CBRN.distanceTo(S.veh, 'sample') or 99) <= Config.Sample.InteractDistance then TriggerServerEvent('cbrn:sample:returnKit', VehToNet(S.veh))
-      else notify('inform', 'Das Probenentnahmeset kann nur am Fahrzeug zurückgegeben werden.') end
-    end
+    elseif S.kit and not S.busy then notify('inform', 'Das Probenentnahmeset gibst du im Kreis am Fahrzeug zurück (J gedrückt halten).') end
   end })
 
 -- ---- Antworten des Servers

@@ -6,7 +6,7 @@ name 'cbrn-erkunder'
 description 'CBRN-Erkunder – Bordcomputer fuer den Erkundungswagen (Simulation): Einsatz, Messfahrt, Messgeraete, Stoffdatenbank'
 version '1.0.0'
 
-dependencies { 'ox_lib' }   -- optional zusätzlich: ox_target (Interaktion), ox_inventory (Items)
+dependencies { 'ox_lib' }   -- optional zusätzlich: ox_inventory (Items)
 
 shared_scripts { '@ox_lib/init.lua', 'config.lua', 'sample_config.lua' }
 client_scripts { 'client.lua', 'client/interaction.lua', 'client/sample.lua', 'client/offset.lua' }
