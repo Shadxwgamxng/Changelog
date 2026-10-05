@@ -14,7 +14,7 @@ export function RunCard({ compact }: { compact?: boolean }) {
     <>
       <div className="flex items-center gap-3 flex-wrap">
         {run ? <Badge color="#e5534b" solid>● MESSFAHRT LÄUFT</Badge> : <Badge>KEINE MESSFAHRT</Badge>}
-        <Badge color={fivem ? '#3fb950' : '#f0500a'}>{fivem ? 'POSITION AUS GTA' : 'DEMO-FAHRT'}</Badge>
+        <Badge color={fivem ? '#3fb950' : '#d29922'}>{fivem ? 'POSITION AUS GTA' : 'WARTET AUF FIVEM'}</Badge>
         {!run ? <Btn kind="primary" onClick={() => go('start')} disabled={!can(1)}>▶ Messfahrt starten</Btn> : <Btn kind="danger" onClick={() => go('stop')}>■ Messfahrt beenden</Btn>}
         {err && <span className="text-bad">{err}</span>}
       </div>
@@ -23,7 +23,7 @@ export function RunCard({ compact }: { compact?: boolean }) {
           <Field label="Bezeichnung">{run.name}</Field><Field label="Dauer">{hms(Date.now() - Date.parse(run.started_at))}</Field><Field label="Strecke">{num(run.distance_m / 1000, 2)} km</Field>
           <Field label="Messpunkte">{run.points}</Field><Field label="Max. Dosisleistung">{num(run.max_dose, 3)} µSv/h</Field>
         </div>)}
-      <div className="text-[11px] text-dim mt-2">{fivem ? 'Position, Geschwindigkeit und Kurs kommen laufend aus GTA; Messwerte bleiben simuliert.' : 'Ohne FiveM-Verbindung fährt das Fahrzeug die Demo-Route (Simulation).'} Während einer Messfahrt werden georeferenzierte Messpunkte aufgezeichnet.</div>
+      <div className="text-[11px] text-dim mt-2">{fivem ? 'Position, Geschwindigkeit und Kurs kommen laufend aus GTA; Messwerte bleiben simuliert.' : 'Keine FiveM-Verbindung: Das Fahrzeug bleibt am Einsatzzentrum stehen, bis Position aus GTA eintrifft.'} Während einer Messfahrt werden georeferenzierte Messpunkte aufgezeichnet.</div>
     </>
   );
   return <Panel title="Messfahrt" className={compact ? '' : 'mb-3'}>{body}</Panel>;

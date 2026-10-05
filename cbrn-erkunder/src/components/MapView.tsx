@@ -5,8 +5,8 @@ import { useApi, useLive } from '../store';
 import { CAT } from '../lib/format';
 
 export type Layers = Record<string, boolean>;
-export const DEFAULT_LAYERS: Layers = { basemap: true, grid: true, vehicle: true, track: true, points: true, missions: true, samples: true, areas: true, weather: true, history: false, others: true, route: false };
-export const LAYER_LABELS: [string, string][] = [['vehicle', 'Fahrzeug'], ['track', 'GPS-Track'], ['points', 'Messpunkte'], ['missions', 'Messaufträge'], ['samples', 'Proben'], ['areas', 'CBRN-Bereiche'], ['weather', 'Wetter'], ['history', 'Historische Messungen'], ['others', 'Andere Fahrzeuge'], ['grid', 'Gitter 100 m'], ['basemap', 'Hintergrundkarte'], ['route', 'Demo-Route']];
+export const DEFAULT_LAYERS: Layers = { basemap: true, grid: false, vehicle: true, track: true, points: true, missions: true, samples: true, areas: true, weather: true, history: false, others: true, route: false };
+export const LAYER_LABELS: [string, string][] = [['vehicle', 'Fahrzeug'], ['track', 'GPS-Track'], ['points', 'Messpunkte'], ['missions', 'Messaufträge'], ['samples', 'Proben'], ['areas', 'CBRN-Bereiche'], ['weather', 'Wetter'], ['history', 'Historische Messungen'], ['others', 'Andere Fahrzeuge'], ['grid', 'Gitter 100 m'], ['basemap', 'Hintergrundkarte']];
 
 const EMPTY = { type: 'FeatureCollection', features: [] } as any;
 const fc = (features: any[]) => ({ type: 'FeatureCollection', features });
@@ -33,7 +33,7 @@ export function MapView({ layers, onSelect, follow = true, grid = true, showVehi
     if (!el.current || mapRef.current || !meta) return;
     const c = meta.center;
     const gta = mm?.mode === 'gta5';
-    const map = new maplibregl.Map({ container: el.current, center: [c.lon, c.lat], zoom: gta ? 14.9 : 14.3, maxZoom: gta ? 17.5 : 19, attributionControl: { compact: true },
+    const map = new maplibregl.Map({ container: el.current, center: [c.lon, c.lat], zoom: gta ? 13.6 : 14.3, maxZoom: gta ? 17.5 : 19, attributionControl: { compact: true },
       style: { version: 8, sources: {}, layers: [{ id: 'bg', type: 'background', paint: { 'background-color': '#0b0b0b' } }] } });
     mapRef.current = map; map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right'); map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
     map.on('load', () => {
@@ -41,14 +41,14 @@ export function MapView({ layers, onSelect, follow = true, grid = true, showVehi
       if (gta && mm.image) {
         const b = mm.bounds, k = 111320;
         map.addSource('gta', { type: 'image', url: url(mm.image), coordinates: [[b.minX / k, b.maxY / k], [b.maxX / k, b.maxY / k], [b.maxX / k, b.minY / k], [b.minX / k, b.minY / k]] } as any);
-        map.addLayer({ id: 'basemap', type: 'raster', source: 'gta', paint: { 'raster-opacity': 0.92, 'raster-saturation': -0.25 } });
+        map.addLayer({ id: 'basemap', type: 'raster', source: 'gta', paint: { 'raster-brightness-max': 0.82, 'raster-saturation': -0.1 } });
         fetch(url(mm.image), { method: 'HEAD' }).then((r) => setImgMissing(!r.ok)).catch(() => setImgMissing(true));
       }
       if (t) { map.addSource('osm', { type: 'raster', tiles: [t], tileSize: 256, attribution: mm?.attribution ?? cfg().tileAttribution ?? '' } as any); map.addLayer({ id: 'basemap', type: 'raster', source: 'osm', paint: { 'raster-brightness-max': 0.45, 'raster-saturation': -0.7, 'raster-contrast': 0.15 } }); }
       const lines: any[] = []; const cc = meta?.center ?? c;
-      for (let k = -30; k <= 30; k++) { const dx = k * 100 / (111320 * Math.cos((cc.lat * Math.PI) / 180)), dy = k * 100 / 111320;
-        lines.push({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [[cc.lon + dx, cc.lat - 0.03], [cc.lon + dx, cc.lat + 0.03]] } }, { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [[cc.lon - 0.05, cc.lat + dy], [cc.lon + 0.05, cc.lat + dy]] } }); }
-      map.addSource('grid', { type: 'geojson', data: fc(lines) }); map.addLayer({ id: 'grid', type: 'line', source: 'grid', paint: { 'line-color': '#272727', 'line-width': 0.6, 'line-opacity': 0.7 } });
+      for (let k = -80; k <= 80; k++) { const dx = k * 100 / (111320 * Math.cos((cc.lat * Math.PI) / 180)), dy = k * 100 / 111320;
+        lines.push({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [[cc.lon + dx, cc.lat - 0.08], [cc.lon + dx, cc.lat + 0.08]] } }, { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [[cc.lon - 0.08, cc.lat + dy], [cc.lon + 0.08, cc.lat + dy]] } }); }
+      map.addSource('grid', { type: 'geojson', data: fc(lines) }); map.addLayer({ id: 'grid', type: 'line', source: 'grid', paint: { 'line-color': '#000000', 'line-width': 0.6, 'line-opacity': 0.22 } });
       for (const s of ['route', 'track', 'sectors', 'areas', 'points', 'samples', 'others', 'hist']) map.addSource(s, { type: 'geojson', data: EMPTY });
       map.addLayer({ id: 'route', type: 'line', source: 'route', paint: { 'line-color': '#817d78', 'line-width': 1, 'line-dasharray': [2, 3] } });
       map.addLayer({ id: 'sectors-fill', type: 'fill', source: 'sectors', paint: { 'fill-color': ['case', ['get', 'active'], '#f0500a', '#363636'], 'fill-opacity': ['case', ['get', 'active'], 0.07, 0.03] } });

@@ -10,7 +10,7 @@ function Status() {
   return (<div className="grid grid-cols-3 gap-3">
     {rows.map(([k, v]) => <div key={k} className="panel p-3"><div className="lbl">{k}</div><div className="mt-1"><StatusBadge s={v} /></div></div>)}
     <Panel title="Betriebsmodus" className="col-span-3">
-      <div className="grid grid-cols-3 gap-3"><Field label="Modus">{status?.demo_mode ? 'DEMO MODE (alle Daten simuliert)' : 'FIVEM CONNECTED (Position/Geschwindigkeit/Heading real aus FiveM, Messwerte weiterhin simuliert)'}</Field><Field label="Aktives Szenario">{status?.scenario}</Field><Field label="Laufzeit">{status?.uptime_s ?? '–'} s</Field>
+      <div className="grid grid-cols-3 gap-3"><Field label="Modus">{status?.fivem === 'CONNECTED' ? 'FiveM verbunden (Position/Geschwindigkeit/Kurs/Wetter aus GTA, Messwerte simuliert)' : 'FiveM getrennt – Fahrzeug wartet am Einsatzzentrum'}</Field><Field label="Aktives Szenario">{status?.scenario}</Field><Field label="Laufzeit">{status?.uptime_s ?? '–'} s</Field>
         <Field label="Letzte FiveM-Telemetrie">{fm.data?.last ? new Date(fm.data.last).toLocaleTimeString('de-DE') : 'keine'}</Field><Field label="Spieler">{fm.data?.info?.player ?? '–'}</Field><Field label="Einsatz (FiveM)">{fm.data?.info?.mission ?? '–'}</Field></div>
       <div className="text-[12px] text-dim mt-3">Auch bei FiveM-Verbindung stellen alle Messwerte, Identifikationen und Laborergebnisse <b>Simulation</b> dar – die Anwendung gibt FiveM-Daten niemals als echte CBRN-Messung aus.</div>
     </Panel></div>);
@@ -63,15 +63,17 @@ function Users() {
   const { meta } = useLive();
   return (<Panel title="Benutzer & Rollen" body="!p-0"><table className="t"><thead><tr><th>Benutzer</th><th>Rolle</th><th>Rechte</th></tr></thead><tbody>
     {(meta?.users ?? []).map((u: any) => <tr key={u.id}><td>{u.name}</td><td><Badge>{ROLE_LABEL[u.role]}</Badge></td><td className="text-dim text-[12px]">{{ erkunder: 'Messungen, Proben, Aufträge annehmen/starten, Karte, Geräte', truppfuehrer: '+ Aufträge abschließen, Berichte erstellen', messleitung: '+ mehrere Fahrzeuge, Aufträge erteilen, Lagekarte, Szenario wählen, Laborbefund simulieren', admin: 'Vollzugriff inkl. Datenbank, Import, Konfiguration' }[u.role as string]}</td></tr>)}</tbody></table>
-    <div className="p-2 text-[11px] text-dim">Demo-Betrieb: Rollenumschaltung über Kopfzeile (keine Passwort-Anmeldung). Für Produktivbetrieb Authentifizierung ergänzen.</div></Panel>);
+    <div className="p-2 text-[11px] text-dim">Rollenumschaltung über Kopfzeile (keine Passwort-Anmeldung). Für Produktivbetrieb Authentifizierung ergänzen.</div></Panel>);
 }
 
 function Config() {
   const { meta, can, status } = useLive(); const [ch, setCh] = useState<string[]>(meta?.mgmg_channels ?? []); const [o, setO] = useState(JSON.stringify(status?.fivem_origin ?? { x: 0, y: 0, scale: 1 })); const [msg, setMsg] = useState('');
+  const [off, setOff] = useState<{ dx: number; dy: number }>(status?.gta_offset ?? { dx: 0, dy: 0 });
   const ALL = ['O2', 'CO', 'H2S', 'LEL', 'CH4'];
-  const save = async () => { try { await api('/system/config', { method: 'POST', body: { mgmg_channels: ch, fivem_origin: JSON.parse(o) } }); setMsg('Gespeichert – Seite neu laden, um Kanäle zu übernehmen'); } catch (e: any) { setMsg(e.message); } };
+  const save = async () => { try { await api('/system/config', { method: 'POST', body: { mgmg_channels: ch, fivem_origin: JSON.parse(o), gta_offset: { dx: off.dx, dy: off.dy } } }); setMsg('Gespeichert – Seite neu laden, um Änderungen zu übernehmen'); } catch (e: any) { setMsg(e.message); } };
   return (<Panel title="Konfiguration"><div className="lbl">MGMG-Kanäle (konfigurierbar)</div><div className="flex gap-4 my-1">{ALL.map((k) => <label key={k}><input type="checkbox" checked={ch.includes(k)} onChange={(e) => setCh(e.target.checked ? ALL.filter((x) => ch.includes(x) || x === k) : ch.filter((x) => x !== k))} /> {k}</label>)}</div>
-    <div className="lbl mt-3">FiveM-Koordinatenursprung → Demo-Raum (x, y, Meter pro Spieleinheit)</div><input className="inp w-96 font-mono" value={o} onChange={(e) => setO(e.target.value)} />
+    <div className="lbl mt-3">FiveM-Koordinatenursprung (nur Nicht-GTA-Karten; im GTA-Modus werden Spielkoordinaten direkt verwendet)</div><input className="inp w-96 font-mono" value={o} onChange={(e) => setO(e.target.value)} />
+    <div className="lbl mt-3">Kartenversatz (Feinkalibrierung des GTA-Kartenbilds, Meter; + = Bild nach Osten/Norden verschieben)</div><div className="flex gap-2 items-center"><span className="text-dim">X</span><input className="inp w-24 font-mono" type="number" value={off.dx} onChange={(e) => setOff({ ...off, dx: +e.target.value })} /><span className="text-dim">Y</span><input className="inp w-24 font-mono" type="number" value={off.dy} onChange={(e) => setOff({ ...off, dy: +e.target.value })} /></div>
     <div className="mt-3 flex gap-2 items-center"><Btn kind="primary" onClick={save} disabled={!can(4)}>Speichern</Btn><span className="text-dim">{can(4) ? msg : 'Nur Administrator'}</span></div></Panel>);
 }
 

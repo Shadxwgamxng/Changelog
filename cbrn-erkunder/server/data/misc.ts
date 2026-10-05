@@ -33,7 +33,7 @@ export const methods = [
 ];
 
 // Prüfröhrchen-Inventar: Produktbezeichnungen allgemein bekannt; Messbereiche bewusst offen => QUELLE ERFORDERLICH.
-// Chargen/Verfall/Lagerstatus sind SIMULIERTE Demo-Inventardaten.
+// Chargen/Verfall/Lagerstatus sind SIMULIERTE Inventardaten.
 export const tubes = [
   ['Dräger', 'Chlor 0,2/a', 'Kurzzeit', 'Chlor', '7782-50-5'],
   ['Dräger', 'Ammoniak 5/a', 'Kurzzeit', 'Ammoniak', '7664-41-7'],
@@ -48,7 +48,7 @@ export const tubes = [
 ].map(([manufacturer, product, tube_type, analyte, cas], i) => ({
   id: `T-${String(i + 1).padStart(3, '0')}`, manufacturer, product, tube_type, analyte, cas,
   range_text: null, unit: 'ppm', application: 'Orientierende Messung im Gasraum (Inventarfunktion)',
-  storage_status: i === 6 ? 'Nachbestellen' : 'Verfügbar', lot: `DEMO-${2400 + i * 7}`, expiry: `${2027 + (i % 3)}-0${1 + (i % 9)}-30`,
+  storage_status: i === 6 ? 'Nachbestellen' : 'Verfügbar', lot: `SIM-${2400 + i * 7}`, expiry: `${2027 + (i % 3)}-0${1 + (i % 9)}-30`,
 }));
 
 export const users = [
@@ -59,10 +59,10 @@ export const users = [
 ];
 
 export const vehicles = [
-  { id: 'CBRN-01', name: 'CBRN-01', status: 'EINSATZBEREIT', link: 'ONLINE', online: 1, lat: 54.3233, lon: 10.1228, heading: 90, speed: 0, gps_fix: 1, power: 'OK' },
-  { id: 'CBRN-02', name: 'CBRN-02', status: 'MESSUNG', link: 'ONLINE', online: 1, lat: 54.3410, lon: 10.1500, heading: 45, speed: 0, gps_fix: 1, power: 'OK' },
-  { id: 'CBRN-03', name: 'CBRN-03', status: 'EINSATZBEREIT', link: 'ONLINE', online: 1, lat: 54.3050, lon: 10.1000, heading: 200, speed: 0, gps_fix: 1, power: 'OK' },
-  { id: 'CBRN-04', name: 'CBRN-04', status: 'OFFLINE', link: 'OFFLINE', online: 0, lat: 54.2900, lon: 10.1700, heading: 0, speed: 0, gps_fix: 0, power: 'NICHT VERFÜGBAR' },
+  { id: 'CBRN-01', name: 'CBRN-01', status: 'EINSATZBEREIT', link: 'OFFLINE', online: 1, lat: 0, lon: 0, heading: 90, speed: 0, gps_fix: 0, power: 'OK' },
+  { id: 'CBRN-02', name: 'CBRN-02', status: 'OFFLINE', link: 'OFFLINE', online: 0, lat: 0, lon: 0, heading: 0, speed: 0, gps_fix: 0, power: 'NICHT VERFÜGBAR' },
+  { id: 'CBRN-03', name: 'CBRN-03', status: 'OFFLINE', link: 'OFFLINE', online: 0, lat: 0, lon: 0, heading: 0, speed: 0, gps_fix: 0, power: 'NICHT VERFÜGBAR' },
+  { id: 'CBRN-04', name: 'CBRN-04', status: 'OFFLINE', link: 'OFFLINE', online: 0, lat: 0, lon: 0, heading: 0, speed: 0, gps_fix: 0, power: 'NICHT VERFÜGBAR' },
 ];
 
 export const crew = [
@@ -72,7 +72,7 @@ export const crew = [
   { id: 'c4', vehicle_id: 'CBRN-01', role: 'Messtrupp', name: 'Hoffmann, L.' },
 ];
 
-// Szenarien: reale Stoff-/Nuklidreferenzen, simulierte Ereignisse. Zentrum = Demo-Koordinate (Kiel).
+// Szenarien: reale Stoff-/Nuklidreferenzen, simulierte Ereignisse. Zentrum = Einsatzzentrum aus config.json.
 export const scenarios = [
   { id: 'sc-chlor', name: 'Industrieunfall Chlor', category: 'C', ref_type: 'substance', ref_id: 'chlor', radius_m: 500, devices: ['PID', 'IMS', 'MGMG'], weather: 'variabel', peak: 12, unit: 'ppm' },
   { id: 'sc-ammoniak', name: 'Industrieunfall Ammoniak', category: 'C', ref_type: 'substance', ref_id: 'ammoniak', radius_m: 600, devices: ['PID', 'IMS', 'MGMG'], weather: 'variabel', peak: 80, unit: 'ppm' },

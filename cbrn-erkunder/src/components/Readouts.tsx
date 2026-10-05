@@ -60,7 +60,7 @@ export function MgmgPanel({ r, link = true }: { r: any; link?: boolean }) {
             <div className="lbl">{U[k]?.[0] ?? k}</div><div className="font-mono text-[22px]">{num(v, k === 'O2' || k === 'LEL' || k === 'H2S' ? 1 : 0)}</div><div className="text-dim text-[11px]">{U[k]?.[1]}</div>
           </div>))}
       </div>
-      <div className="text-[11px] text-dim mt-2">Kanäle konfigurierbar (System). Aktiv: {(meta?.mgmg_channels ?? []).join(', ')}. Demo-Schwellen: O₂ &lt; 19,5 %, CO &gt; 30 ppm, H₂S &gt; 5 ppm, EX &gt; 10 %UEG.</div>
+      <div className="text-[11px] text-dim mt-2">Kanäle konfigurierbar (System). Aktiv: {(meta?.mgmg_channels ?? []).join(', ')}. Alarmschwellen (Simulation): O₂ &lt; 19,5 %, CO &gt; 30 ppm, H₂S &gt; 5 ppm, EX &gt; 10 %UEG.</div>
     </Panel>
   );
 }

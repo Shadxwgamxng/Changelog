@@ -2,7 +2,7 @@
 
 Eigenständige Web-App, die den digitalen Arbeitsplatz eines deutschen CBRN-Erkundungswagens (neue ErkW-Generation, konzeptionell nach öffentlichen BBK-Informationen) nachbildet – als Grundlage für ein späteres FiveM-NUI.
 
-> **SIMULATION.** Stoff-/Nuklid-/Agensdaten sind fachliche Referenzdaten aus öffentlichen Quellen, **aber noch nicht gegen die Primärquellen geprüft** (Status `unverified`, Abrufdatum/Datenstand „NICHT DOKUMENTIERT“). Messwerte, GPS, Einsätze, Identifikationen und Laborergebnisse sind **simuliert** – auch wenn FiveM verbunden ist. Kein offizielles Produkt einer Behörde; das Emblem ist ein eigenes Platzhalter-Symbol (umgedrehtes Dreieck).
+> **SIMULATION.** Stoff-/Nuklid-/Agensdaten sind fachliche Referenzdaten aus öffentlichen Quellen, **aber noch nicht gegen die Primärquellen geprüft** (Status `unverified`, Abrufdatum/Datenstand „NICHT DOKUMENTIERT“). Messwerte, GPS, Einsätze, Identifikationen und Laborergebnisse sind **simuliert** – auch wenn FiveM verbunden ist. Kein offizielles Produkt einer Behörde; das Logo (`public/logo.png`) wurde vom Betreiber bereitgestellt.
 
 ## Start
 
@@ -35,7 +35,7 @@ Jede Geräteseite (Messgeräte → Gerät anklicken) zeigt eine **eigene Vektorg
 
 ## GTA-5-Karte
 
-In `config.json` `"mapMode": "gta5"` setzen (oder `start-gta.bat` nutzen) Mitgeliefert ist ein neutrales **Platzhalter-Raster** (`public/maps/gta5.png`, 500-m-Gitter, gelb = Achsen X/Y=0, rot = Einsatzzentrum). Für die echte Karte dein eigenes Bild verwenden (Rockstar-Material wird nicht mitgeliefert): als `public/maps/gta5.png` überschreiben oder `gta5.image` (jpg/png/webp) anpassen. `gta5.bounds` sind die Spielkoordinaten (Meter), die das Bild abdeckt – an dein Bild anpassen, sonst sitzen Fahrzeug und Marker versetzt. `gta5.center` ist das Einsatzzentrum (Standard: Legion Square). Im GTA-Modus werden FiveM-Koordinaten (x, y) direkt übernommen und Positionen als X/Y angezeigt. Beim Umschalten des Modus werden die Demo-Daten neu angelegt. Die Demo-Route ist nicht straßengenau. Bei großen Bildern max. 8192×8192 px verwenden.
+Die App läuft ausschließlich auf der GTA-V-Karte (`public/maps/gta5.webp`, vom Betreiber bereitgestellt). Positionen kommen als Spielkoordinaten (x/y in Metern) direkt aus FiveM. `config.json → gta5.bounds` legt fest, welchen Spielkoordinaten-Bereich das Bild abdeckt (aus Orientierungspunkten wie Flugplätzen/Stadtzentrum geschätzt, Abweichung bis ca. 200 m). Feinkorrektur ohne Neustart: **System → Konfiguration → Kartenversatz**. Eigenes Kartenbild: Datei ersetzen und `bounds` anpassen. Ohne FiveM-Verbindung bleibt das Fahrzeug am Einsatzzentrum (`gta5.center`, Standard Legion Square) stehen.
 
 ## Aufbau
 
@@ -51,7 +51,7 @@ In `config.json` `"mapMode": "gta5"` setzen (oder `start-gta.bat` nutzen) Mitgel
 
 * Arbeitsablauf: Messwert → Gerätehinweis → Stoffgruppe → mögliche Stoffe → weitere Messung/Probe → Laborbefund. Stufen: *Hinweis / Verdacht / mögliche Identifikation / bestätigte Identifikation*.
 * **PID** (10,6 eV) spricht nur an, wenn die Ionisierungsenergie des Stoffs darunter liegt (z. B. Chlor: kein Ansprechen) und liefert nur *SCREENING / HINWEIS*.
-* **MGMG**-Kanäle sind konfigurierbar (System → Konfiguration); Demo-Schwellen sind als solche gekennzeichnet.
+* **MGMG**-Kanäle sind konfigurierbar (System → Konfiguration); Alarmschwellen sind als Simulationswerte gekennzeichnet.
 * **Gammaspektrum** wird aus IAEA-Linienenergien + Szenario erzeugt, die Nuklidzuordnung per Linienvergleich – immer als *SIMULIERTE AUSWERTUNG* markiert.
 * **Wind** wird als meteorologische Richtung geführt („Wind kommt aus NW“); die Ausbreitungsfahne läuft entgegengesetzt.
 * Datenherkunft je Messpunkt: `REAL DATA` · `SIMULATED DATA` · `MANUAL ENTRY` · `DATABASE REFERENCE`.
@@ -66,7 +66,7 @@ WebSocket-Events: `vehicle.position`, `vehicle.status`, `measurement.created|upd
 1. Backend starten, `FIVEM_TOKEN` setzen.
 2. `fivem-adapter/` als Ressource einbinden, `config.lua` anpassen (Fahrzeugmodelle, API-URL, Token).
 3. `Config.WebUrl` auf die vom Spieler erreichbare Adresse der Web-App setzen; `/cbrn` bzw. Taste F7 öffnet die Web-App als NUI-Fenster (ESC schließt). Die Web-App läuft auf dem Server-Rechner (`start.bat`), die Ressource sendet nur Position, Kurs, Speed und GTA-Wetter. Wind-Richtung ggf. über `Config.WindVectorIsTravelDirection` anpassen.
-4. Spielkoordinaten → Demo-Raum: System → Konfiguration (`fivem_origin`: x, y, Meter/Spieleinheit). Sobald Telemetrie eintrifft, zeigt die Kopfzeile **FIVEM CONNECTED**; 10 s ohne Telemetrie → zurück zu **DEMO MODE**.
+4. Sobald Telemetrie eintrifft, zeigt die Kopfzeile **FIVEM VERBUNDEN**; 10 s ohne Telemetrie → **FIVEM GETRENNT**. Spielkoordinaten werden direkt übernommen.
 
 ## GESTIS-Abgleich
 
@@ -75,7 +75,7 @@ WebSocket-Events: `vehicle.position`, `vehicle.status`, `measurement.created|upd
 ## Offene Punkte / Hinweise
 
 * Fachdaten gegen GESTIS/ECHA/NIOSH/NIST/IAEA/OPCW/RKI prüfen und `quality`, `last_checked`, Quellen-`retrieved_at`/`data_stand` pflegen (Import- und Admin-Funktion vorhanden).
-* Prüfröhrchen-Messbereiche: `QUELLE ERFORDERLICH` (Herstellerdatenblätter einpflegen). Chargen/Verfall sind Demo-Inventar.
+* Prüfröhrchen-Messbereiche: `QUELLE ERFORDERLICH` (Herstellerdatenblätter einpflegen). Chargen/Verfall sind simulierte Inventardaten.
 * IMS-Treffer (`ims_sim`) sind Szenarioannahmen, keine Aussage über reale Gerätebibliotheken.
-* Keine Authentifizierung (Demo-Rollenumschaltung). Demo-Route nicht straßengenau; OSM-Hintergrundkarte nur bei Internet (sonst Gitter/Sektoren).
+* Keine Authentifizierung (Rollenumschaltung in der Kopfzeile).
 * Tablet-Ansicht: reduziertes Raster per CSS (≤ 1100 px); nicht alle Seiten sind für Touch optimiert.

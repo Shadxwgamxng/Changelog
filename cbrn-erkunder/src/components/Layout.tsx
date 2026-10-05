@@ -47,17 +47,17 @@ export default function Layout() {
     <div className="shell">
       <header className="topbar no-print">
         <button className="icon-btn" onClick={() => setCollapsed((c) => !c)} title="Navigation ein-/ausklappen"><PanelLeft size={18} /></button>
-        <button className="flex items-center gap-2.5" onClick={() => nav('/')}><Logo size={24} /><span className="font-semibold text-[14px] tracking-tight">CBRN Erkunder</span></button>
+        <button className="flex items-center gap-2.5" onClick={() => nav('/')}><Logo size={26} /><span className="font-semibold text-[14px] tracking-tight">CBRN Erkunder</span></button>
         <div className="flex items-center gap-1.5 ml-2">
           <Badge color="#58a6ff">{v?.name ?? 'CBRN-01'}</Badge>
-          <Badge color={fivem ? '#3fb950' : '#d29922'}>{fivem ? 'FIVEM CONNECTED' : 'DEMO MODE'}</Badge>
+          <Badge color={fivem ? '#3fb950' : '#e5534b'}>{fivem ? 'FIVEM VERBUNDEN' : 'FIVEM GETRENNT'}</Badge>
           <Badge color="#f0500a">SIMULATION</Badge>
           {run && <Badge color="#e5534b" solid>● MESSFAHRT</Badge>}
           {fivem && gt && <Badge color="#58a6ff">SPIELZEIT {gt}</Badge>}
         </div>
         <div className="flex-1" />
         <Search />
-        <select className="inp" value={user.id} onChange={(e) => switchUser(e.target.value)} title="Benutzer / Rolle (Demo-Umschaltung)">
+        <select className="inp" value={user.id} onChange={(e) => switchUser(e.target.value)} title="Benutzer / Rolle">
           {(meta?.users ?? []).map((u: any) => <option key={u.id} value={u.id}>{u.name} · {ROLE_LABEL[u.role]}</option>)}
         </select>
         <div className="font-mono text-[12.5px] text-dim w-[66px] text-right">{clock.toLocaleTimeString('de-DE')}</div>

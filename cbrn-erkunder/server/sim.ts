@@ -14,7 +14,7 @@ const PID_LAMP_EV = 10.6;
 const rnd = (a = 1) => (Math.random() - 0.5) * 2 * a;
 const gauss = () => (Math.random() + Math.random() + Math.random() + Math.random() - 2) / 0.58;
 
-// ---- Route (Demo, nicht straßengenau): liegende Acht um das Einsatzzentrum
+// ---- Test-Route (nur mit DEV_DRIVE=1): liegende Acht um das Einsatzzentrum
 const ROUTE = Array.from({ length: 480 }, (_, i) => { const t = (i / 480) * Math.PI * 2; return { x: 750 * Math.sin(t), y: 480 * Math.sin(2 * t) }; });
 ROUTE.push(ROUTE[0]);
 const CUM = [0]; for (let i = 1; i < ROUTE.length; i++) CUM.push(CUM[i - 1] + Math.hypot(ROUTE[i].x - ROUTE[i - 1].x, ROUTE[i].y - ROUTE[i - 1].y));
@@ -28,7 +28,7 @@ function routePos(s: number) {
 
 // ---- Laufzeitzustand
 export const state = {
-  drive: true, s: 0, s2: 0, speed: 12, // m/s
+  drive: process.env.DEV_DRIVE === '1', s: 0, s2: 0, speed: 12, seen: {} as Record<string, number>, // m/s
   weather: { temperature: 11.4, humidity: 78, pressure: 1014, wind_speed: 3.4, wind_from: 315, cloud_okta: 5, precipitation: 0 },
   live: {} as Record<string, any>,
   fivem: { last: 0, info: null as any },
@@ -131,7 +131,7 @@ export function spectrumAt(x: number, y: number) {
 }
 
 // ---- Messwertspeicherung / Alarme
-const seqNow = () => ((db.prepare('SELECT MAX(seq) m FROM measurements').get() as any).m ?? 420) + 1;
+const seqNow = () => ((db.prepare('SELECT MAX(seq) m FROM measurements').get() as any).m ?? 0) + 1;
 const mpId = (n: number) => 'MP-' + String(n).padStart(6, '0');
 export function createAlarm(a: { source: string; category: string; description: string; lat: number; lon: number; vehicle_id: string; measurement_id?: string | null }, key: string) {
   const last = state.cooldown.get(key) ?? 0; if (Date.now() - last < 90000) return null; state.cooldown.set(key, Date.now());
@@ -165,7 +165,7 @@ function evaluateAndStore(v: any, pos: { lat: number; lon: number }, r: ReturnTy
   const ch = r.mgmg.channels as Record<string, number | null>;
   const bad = (ch.O2 != null && ch.O2 < 19.5) || (ch.CO ?? 0) > 30 || (ch.H2S ?? 0) > 5 || (ch.LEL ?? 0) > 10;
   const raised = (ch.CO ?? 0) > 5 || (ch.H2S ?? 0) > 0.5 || (ch.LEL ?? 0) > 1;
-  if ((bad || raised) && throttle) rows.push({ ...base, device: 'MGMG', value: ch.LEL ?? null, unit: '%LEL', channels: ch, status: bad ? 'ALARM' : 'ERHÖHT', level: 'hinweis', headline: bad ? 'Grenzwert-/Alarmschwelle überschritten (Demo-Schwelle)' : 'Kanalanzeige erhöht', remark: 'Demo-Schwellen: O₂ < 19,5 %, CO > 30 ppm, H₂S > 5 ppm, EX > 10 %UEG – konfigurierbar.' });
+  if ((bad || raised) && throttle) rows.push({ ...base, device: 'MGMG', value: ch.LEL ?? null, unit: '%LEL', channels: ch, status: bad ? 'ALARM' : 'ERHÖHT', level: 'hinweis', headline: bad ? 'Grenzwert-/Alarmschwelle überschritten (Schwelle, Simulation)' : 'Kanalanzeige erhöht', remark: 'Alarmschwellen (Simulation): O₂ < 19,5 %, CO > 30 ppm, H₂S > 5 ppm, EX > 10 %UEG – konfigurierbar.' });
   // Dosisleistung
   if (r.dose.value >= 0.3 && throttle) rows.push({ ...base, device: 'DLM', value: r.dose.value, unit: 'µSv/h', status: r.dose.value >= 1 ? 'ALARM' : 'ERHÖHT', level: 'hinweis', headline: 'Erhöhte Dosisleistung', remark: 'Nuklidzuordnung über Gammaspektrum (simuliert).' });
   // FMG – routinemäßiger georeferenzierter Messpunkt
@@ -176,8 +176,8 @@ function evaluateAndStore(v: any, pos: { lat: number; lon: number }, r: ReturnTy
       const s = get('substances', m.substance_id);
       createAlarm({ source: 'IMS', category: 'CHEMISCH', description: `IMS: mögliche Identifikation ${s?.name ?? '?'} (simuliert)`, lat: m.lat, lon: m.lon, vehicle_id: v.id, measurement_id: m.id }, `${v.id}-ims`);
     }
-    if (m.device === 'MGMG' && m.status === 'ALARM') createAlarm({ source: 'MGMG', category: 'CHEMISCH', description: 'MGMG: Alarmschwelle überschritten (Demo-Schwelle)', lat: m.lat, lon: m.lon, vehicle_id: v.id, measurement_id: m.id }, `${v.id}-mgmg`);
-    if (m.device === 'DLM' && m.status === 'ALARM') createAlarm({ source: 'DLM', category: activeScenario()?.sc.category === 'N' ? 'NUKLEAR' : 'RADIOLOGISCH', description: `Dosisleistung ${m.value} µSv/h (Demo-Schwelle 1 µSv/h)`, lat: m.lat, lon: m.lon, vehicle_id: v.id, measurement_id: m.id }, `${v.id}-dlm`);
+    if (m.device === 'MGMG' && m.status === 'ALARM') createAlarm({ source: 'MGMG', category: 'CHEMISCH', description: 'MGMG: Alarmschwelle überschritten (Schwelle, Simulation)', lat: m.lat, lon: m.lon, vehicle_id: v.id, measurement_id: m.id }, `${v.id}-mgmg`);
+    if (m.device === 'DLM' && m.status === 'ALARM') createAlarm({ source: 'DLM', category: activeScenario()?.sc.category === 'N' ? 'NUKLEAR' : 'RADIOLOGISCH', description: `Dosisleistung ${m.value} µSv/h (Schwelle 1 µSv/h, Simulation)`, lat: m.lat, lon: m.lon, vehicle_id: v.id, measurement_id: m.id }, `${v.id}-dlm`);
     if (m.device === 'PID' && m.status === 'HOCH') createAlarm({ source: 'PID', category: activeScenario()?.sc.category === 'U' ? 'UNBEKANNT' : 'CHEMISCH', description: `PID-Screening HOCH (${m.value} ppm)`, lat: m.lat, lon: m.lon, vehicle_id: v.id, measurement_id: m.id }, `${v.id}-pid`);
   }
 }
@@ -208,7 +208,8 @@ export function ingestFivem(d: FivemIn) {
       if (MODE === 'gta5') { const p = gameToLL(d.x ?? 0, d.y ?? 0); lat = p.lat; lon = p.lon; } // Spielkoordinaten direkt
       else { const o = getSetting('fivem_origin', { x: 0, y: 0, scale: 1 }); const p = offsetToLL(((d.x ?? 0) - o.x) * o.scale, ((d.y ?? 0) - o.y) * o.scale); lat = p.lat; lon = p.lon; }
     }
-    update('vehicles', id, { lat, lon, heading: d.heading ?? v.heading, speed: d.speed_kmh ?? 0, online: 1, gps_fix: 1, link: 'ONLINE' });
+    state.seen[id] = Date.now();
+    update('vehicles', id, { lat, lon, heading: d.heading ?? v.heading, speed: d.speed_kmh ?? 0, online: 1, gps_fix: 1, link: 'ONLINE', status: v.status === 'OFFLINE' ? 'EINSATZBEREIT' : v.status, power: v.power === 'NICHT VERFÜGBAR' ? 'OK' : v.power });
     emit('vehicle.position', get('vehicles', id));
   }
   if (id === 'CBRN-01') {
@@ -229,10 +230,9 @@ export function startRun(userId: string, name?: string) {
   if (state.run) return { error: 'Es läuft bereits eine Messfahrt' };
   const n = ((db.prepare('SELECT COUNT(*) c FROM runs').get() as any).c ?? 0) + 1;
   const mission = list('missions', "WHERE vehicle_id = 'CBRN-01' AND status = 'IN BEARBEITUNG' LIMIT 1")[0];
-  const R = { id: 'MF-' + String(n).padStart(4, '0'), vehicle_id: 'CBRN-01', name: name || `Messfahrt ${n}`, started_at: now(), started_by: userId, dist: 0, points: 0, maxDose: 0, maxPid: 0, source: fivemConnected() ? 'FIVEM' : 'DEMO', mission_id: mission?.id ?? null };
+  const R = { id: 'MF-' + String(n).padStart(4, '0'), vehicle_id: 'CBRN-01', name: name || `Messfahrt ${n}`, started_at: now(), started_by: userId, dist: 0, points: 0, maxDose: 0, maxPid: 0, source: fivemConnected() ? 'FIVEM' : 'OFFLINE', mission_id: mission?.id ?? null };
   state.run = R; state.lastTrackPos = null;
   insert('runs', { id: R.id, vehicle_id: R.vehicle_id, name: R.name, started_at: R.started_at, started_by: userId, distance_m: 0, points: 0, source: R.source, mission_id: R.mission_id });
-  if (!fivemConnected()) state.drive = true; // ohne FiveM: Demo-Fahrt
   audit(userId, 'start', 'run', R.id, { source: R.source }); emit('run.started', runInfo()); return { run: runInfo() };
 }
 export function stopRun(userId: string) {
@@ -256,7 +256,7 @@ function applyGameWeather() {
 }
 
 export function systemStatus() {
-  return { web: 'ONLINE', database: 'ONLINE', api: 'ONLINE', websocket: 'ONLINE', fivem: fivemConnected() ? 'CONNECTED' : 'NOT CONNECTED', data_source: fivemConnected() ? 'FIVEM (simulierte Messwerte)' : 'DEMO', demo_mode: !fivemConnected(), fivem_info: state.fivem.info, scenario: getSetting('active_scenario', 'sc-chlor') };
+  return { web: 'ONLINE', database: 'ONLINE', api: 'ONLINE', websocket: 'ONLINE', fivem: fivemConnected() ? 'CONNECTED' : 'NOT CONNECTED', data_source: fivemConnected() ? 'FIVEM (Position real, Messwerte simuliert)' : 'WARTET AUF FIVEM', fivem_info: state.fivem.info, scenario: getSetting('active_scenario', 'sc-chlor') };
 }
 
 // ---- Haupttick
@@ -270,6 +270,12 @@ function tick() {
   weatherStep();
   if (state.tick % 5 === 0) emit('weather.updated', weatherNow());
   if (state.tick % 30 === 0) { const w = weatherNow(); db.prepare('INSERT INTO weather_records(ts,temperature,humidity,pressure,wind_speed,wind_from,cloud_okta,precipitation) VALUES(?,?,?,?,?,?,?,?)').run(w.ts, w.temperature, w.humidity, w.pressure, w.wind_speed, w.wind_from, w.cloud_okta, w.precipitation); }
+  // Verbindungsstatus: Fahrzeuge ohne Telemetrie werden getrennt (CBRN-01 bleibt als Arbeitsplatz erhalten)
+  for (const v of list('vehicles')) {
+    const live = Date.now() - (state.seen[v.id] ?? 0) < 15000;
+    if (v.id === 'CBRN-01') { const want = live ? 'ONLINE' : 'OFFLINE'; if (v.link !== want) { update('vehicles', v.id, { link: want, gps_fix: live ? 1 : 0, speed: live ? v.speed : 0 }); emit('vehicle.status', get('vehicles', v.id)); } }
+    else if (v.online && !live) { update('vehicles', v.id, { online: 0, link: 'OFFLINE', status: 'OFFLINE', gps_fix: 0, speed: 0 }); emit('vehicle.status', get('vehicles', v.id)); }
+  }
   const vehicles = list('vehicles');
   for (const v of vehicles) {
     if (!v.online) continue;
@@ -278,9 +284,6 @@ function tick() {
       if (fivemConnected()) { ({ x, y } = llToOffset(v.lat, v.lon)); speed = v.speed / 3.6; }
       else if (state.drive) { state.s += state.speed * dt; ({ x, y } = routePos(state.s)); speed = state.speed; const ll = offsetToLL(x, y); const h = bearing({ lat: v.lat, lon: v.lon }, ll); update('vehicles', v.id, { lat: ll.lat, lon: ll.lon, heading: h, speed: speed * 3.6 }); }
       else { ({ x, y } = llToOffset(v.lat, v.lon)); update('vehicles', v.id, { speed: 0 }); }
-    } else if (v.id === 'CBRN-02') {
-      state.s2 += 7 * dt; const a = state.s2 / 900; x = 1150 * Math.cos(a); y = 900 * Math.sin(a); speed = 7; const ll = offsetToLL(x, y);
-      update('vehicles', v.id, { lat: ll.lat, lon: ll.lon, heading: bearing({ lat: v.lat, lon: v.lon }, ll), speed: speed * 3.6 });
     } else ({ x, y } = llToOffset(v.lat, v.lon));
     const cur = get('vehicles', v.id)!; const pos = { lat: cur.lat, lon: cur.lon };
     const r = readingsAt(x!, y!, speed);
@@ -297,12 +300,6 @@ function tick() {
       R.maxDose = Math.max(R.maxDose, r.dose.value); R.maxPid = Math.max(R.maxPid, r.pid.value);
     }
     if ((v.id === 'CBRN-01' && (state.run || mission)) || (v.id !== 'CBRN-01' && mission)) evaluateAndStore(cur, pos, r, mission, v.id === 'CBRN-01' && !!state.run && state.tick % 2 === 0 && (speed > 0 || state.tick % 10 === 0));
-  }
-  // Demo-Funkstrecke: Aufträge anderer Fahrzeuge laufen automatisch an
-  for (const m of list('missions', "WHERE status IN ('ÜBERMITTELT','ANGENOMMEN') AND vehicle_id != 'CBRN-01'")) {
-    const age = (Date.now() - new Date(m.updated_at).getTime()) / 1000;
-    const next = m.status === 'ÜBERMITTELT' && age > 15 ? 'ANGENOMMEN' : m.status === 'ANGENOMMEN' && age > 15 ? 'IN BEARBEITUNG' : null;
-    if (next) { update('missions', m.id, { status: next, updated_at: now(), started_at: next === 'IN BEARBEITUNG' ? now() : m.started_at }); emit('mission.updated', get('missions', m.id)); audit('SYSTEM', 'status', 'mission', m.id, { status: next, demo: true }); }
   }
   // Simulierte Laborbefunde
   for (const s of list('samples', "WHERE lab_status = 'ANALYSE' AND lab_result IS NULL")) {

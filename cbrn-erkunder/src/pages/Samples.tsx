@@ -67,7 +67,7 @@ export default function Samples() {
         <Panel title="Kurzzeit-Prüfröhrchen – Inventar / Informationsfunktion" body="!p-0">
           <table className="t"><thead><tr><th>Hersteller</th><th>Produkt</th><th>Röhrchentyp</th><th>Messstoff</th><th>CAS</th><th>Messbereich</th><th>Einheit</th><th>Anwendungsbereich</th><th>Lagerstatus</th><th>Charge</th><th>Verfall</th></tr></thead><tbody>
             {(tubes.data ?? []).map((t) => <tr key={t.id}><td>{t.manufacturer}</td><td>{t.product}</td><td>{t.tube_type}</td><td>{t.analyte}</td><td className="font-mono">{t.cas}</td><td className="text-dim">QUELLE ERFORDERLICH</td><td>{t.unit}</td><td>{t.application}</td><td><StatusBadge s={t.storage_status} /></td><td className="font-mono">{t.lot}</td><td className="font-mono">{t.expiry}</td></tr>)}</tbody></table>
-          <div className="p-2 text-[11px] text-dim">Messbereiche nicht aus Herstellerdatenblättern übernommen (QUELLE ERFORDERLICH). Chargen/Verfall/Lagerstatus sind simulierte Demo-Inventardaten.</div>
+          <div className="p-2 text-[11px] text-dim">Messbereiche nicht aus Herstellerdatenblättern übernommen (QUELLE ERFORDERLICH). Chargen/Verfall/Lagerstatus sind simulierte Inventardaten.</div>
         </Panel>)}
       {ana && <AnalysisModal sample={ana} onClose={() => setAna(null)} onSaved={reload} />}
       {quick && <AnalysisModal onClose={() => setQuick(false)} />}

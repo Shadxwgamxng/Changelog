@@ -7,9 +7,9 @@ export interface AppConfig {
   gta5: { center: { x: number; y: number }; image: string; bounds: { minX: number; maxX: number; minY: number; maxY: number } };
 }
 const DEFAULT: AppConfig = {
-  mapMode: 'geo',
+  mapMode: 'gta5',
   geo: { center: { lat: 54.3233, lon: 10.1228 }, tileUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '© OpenStreetMap-Mitwirkende' },
-  gta5: { center: { x: 195, y: -934 }, image: '/maps/gta5.jpg', bounds: { minX: -4000, maxX: 4500, minY: -4000, maxY: 8000 } },
+  gta5: { center: { x: 195, y: -934 }, image: '/maps/gta5.webp', bounds: { minX: -5489, maxX: 6972, minY: -4106, maxY: 8355 } },
 };
 export function loadConfig(): AppConfig {
   try {

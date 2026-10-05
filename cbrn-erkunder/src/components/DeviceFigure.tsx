@@ -186,15 +186,15 @@ function useSpots(id: string, ctx: any): Spot[] {
     common(...A('conn'), 290);
   }
   if (id === 'mgmg') { const ch = r?.mgmg.channels ?? {}; const U: Record<string, string> = { O2: '% vol', CO: 'ppm', H2S: 'ppm', LEL: '%LEL', CH4: 'ppm' }; const NM: Record<string, string> = { O2: 'O₂', CO: 'CO', H2S: 'H₂S', LEL: 'EX', CH4: 'CH₄' };
-    const TH: Record<string, string> = { O2: 'Demo-Schwelle < 19,5 %', CO: 'Demo-Schwelle > 30 ppm', H2S: 'Demo-Schwelle > 5 ppm', LEL: 'Demo-Schwelle > 10 %UEG', CH4: 'keine Schwelle hinterlegt' };
+    const TH: Record<string, string> = { O2: 'Schwelle < 19,5 %', CO: 'Schwelle > 30 ppm', H2S: 'Schwelle > 5 ppm', LEL: 'Schwelle > 10 %UEG', CH4: 'keine Schwelle hinterlegt' };
     const g = lcd(id); const nCh = Math.max(1, channels.slice(0, 5).length); const rowH = (g.h * 0.84) / nCh;
     channels.slice(0, 5).forEach((k: string, idx: number) => { const v = ch[k]; P(g.x + g.w + 13, g.y + idx * rowH + rowH * 0.5, idx < 3 ? 'r' : 'l', idx < 3 ? 20 + idx * 78 : 140 + (idx - 3) * 80, `Kanal ${NM[k] ?? k}`, v == null ? '–' : `${num(v, k === 'O2' || k === 'LEL' || k === 'H2S' ? 1 : 0)} ${U[k]}`, TH[k], undefined, [['Messwert', v == null ? '–' : `${v} ${U[k]}`], ['Schwelle', TH[k]]]); });
     P(...A('sensor'), 'l', 20, 'Sensorik (Kanäle konfigurierbar)', `${channels.length} Kanäle`, channels.map((k: string) => NM[k]).join(' · '), COL.acc, [['Aktive Kanäle', channels.map((k: string) => NM[k]).join(', ')], ['Konfiguration', 'System → Konfiguration']]);
-    P(...A('led'), 'r', 250, 'Statusleuchte', ch.O2 != null && ch.O2 < 19.5 ? 'ALARM' : 'OK', undefined, COL.ok, [['Status', 'OK, solange keine Demo-Schwelle überschritten ist']]);
+    P(...A('led'), 'r', 250, 'Statusleuchte', ch.O2 != null && ch.O2 < 19.5 ? 'ALARM' : 'OK', undefined, COL.ok, [['Status', 'OK, solange keine Schwelle überschritten ist']]);
     common(...A('keys'), 300, 'l');
   }
   if (id === 'dlm') { const v = r?.dose.value ?? 0; const st = doseStatus(v); const g = lcd(id); const t = hist.length > 5 ? (hist.at(-1).dose > hist.at(-6).dose * 1.05 ? '▲ steigend' : hist.at(-1).dose < hist.at(-6).dose * 0.95 ? '▼ fallend' : '► stabil') : '–';
-    P(...C(), 'l', 40, 'Anzeige · Dosisleistung', `${num(v, 3)} µSv/h`, st, stCol(st), [['Messwert', num(v, 3)], ['Einheit', 'µSv/h'], ['Status', st], ['Alarm (Demo)', '≥ 1 µSv/h'], ['Hinweis (Demo)', '≥ 0,3 µSv/h']]);
+    P(...C(), 'l', 40, 'Anzeige · Dosisleistung', `${num(v, 3)} µSv/h`, st, stCol(st), [['Messwert', num(v, 3)], ['Einheit', 'µSv/h'], ['Status', st], ['Alarm (Simulation)', '≥ 1 µSv/h'], ['Hinweis (Simulation)', '≥ 0,3 µSv/h']]);
     P(g.x + g.w - 6, g.y + g.h - 6, 'r', 20, 'Balkenanzeige (log.)', t, 'Trend', undefined, [['Trend', t]]);
     P(...A('conn'), 'r', 160, 'Sondenanschluss (Detektor)', 'Gamma', 'externe Sonde möglich', COL.acc, [['Messgröße', 'Ortsdosisleistung'], ['Detektor', 'NICHT VERFÜGBAR (Gerätedaten: QUELLE ERFORDERLICH)']]);
     P(...A('led'), 'l', 140, 'Status-LED', st === 'NORMAL' ? 'OK' : st, undefined, stCol(st), [['Status', st]]);
@@ -220,7 +220,7 @@ function useSpots(id: string, ctx: any): Spot[] {
     P(262, 200, 'l', 40, 'Handpumpe (Balg)', 'Probenahme', 'definierte Hubzahl je Röhrchen', undefined, [['Funktion', 'Ansaugen eines definierten Luftvolumens']]);
     P(630, 242, 'r', 20, 'Prüfröhrchen', t?.product ?? '–', t?.analyte ?? '', COL.yellow, [['Produkt', t?.product ?? '–'], ['Hersteller', t?.manufacturer ?? '–'], ['Typ', t?.tube_type ?? '–'], ['Messstoff', `${t?.analyte ?? '–'} (CAS ${t?.cas ?? '–'})`]]);
     P(520, 226, 'r', 120, 'Skala / Messbereich', 'QUELLE ERFORDERL.', t ? `Einheit ${t.unit}` : '', COL.warn, [['Messbereich', 'QUELLE ERFORDERLICH (Herstellerdatenblatt)'], ['Einheit', t?.unit ?? '–'], ['Anwendung', t?.application ?? '–']]);
-    P(440, 242, 'r', 220, 'Lagerstatus / Charge', t?.storage_status ?? '–', t ? `Charge ${t.lot} · Verfall ${t.expiry}` : '', t?.storage_status === 'Verfügbar' ? COL.ok : COL.warn, [['Lagerstatus', t?.storage_status ?? '–'], ['Charge (Demo)', t?.lot ?? '–'], ['Verfall (Demo)', t?.expiry ?? '–']]);
+    P(440, 242, 'r', 220, 'Lagerstatus / Charge', t?.storage_status ?? '–', t ? `Charge ${t.lot} · Verfall ${t.expiry}` : '', t?.storage_status === 'Verfügbar' ? COL.ok : COL.warn, [['Lagerstatus', t?.storage_status ?? '–'], ['Charge (simuliert)', t?.lot ?? '–'], ['Verfall (simuliert)', t?.expiry ?? '–']]);
     common(330, 290, 320);
   }
   return L;

@@ -42,7 +42,7 @@ export function MissionTable({ missions, reload }: { missions: any[]; reload?: (
 export default function Missions() {
   const { data, reload } = useApi<any[]>('/missions', ['mission.created', 'mission.updated']);
   return (
-    <Page title="Messaufträge" sub="Aufträge der CBRN-Messleitkomponente an zugewiesene Erkundungswagen (Demo)">
+    <Page title="Messaufträge" sub="Aufträge der CBRN-Messleitkomponente an zugewiesene Erkundungswagen">
       <div className="grid grid-cols-12 gap-3">
         <div className="col-span-8"><Panel title="Aufträge" body="!p-0"><MissionTable missions={data ?? []} reload={reload} /></Panel></div>
         <div className="col-span-4"><MissionForm onDone={reload} /></div>

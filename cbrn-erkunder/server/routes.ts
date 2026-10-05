@@ -11,6 +11,10 @@ import { validateImport } from './import.js';
 const LEVEL: Record<string, number> = { erkunder: 1, truppfuehrer: 2, messleitung: 3, admin: 4 };
 const ADMIN_TABLES = ['substances', 'radionuclides', 'biological_agents', 'measurement_devices', 'measurement_methods', 'sources', 'scenarios', 'test_tubes', 'vehicles', 'crew', 'users'];
 
+function shiftedBounds() {
+  const b = config.gta5.bounds; const o = getSetting('gta_offset', { dx: 0, dy: 0 }) as { dx: number; dy: number };
+  return { minX: b.minX + o.dx, maxX: b.maxX + o.dx, minY: b.minY + o.dy, maxY: b.maxY + o.dy };
+}
 export function registerRoutes(app: FastifyInstance) {
   const user = (req: FastifyRequest) => get('users', String(req.headers['x-user-id'] ?? 'u-erk')) ?? get('users', 'u-erk')!;
   const need = (req: FastifyRequest, lvl: number) => { const u = user(req); if ((LEVEL[u.role] ?? 0) < lvl) throw Object.assign(new Error(`Rolle ${u.role} darf diese Aktion nicht ausführen`), { statusCode: 403 }); return u; };
@@ -20,12 +24,12 @@ export function registerRoutes(app: FastifyInstance) {
   app.get('/api/meta', async () => ({
     app: 'CBRN Erkunder Software', version: '0.1.0', sectors: Object.entries(SECTORS).map(([k, v]) => ({ key: k, name: v.name, polygon: sectorPolygon(k) })),
     roles: Object.keys(LEVEL), center: CENTER, route: routeLL(),
-    map: MODE === 'gta5' ? { mode: 'gta5', image: config.gta5.image, bounds: config.gta5.bounds } : { mode: 'geo', tileUrl: config.geo.tileUrl, attribution: config.geo.attribution }, users: list('users'), mgmg_channels: mgmgChannels(),
+    map: MODE === 'gta5' ? { mode: 'gta5', image: config.gta5.image, bounds: shiftedBounds(), offset: getSetting('gta_offset', { dx: 0, dy: 0 }) } : { mode: 'geo', tileUrl: config.geo.tileUrl, attribution: config.geo.attribution }, users: list('users'), mgmg_channels: mgmgChannels(),
     disclaimer: 'Fachdaten: öffentliche Quellen, ungeprüft (QUELLE ERFORDERLICH). Messwerte, GPS, Einsätze, Identifikationen und Laborergebnisse: SIMULIERT.',
   }));
 
   // ---------- System
-  app.get('/api/system/status', async () => ({ ...systemStatus(), drive: state.drive, fivem_origin: getSetting('fivem_origin'), mgmg_channels: mgmgChannels(), now: now(), uptime_s: Math.round(process.uptime()) }));
+  app.get('/api/system/status', async () => ({ ...systemStatus(), drive: state.drive, fivem_origin: getSetting('fivem_origin'), gta_offset: getSetting('gta_offset', { dx: 0, dy: 0 }), mgmg_channels: mgmgChannels(), now: now(), uptime_s: Math.round(process.uptime()) }));
   app.post('/api/system/drive', async (req) => { const u = need(req, 1); state.drive = !!(req.body as any).on; audit(u.id, 'drive', 'system', 'demo-drive', { on: state.drive }); return { drive: state.drive }; });
   app.post('/api/system/scenario', async (req) => {
     const u = need(req, 3); const b = req.body as any; const sc = get('scenarios', b.id); if (!sc) throw nf('Szenario');
@@ -36,6 +40,7 @@ export function registerRoutes(app: FastifyInstance) {
     const u = need(req, 4); const b = req.body as any;
     if (b.mgmg_channels) setSetting('mgmg_channels', b.mgmg_channels);
     if (b.fivem_origin) setSetting('fivem_origin', b.fivem_origin);
+    if (b.gta_offset) setSetting('gta_offset', { dx: Number(b.gta_offset.dx) || 0, dy: Number(b.gta_offset.dy) || 0 });
     audit(u.id, 'config', 'system', 'config', b); return { ok: true };
   });
 
@@ -113,7 +118,7 @@ export function registerRoutes(app: FastifyInstance) {
     const u = need(req, 3); const b = req.body as any;
     if (!get('vehicles', b.vehicle_id)) throw Object.assign(new Error('Fahrzeug erforderlich'), { statusCode: 400 });
     if (!SECTORS[b.sector]) throw Object.assign(new Error('Gebiet erforderlich'), { statusCode: 400 });
-    const n = ((db.prepare("SELECT MAX(CAST(substr(id,6) AS INTEGER)) m FROM missions").get() as any).m ?? 141) + 1;
+    const n = ((db.prepare("SELECT MAX(CAST(substr(id,6) AS INTEGER)) m FROM missions").get() as any).m ?? 0) + 1;
     const m = { id: `2026-${String(n).padStart(4, '0')}`, vehicle_id: b.vehicle_id, sector: b.sector, priority: b.priority ?? 'NORMAL', profile: b.profile ?? 'CHEMISCH', status: 'ÜBERMITTELT', created_by: u.id, created_at: now(), updated_at: now(), notes: b.notes ?? null };
     insert('missions', m); audit(u.id, 'create', 'mission', m.id, m); emit('mission.created', m); rep.code(201); return m;
   });
@@ -139,7 +144,7 @@ export function registerRoutes(app: FastifyInstance) {
   });
   app.get('/api/measurements/:id', async (req) => { const m = get('measurements', (req.params as any).id); if (!m) throw nf('Messpunkt'); return { ...m, substance: m.substance_id ? get('substances', m.substance_id) : null, audit: list('audit_log', "WHERE entity = 'measurement' AND entity_id = ?", [m.id], 'ORDER BY id') }; });
   app.post('/api/measurements', async (req, rep) => {
-    const u = need(req, 1); const b = req.body as any; const seq = ((db.prepare('SELECT MAX(seq) m FROM measurements').get() as any).m ?? 420) + 1;
+    const u = need(req, 1); const b = req.body as any; const seq = ((db.prepare('SELECT MAX(seq) m FROM measurements').get() as any).m ?? 0) + 1;
     const v = get('vehicles', b.vehicle_id ?? 'CBRN-01')!;
     const row = { id: 'MP-' + String(seq).padStart(6, '0'), seq, ts: now(), lat: b.lat ?? v.lat, lon: b.lon ?? v.lon, vehicle_id: v.id, mission_id: b.mission_id ?? null, device: b.device ?? 'MANUELL', value: b.value ?? null, unit: b.unit ?? null,
       status: b.status ?? 'AUSWERTUNG ERFORDERLICH', level: b.level ?? null, headline: b.headline ?? 'Manuelle Eingabe', remark: b.remark ?? null, data_source: 'MANUAL' };
@@ -159,7 +164,7 @@ export function registerRoutes(app: FastifyInstance) {
   app.get('/api/samples/:id', async (req) => sampleFull((req.params as any).id));
   app.post('/api/samples', async (req, rep) => {
     const u = need(req, 1); const b = req.body as any; const v = get('vehicles', b.vehicle_id ?? 'CBRN-01')!;
-    const n = ((db.prepare("SELECT COUNT(*) c FROM samples").get() as any).c ?? 0) + 421; const id = `P-2026-${String(n).padStart(5, '0')}`;
+    const n = ((db.prepare("SELECT COUNT(*) c FROM samples").get() as any).c ?? 0) + 1; const id = `P-2026-${String(n).padStart(5, '0')}`;
     const snap = currentSnapshotAt(v.id); const wx = weatherNow();
     const mission = list('missions', "WHERE vehicle_id = ? AND status = 'IN BEARBEITUNG' LIMIT 1", [v.id])[0];
     const kinds = ['FEST', 'FLÜSSIG', 'LUFT', 'BIOLOGISCH', 'RADIOLOGISCH', 'CHEMISCH'];

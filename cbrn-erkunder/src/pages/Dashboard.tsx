@@ -24,7 +24,7 @@ export default function Dashboard() {
         <Stat label="Fahrzeug" value={v?.name ?? '–'} sub={<StatusBadge s={v?.status} />} />
         <Stat label="GPS" value={<span style={{ color: STATUS_COLOR(v?.gps_fix ? 'FIX' : 'KEIN') }}>{v?.gps_fix ? 'FIX' : 'KEIN FIX'}</span>} sub={r ? fmtPos(meta?.map?.mode, r.lat, r.lon) : ''} />
         <Stat label="DFÜ" value={<span style={{ color: STATUS_COLOR(v?.link) }}>{v?.link ?? '–'}</span>} />
-        <Stat label="Messgeräte" value={`${devices.data?.length ?? 7} / ${devices.data?.length ?? 7}`} sub="alle betriebsbereit (Demo)" />
+        <Stat label="Messgeräte" value={`${devices.data?.length ?? 7} / ${devices.data?.length ?? 7}`} sub="alle betriebsbereit" />
         <Stat label="Aktive Aufträge" value={activeM.length} />
         <Stat label="Messpunkte" value={mpCount.toLocaleString('de-DE')} />
         <Stat label="Proben" value={samples.data?.length ?? 0} />
