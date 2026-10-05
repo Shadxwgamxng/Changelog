@@ -25,9 +25,8 @@ Config.AllowedJobs = { police = true, fire = true, ems = true }
 Config.Sample = {
   Debug = false,
   InteractDistance = 2.0,             -- max. Abstand zum Entnahmepunkt (m)
-  CircleRadius = 1.5,                 -- so nah musst du am Ring stehen, um zu interagieren (m)
-  CircleShowDistance = 6.0,           -- ab dieser Entfernung wird der Ring angezeigt (m)
-  MarkerSize = 0.28,                  -- Durchmesser des Rings (m)
+  CircleRadius = 1.5,                 -- so nah musst du am Punkt stehen, um zu interagieren (m)
+  CircleShowDistance = 6.0,           -- ab dieser Entfernung wird der Pin (Kreis mit Taste) angezeigt (m)
   HoldTime = 1000,                    -- so lange muss J im Kreis gehalten werden (ms)
   -- Wer darf /offset, /debugsample, /debugsamplepoint? Erlaubt ist, wer EINES davon erfüllt:
   --  1) ACE-Recht AdminAce:   add_ace group.admin cbrn.offset allow

@@ -12,6 +12,15 @@
   #glare{position:absolute;pointer-events:none;border-radius:3px;background:linear-gradient(115deg,rgba(255,255,255,.055) 0%,rgba(255,255,255,0) 32%)}
   #led{position:absolute;width:6px;height:6px;border-radius:50%;background:#3fb950;box-shadow:0 0 8px #3fb950,0 0 2px #fff inset}
   #brand{position:absolute;left:0;right:0;text-align:center;color:#9aa0a8;font-size:15px;letter-spacing:.2em;font-weight:900;font-family:'Arial Black',Impact,'Segoe UI Black','Segoe UI',Arial,sans-serif;text-transform:uppercase;text-shadow:0 1px 0 #000}
+  /* Interaktions-Pin am Weltpunkt: Kreis mit Taste, in Reichweite mit Textschild und Halte-Fortschritt */
+  #pin{position:fixed;left:0;top:0;display:none;pointer-events:none;z-index:6;will-change:transform}
+  #pin.on{display:block}
+  #pinc{position:relative;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;box-sizing:border-box;border:2px solid rgba(255,255,255,.85);background:rgba(8,8,8,.42);display:flex;align-items:center;justify-content:center;color:#fff;font:700 15px/1 'Segoe UI',Arial,sans-serif;box-shadow:0 0 8px rgba(0,0,0,.65);transition:transform .12s,background .12s,border-color .12s;opacity:.8}
+  #pin.near #pinc{transform:scale(1.14);background:rgba(8,8,8,.72);border-color:#fff;opacity:1}
+  #pinr{position:absolute;inset:-6px;border-radius:50%;background:conic-gradient(#5fe08a calc(var(--p,0) * 1%),transparent 0);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2px));mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2px));display:none}
+  #pin.hold #pinr{display:block}
+  #pinl{position:absolute;left:28px;top:0;transform:translateY(-50%);white-space:nowrap;background:#2f80ed;color:#fff;padding:5px 11px;border-radius:5px;font:600 13px/1.2 'Segoe UI',Arial,sans-serif;box-shadow:0 2px 10px rgba(0,0,0,.55);display:none}
+  #pin.near #pinl{display:block}
   /* HUD unten rechts (Probenentnahme, Offset Finder) – unabhängig vom Computer, ohne Fokus */
   #hud{position:fixed;right:28px;bottom:28px;width:350px;display:none;background:rgba(14,14,14,.94);border:1px solid #2a2a2a;border-left:3px solid #f0500a;border-radius:8px;color:#ebe9e6;font-size:13px;line-height:1.45;box-shadow:0 8px 28px rgba(0,0,0,.55);padding:12px 14px;pointer-events:none}
   #hud.on{display:block}
@@ -28,6 +37,7 @@
   #hint{position:absolute;left:0;right:0;text-align:center;color:#d5dde6;font-size:12px;text-shadow:0 1px 3px #000}
 </style></head>
 <body>
+<div id="pin"><div id="pinc"><span id="pinr"></span><span id="pink">J</span></div><div id="pinl"></div></div>
 <div id="hud"></div>
 <div id="root"><div id="wrap">
   <div id="screen"><iframe id="f" src="../app/index.html" allow="clipboard-write"></iframe></div>
@@ -39,6 +49,16 @@
   const res = typeof GetParentResourceName === 'function' ? GetParentResourceName() : 'cbrn-erkunder';
   const post = (name, body) => fetch(`https://${res}/${name}`, { method: 'POST', body: JSON.stringify(body || {}) }).catch(() => {});
 
+  // ---- Interaktions-Pin am Weltpunkt
+  const pin = document.getElementById('pin'), pinl = document.getElementById('pinl'), pink = document.getElementById('pink'), pinr = document.getElementById('pinr');
+  const showPin = (d) => {
+    if (!d || !d.show) { pin.classList.remove('on', 'near', 'hold'); return; }
+    pin.classList.add('on'); pin.classList.toggle('near', !!d.near); pin.classList.toggle('hold', (d.pct || 0) > 0);
+    pin.style.transform = `translate(${Math.round(d.x * innerWidth)}px,${Math.round(d.y * innerHeight)}px)`;
+    if (pink.textContent !== d.key) pink.textContent = d.key;
+    if (d.near) { const t = d.text ? `Halte „${d.key}“ gedrückt: ${d.text}` : ''; if (pinl.textContent !== t) pinl.textContent = t; pinl.style.display = d.text ? 'block' : 'none'; }
+    pinr.style.setProperty('--p', d.pct || 0);
+  };
   // ---- HUD (unten rechts)
   const hudEl = document.getElementById('hud');
   const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -86,6 +106,7 @@
     const d = e.data || {};
     if (d.type === 'open') { root.classList.add('on'); fit(); }
     else if (d.type === 'hud') showHud(d.data);
+    else if (d.type === 'pin') showPin(d.data);
     else if (d.type === 'evt') f.contentWindow && f.contentWindow.postMessage({ cbrn: 'evt', data: d.data }, '*'); // Live-Ereignis vom Server
     else if (d.type === 'close') root.classList.remove('on');
     else if (d.type === 'cbrn-vehicle') post('setVehicle', { vehicle: d.vehicle, name: d.name, funktion: d.funktion }); // aus der eingebetteten Web-App nach Anmeldung/Abmeldung

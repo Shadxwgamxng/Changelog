@@ -19,9 +19,7 @@ local lastHud = ''
 local function refreshHud(force)
   local d
   if S.phase == 'collecting' then return end -- Fortschritt zeichnet die Entnahme selbst
-  if S.inCircle and S.circleAction and not S.busy then
-    d = { mode = 'hold', key = KEY_USE, text = S.circleAction.text, pct = math.floor((S.holdPct or 0) * 100) } -- im Kreis: J halten
-  elseif S.phase == 'carrying' and S.sample then
+  if S.phase == 'carrying' and S.sample then
     d = { mode = 'taken', id = S.sample.id, label = S.sample.label, atPoint = S.atStorage, key = KEY_USE }
   elseif S.kit then
     d = { mode = 'kit', atPoint = S.atSample, key = KEY_USE, cancelKey = KEY_CANCEL }

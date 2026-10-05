@@ -1,4 +1,4 @@
--- Interaktion am Fahrzeug: kleiner Ring genau am (Offset-)Punkt. In Reichweite des Rings J gedrückt halten:
+-- Interaktion am Fahrzeug: kleiner Pin (Kreis mit Taste) genau am (Offset-)Punkt. In Reichweite J gedrückt halten:
 --   kein Set  -> Probenentnahmeset nehmen · Set vorhanden -> Set zurückgeben · Probe getragen -> Probe abgeben.
 -- Der Punkt wird IMMER aus Fahrzeugposition + Rotation + lokalem Offset berechnet (keine Weltkoordinaten).
 CBRN = CBRN or {}
@@ -49,18 +49,19 @@ local function circleAction(veh)
   return { text = 'Probenentnahmeset nehmen', run = function() CBRN.takeKit(veh) end }
 end
 
---- Kleiner Ring genau am Punkt (zur Kamera gedreht, leicht pulsierend). Etwas zum Spieler hin versetzt, damit er nicht im Blech verschwindet.
-local function ring(p, inside, holdPct)
-  local pc = GetGameTimer()
-  local ped = GetEntityCoords(PlayerPedId())
-  local dx, dy, dz = ped.x - p.x, ped.y - p.y, ped.z - p.z
-  local l = math.sqrt(dx * dx + dy * dy + dz * dz)
-  local q = p
-  if l > 0.05 then q = vector3(p.x + dx / l * 0.08, p.y + dy / l * 0.08, p.z + dz / l * 0.08) end
-  local s = Config.Sample.MarkerSize * (1.0 + 0.07 * math.sin(pc / 170.0))
-  local c = (holdPct and holdPct > 0) and { 80, 220, 120 } or (inside and { 255, 255, 255 } or { 240, 80, 10 })
-  DrawMarker(25, q.x, q.y, q.z, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, s, s, s, c[1], c[2], c[3], 235, false, true, 2, false, nil, nil, false)
-  DrawMarker(28, q.x, q.y, q.z, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.03, 0.03, 0.03, c[1], c[2], c[3], 235, false, false, 2, false, nil, nil, false)
+-- Interaktions-Pin (wie bei "Ansehen"-Prompts): kleiner Kreis mit der Taste genau am Punkt, in Reichweite mit Textschild und Halte-Fortschritt.
+-- Wird als Overlay in der NUI gezeichnet (Bildschirmposition des Weltpunkts) – immer gut lesbar, nicht im Blech versunken.
+local pinShown, pinSig = false, ''
+local function sendPin(x, y, near, text, pct)
+  local sig = ('%.4f|%.4f|%s|%s|%d'):format(x, y, tostring(near), text or '', pct or 0)
+  if sig == pinSig then return end
+  pinSig = sig; pinShown = true
+  SendNUIMessage({ type = 'pin', data = { show = true, x = x, y = y, key = Config.Sample.Keys.use, near = near, text = text, pct = pct or 0 } })
+end
+local function hidePin()
+  if not pinShown then return end
+  pinShown, pinSig = false, ''
+  SendNUIMessage({ type = 'pin', data = { show = false } })
 end
 
 -- Kreis zeichnen und Halte-Aktion auswerten. Die Fahrzeugsuche läuft nur ca. 2x pro Sekunde; gezeichnet wird nur in der Nähe.
@@ -70,6 +71,7 @@ CreateThread(function()
     local wait = 500
     local veh = (onFoot() and next(CBRN.Points) ~= nil) and CBRN.nearestVehicle(Config.Sample.CircleShowDistance) or nil
     if not veh then
+      hidePin()
       if S.inCircle then S.inCircle, S.circleVeh, S.holdPct = false, nil, 0; if CBRN.refreshHud then CBRN.refreshHud(false) end end
     else
       while DoesEntityExist(veh) and onFoot() do
@@ -78,8 +80,9 @@ CreateThread(function()
         local d = #(pc - p) -- Abstand zum Punkt (3D)
         if d > Config.Sample.CircleShowDistance + 3.0 then break end
         local inside = d <= Config.Sample.CircleRadius
-        ring(p, inside, S.holdPct)
+        local onScreen, sx, sy = GetScreenCoordFromWorldCoord(p.x, p.y, p.z)
         local act = inside and circleAction(veh) or nil
+        if onScreen then sendPin(sx, sy, inside, act and act.text or nil, math.floor((S.holdPct or 0) * 100)) else hidePin() end
         local changed = (inside ~= S.inCircle)
         S.inCircle, S.circleVeh, S.circleAction = inside, inside and veh or nil, act
         if act and CBRN.use and CBRN.use.isPressed then
@@ -94,6 +97,7 @@ CreateThread(function()
         if CBRN.refreshHud and (changed or (S.holdPct > 0 and GetGameTimer() - lastSend > 60)) then lastSend = GetGameTimer(); CBRN.refreshHud(false) end
         Wait(0)
       end
+      hidePin()
       if S.inCircle then S.inCircle, S.circleVeh, S.holdPct = false, nil, 0; if CBRN.refreshHud then CBRN.refreshHud(false) end end
     end
     Wait(wait)
