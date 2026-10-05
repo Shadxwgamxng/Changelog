@@ -8,6 +8,7 @@ import { Badge, CatBadge } from './ui';
 import { STATUS_COLOR, time } from '../lib/format';
 
 const I = 17;
+import { AgsAlert } from './AgsAlert';
 export const NAV: { group: string; items: [string, string, ReactNode][] }[] = [
   { group: 'Einsatz', items: [['/', 'Dashboard', <LayoutDashboard size={I} />], ['/karte', 'Einsatzkarte', <MapIcon size={I} />], ['/live', 'Live-Messung', <Activity size={I} />], ['/auftraege', 'Messaufträge', <ClipboardList size={I} />], ['/messpunkte', 'Messpunkte', <MapPin size={I} />], ['/proben', 'Proben', <TestTube2 size={I} />], ['/wetter', 'Wetter', <CloudSun size={I} />]] },
   { group: 'Technik', items: [['/geraete', 'Messgeräte', <Gauge size={I} />], ['/fahrzeug', 'Fahrzeug', <Truck size={I} />], ['/besatzung', 'Besatzung', <Users size={I} />], ['/atemschutz', 'Atemschutz', <Wind size={I} />], ['/messleitung', 'CBRN-Messleitung', <RadioTower size={I} />]] },
@@ -67,7 +68,7 @@ export default function Layout() {
               <NavLink key={to} to={to} end={to === '/'} title={label} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>{icon}<span>{label}</span></NavLink>))}
           </div>))}
       </nav>
-      <main className="min-w-0 min-h-0 relative overflow-hidden"><Outlet /></main>
+      <main className="min-w-0 min-h-0 relative overflow-hidden"><Outlet /><AgsAlert /></main>
       <div className="fixed right-4 bottom-4 z-50 space-y-2 w-80 no-print">
         {toasts.map((a, i) => (
           <div key={a.id + i} className={`panel p-3 cursor-pointer shadow-2xl ${a.kind === 'sample' ? '!border-accent/60' : '!border-bad/60'}`} onClick={() => { dismissToast(i); nav(a.kind === 'sample' ? `/proben/${a.id}` : '/historie'); }}>

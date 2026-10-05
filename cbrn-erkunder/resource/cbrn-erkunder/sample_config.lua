@@ -24,7 +24,7 @@ Config.Devices = {
   MaxEquipped = 1,                -- so viele Messgeräte gleichzeitig pro Spieler (Config.MaxEquippedDevices / MaxActiveDevices)
   BatteryScale = 1.0,             -- Batterie-Verbrauch: 1.0 = Standard, 2.0 = doppelt so schnell
   ForceReturnOnVehicle = true,    -- Gerät wird automatisch ins Fahrzeug zurückgelegt, wenn man in ein Fahrzeug steigt
-  Keys = { operate = 'E', hide = 'BACK' },   -- E: Maus-Bedienmodus ein/aus · Rücktaste: Gerät ein-/ausblenden (Pfeiltasten + Enter bedienen das Gerät)
+  Keys = { cursor = 'EQUALS', hide = 'BACK' },   -- cursor: Mauszeiger ein (EQUALS = Taste ´ auf deutscher Tastatur; jeder Spieler kann sie unter Einstellungen > Tastenbelegung > FiveM ändern) · Rücktaste: Gerät ein-/ausblenden · Pfeiltasten + Enter bedienen das Gerät (Enter halten: Ein/Aus)
   Anim = { dict = 'amb@code_human_in_bus_passenger_idles@female@tablet@base', clip = 'base', flag = 49 },   -- Haltepose (nil = keine Animation)
   Props = {},                     -- optional je Geraet: Props = { dlm = { model = 'prop_...', bone = 28422, pos = vec3(0,0,0), rot = vec3(0,0,0) } }
 }

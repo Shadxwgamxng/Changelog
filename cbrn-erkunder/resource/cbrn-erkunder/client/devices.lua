@@ -51,12 +51,21 @@ local function stopHold()
 end
 
 local function setMouse(on, typing)
-  on = on and D.held; typing = on and typing or false
+  on = on and D.held and true or false; typing = on and typing or false
   if on == D.mouse and typing == D.typing then return end
+  if D.mouse and not on then D.mouseOffAt = GetGameTimer() end
   D.mouse, D.typing = on, typing
-  SetNuiFocus(on, on); SetNuiFocusKeepInput(on and not typing)
+  SetNuiFocus(on, on); SetNuiFocusKeepInput(false) -- Mauszeiger an = volle Bedienung der Oberfläche (kein Laufen), aus = Spiel hat wieder Eingabe
   nui({ type = 'dev', cmd = 'mouse', on = on })
 end
+
+-- Mauszeiger freischalten: Taste ´ (auf deutscher Tastatur rechts neben ß; FiveM-Name EQUALS). Ausschalten übernimmt die Oberfläche (gleiche Taste oder ESC).
+RegisterCommand('cbrn_dev_cursor', function()
+  if not D.held or not D.visible or D.mouse then return end
+  if D.mouseOffAt and GetGameTimer() - D.mouseOffAt < 400 then return end
+  setMouse(true, false)
+end, false)
+RegisterKeyMapping('cbrn_dev_cursor', 'CBRN Messgerät: Mauszeiger ein/aus', 'keyboard', (DC.Keys and DC.Keys.cursor) or 'EQUALS')
 
 local function closeUi()
   D.held, D.def = false, nil
@@ -109,8 +118,16 @@ CreateThread(function()
       if D.mouse then
         for _, c in ipairs({ 1, 2, 24, 25, 69, 70, 92, 140, 141, 142, 257 }) do DisableControlAction(0, c, true) end -- kein Umsehen/Schlagen mit dem Mauszeiger
       elseif D.visible then
-        for c, k in pairs(KEYS) do if IsControlJustPressed(0, c) then nui({ type = 'dev', cmd = 'key', key = k }) end end
-        if IsControlJustPressed(0, 38) then setMouse(true, false) end -- E: Gerät bedienen (Maus)
+        for c, k in pairs(KEYS) do
+          if c ~= 191 and c ~= 201 and IsControlJustPressed(0, c) then nui({ type = 'dev', cmd = 'key', key = k }) end
+        end
+        -- Enter: kurz = Enter, ≥ 1 s halten = Ein/Aus (wie die Gerätetaste)
+        if IsControlJustPressed(0, 191) or IsControlJustPressed(0, 201) then D.enterAt, D.enterFired = GetGameTimer(), false end
+        if D.enterAt and not D.enterFired and (IsControlPressed(0, 191) or IsControlPressed(0, 201)) and GetGameTimer() - D.enterAt >= 1000 then D.enterFired = true; nui({ type = 'dev', cmd = 'key', key = 'enterlong' }) end
+        if D.enterAt and (IsControlJustReleased(0, 191) or IsControlJustReleased(0, 201)) then
+          if not D.enterFired then nui({ type = 'dev', cmd = 'key', key = 'enter' }) end
+          D.enterAt = nil
+        end
       end
       if IsControlJustPressed(0, 177) and not D.mouse then D.visible = not D.visible; nui({ type = 'dev', cmd = 'visible', on = D.visible }) end -- Rücktaste: ein-/ausblenden
       Wait(0)

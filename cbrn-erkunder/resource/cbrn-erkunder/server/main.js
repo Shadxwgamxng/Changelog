@@ -5694,8 +5694,9 @@ registerMeasurementDevice(dev2({
   skin: "default",
   devKey: "DLM",
   category: "RADIOLOGISCH",
-  modes: [{ id: "RATE", label: "Dosisleistung", unit: "\xB5Sv/h", continuous: true }, { id: "DOSE", label: "Dosis", unit: "\xB5Sv", integrates: true }],
+  modes: [{ id: "RATE", label: "Dosisleistung", unit: "\xB5Sv/h", continuous: true }],
   defaultMode: "RATE",
+  // Dosis (µSv) und Maximum zeigt das Gerät als weitere Anzeige (Taste Info)
   range: { min: 0.01, max: 250, unit: "\xB5Sv/h", src: "Thermo RadEye PRD-ER4: 10 nSv/h \u2013 250 \xB5Sv/h (Low-Rate-Detektor), bis 10 Sv/h mit High-Rate-Detektor (Herstellerangabe)" },
   resolution: { decimals: [[1, 3], [10, 2], [100, 1], [1e9, 0]], note: "SIM: Aufl\xF6sung nicht dokumentiert" },
   tau_s: 3,
@@ -5706,11 +5707,10 @@ registerMeasurementDevice(dev2({
   // SIM (Herstellerangabe: >170 h Betrieb mit Alkaline-Batterien)
   selfTest: { bootMs: 3500, testMs: 4500, failChance: 0, items: ["Sensor", "Speicher", "Batterie", "System"] },
   thresholds: {
-    RATE: { attention: 0.3, warning: 1, alarm: 25 },
-    DOSE: { attention: 5, warning: 20, alarm: 100 }
+    RATE: { attention: 0.3, warning: 1, alarm: 25 }
     /* SIM */
   },
-  notes: ["Messbereich laut Herstellerangabe (Thermo Fisher). Alarmschwellen = SIMULATION.", "Tasten laut Ger\xE4tebild: Menu, Info, Mute, On/Screen."]
+  notes: ["Messbereich laut Herstellerangabe (Thermo Fisher). Alarmschwellen = SIMULATION.", "Bedienung laut Handbuch DB-117 E: EIN = On-Taste \u2265 1 s halten; \u25B2/Info wechselt die Anzeigen; Menu-Taste w\xE4hlt im Men\xFC, Pfeile bl\xE4ttern; Mute quittiert Alarme."]
 }));
 registerMeasurementDevice(dev2({
   id: "como",
@@ -5788,8 +5788,8 @@ registerMeasurementDevice(dev2({
   stability: { rel: 0.01, abs: 0.5 },
   noise: { rel: 0, abs: 0 },
   battery: { start: 100, drainPerMin: 0.15, measureExtra: 0.05, alarmExtra: 0.1, chargePerMin: 2, low: 20 },
-  selfTest: { bootMs: 6e3, testMs: 9e3, failChance: 0, items: ["Messzelle", "Pumpe", "Batterie", "System"] },
-  // SIM: reale Aufwärmzeit TODO prüfen
+  selfTest: { bootMs: 25e3, testMs: 35e3, failChance: 0, items: ["Messzelle", "Pumpe", "Batterie", "System"] },
+  // Hersteller: Kaltstart bis messbereit 1–5 min (hier untere Grenze: 60 s)
   thresholds: {
     DETECT: { attention: 1, warning: 3, alarm: 5 }
     /* SIM */
@@ -6204,7 +6204,7 @@ function snapshot(i) {
   i.result = {
     value: roundTo(d, d.channels ? 0 : rv),
     unit: ((_b = d.modes.find((m) => m.id === i.mode)) == null ? void 0 : _b.unit) ?? "",
-    channels: d.channels ? { ...i.shownCh } : i.type === "ims" ? { ...i.shownCh } : void 0,
+    channels: d.channels ? { ...i.shownCh } : i.type === "ims" ? { ...i.shownCh } : d.engine === "dose" ? { DOSE: +i.dose.toFixed(4) } : void 0,
     aux: i.aux,
     stats: { min: i.stat.min, max: i.stat.max, avg: mean, n: i.stat.n },
     series: i.series.slice(-HCFG.series),
@@ -6366,7 +6366,7 @@ function measure(i, d, dt, t) {
       i.shown = follow(i.shown, target, dt, tau);
       i.shownCh = Object.fromEntries(Object.entries(tr.channels ?? {}).map(([k, v]) => [k, Math.round(follow(i.shownCh[k] ?? 0, v, dt, v < (i.shownCh[k] ?? 0) ? 14 : d.tau_s))]));
     } else i.shown = follow(i.shown, target, dt, d.tau_s);
-    if (mdef == null ? void 0 : mdef.integrates) i.dose += env.dose * dt / 3600;
+    if (d.engine === "dose") i.dose += env.dose * dt / 3600;
     i.shown = Math.max(0, i.shown);
     i.over = i.shown > d.range.max;
     if (i.over) i.shown = d.range.max;
@@ -6425,6 +6425,7 @@ function publicState(i) {
     dec: decimalsFor(d, v),
     unit: (mdef == null ? void 0 : mdef.unit) ?? "",
     over: i.over,
+    dose: d.engine === "dose" && (meas || i.result) ? +i.dose.toFixed(4) : null,
     channels: (d.channels || d.engine === "ims") && (meas || i.result) ? i.phase === "MEASURING" ? i.shownCh : ((_e = i.result) == null ? void 0 : _e.channels) ?? null : null,
     aux: meas ? i.aux ?? null : null,
     elapsed: Math.round(el),

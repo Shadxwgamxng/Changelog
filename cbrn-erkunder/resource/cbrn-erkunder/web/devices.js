@@ -10,33 +10,52 @@
   const num = (v, d) => (v == null || !isFinite(v) ? '–' : Number(v).toFixed(d == null ? 2 : d).replace('.', ','));
   const IMG = '../app/devices/';
 
-  // ---- Töne (WebAudio, kein Dateizugriff): neutral und kurz ----------------------------------------------------------
+  // ---- Töne: echte Geräteaufnahmen (web/sounds/*.ogg) + neutrale WebAudio-Töne für Geräte ohne Aufnahme ----------------
+  const BASE = (() => { try { return new URL('.', document.currentScript.src).href; } catch (e) { return ''; } })();
   const AU = (() => {
     let ctx = null; const get = () => { try { ctx = ctx || new (window.AudioContext || window.webkitAudioContext)(); if (ctx.state === 'suspended') ctx.resume(); } catch (e) { ctx = null; } return ctx; };
     const beep = (f, ms, type = 'square', vol = 0.05, at = 0) => { const c = get(); if (!c) return; const t = c.currentTime + at, o = c.createOscillator(), g = c.createGain(); o.type = type; o.frequency.value = f; g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + ms / 1000); o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + ms / 1000 + 0.02); };
+    const files = {}; const file = (n) => { if (!files[n]) { const a = new Audio(BASE + 'sounds/' + n + '.ogg'); a.preload = 'auto'; files[n] = a; } return files[n]; };
     return { click: () => beep(1800, 25, 'square', 0.03), on: () => { beep(880, 90, 'sine'); beep(1320, 140, 'sine', 0.05, 0.1); }, off: () => { beep(660, 90, 'sine'); beep(440, 160, 'sine', 0.05, 0.1); },
-      ready: () => beep(1180, 120, 'sine'), saved: () => { beep(1000, 70, 'sine'); beep(1500, 120, 'sine', 0.05, 0.09); }, warn: () => { beep(1500, 90); beep(1500, 90, 'square', 0.05, 0.16); }, alarm: () => { beep(2200, 160, 'square', 0.07); beep(1700, 160, 'square', 0.07, 0.2); }, error: () => beep(300, 320, 'sawtooth', 0.05), tick: () => beep(2600, 12, 'square', 0.02) };
+      ready: () => beep(1180, 120, 'sine'), saved: () => { beep(1000, 70, 'sine'); beep(1500, 120, 'sine', 0.05, 0.09); }, warn: () => { beep(1500, 90); beep(1500, 90, 'square', 0.05, 0.16); }, alarm: () => { beep(2200, 160, 'square', 0.07); beep(1700, 160, 'square', 0.07, 0.2); }, error: () => beep(300, 320, 'sawtooth', 0.05),
+      play: (n, loop, vol) => { try { const a = file(n); a.loop = !!loop; a.volume = vol == null ? 0.6 : vol; if (a.paused || a.ended) { a.currentTime = 0; a.play().catch(() => {}); } } catch (e) { /* ohne Ton weiter */ } },
+      stop: (n) => { try { const a = files[n]; if (a) { a.pause(); a.currentTime = 0; } } catch (e) { /* */ } }, stopAll: () => Object.keys(files).forEach((n) => { try { files[n].pause(); files[n].currentTime = 0; } catch (e) { /* */ } }) };
   })();
 
   // ---- Skins -------------------------------------------------------------------------------------------------------
+  // Tasten: btn(id, Beschriftung, Geometrie, Bedeutung im Hauptbild, Bedeutung im Menü). Bedeutungen: menu ok up down back info ack screen mode zero a b okack
+  // Tastenbelegung nach Herstellerhandbüchern, soweit öffentlich belegt (Quelle je Gerät unter src); sonst Annahme (TODO).
   const circ = (cx, cy, r, W, H) => ({ x: (cx - r) / W, y: (cy - r) / H, w: (2 * r) / W, h: (2 * r) / H });
   const rect = (x, y, w, h, W, H) => ({ x: x / W, y: y / H, w: w / W, h: h / H });
-  const btn = (id, act, label, g) => ({ id, act, label, ...g });
+  const btn = (id, label, g, main, menu) => ({ id, label, main, menu: menu || main, ...g });
   const SKINS = {
-    dlm: { img: IMG + 'dlm.png', W: 435, H: 700, scr: rect(112, 167, 209, 170, 435, 700), css: { '--bg': '#b2bba2', '--fg': '#1a2418', '--off': '#8d958a' }, power: ['down'], menuOnUp: false,
-      btns: [btn('menu', 'menu', 'Menu', circ(125, 497, 43, 435, 700)), btn('info', 'up', 'Info / ▲', circ(216, 466, 28, 435, 700)), btn('mute', 'mute', 'Mute', circ(308, 497, 43, 435, 700)), btn('onoff', 'down', 'On / Screen / ▼', circ(216, 534, 28, 435, 700))],
-      screen: (c) => lcdSingle(c, { bar: 'log' }) },
-    como: { img: IMG + 'como.png', W: 327, H: 700, scr: rect(78, 53, 169, 109, 327, 700), css: { '--bg': '#cdd870', '--fg': '#232a05', '--off': '#a9b25c' }, power: ['ok'], menuOnUp: false,
-      btns: [btn('b1', 'menu', 'Menü', circ(77, 226, 16, 327, 700)), btn('b2', 'b', 'Speichern', circ(249, 226, 16, 327, 700)), btn('t1', 'up', '▲', circ(106, 271, 17, 327, 700)), btn('c', 'ok', 'Start / Stop · Ein', circ(163, 268, 17, 327, 700)), btn('t2', 'down', '▼', circ(221, 271, 17, 327, 700))],
+    dlm: { img: IMG + 'dlm.png', W: 435, H: 700, scr: rect(112, 167, 209, 170, 435, 700), css: { '--bg': '#b2bba2', '--fg': '#1a2418', '--off': '#8d958a' },
+      // Handbuch RadEye PRD-ER4 (DB-117 E): EIN = On-Taste ≥ 1 s; Info wechselt die Anzeigen; Menü: Pfeile blättern, Menu-Taste wählt; Mute quittiert den Alarm; On/Screen kurz = Display-Beleuchtung (Annahme)
+      pw: { id: 'onoff', onMs: 1000, offMs: 3000 }, views: ['RATE', 'DOSE', 'MAX', 'INFO'], snd: { alarm: { file: 'dlm_alarm', every: 20000 }, warn: { synth: 'warn', every: 6000 } },
+      btns: [btn('menu', 'Menu (Menü öffnen / im Menü: Auswahl)', circ(125, 497, 43, 435, 700), 'menu', 'ok'), btn('info', 'Info ▲ (Anzeige wechseln / im Menü: auf)', circ(216, 466, 28, 435, 700), 'info', 'up'),
+        btn('mute', 'Mute (Alarm quittieren / im Menü: zurück)', circ(308, 497, 43, 435, 700), 'ack', 'back'), btn('onoff', 'On / Screen ▼ (halten: Ein 1 s · Aus 3 s · kurz: Beleuchtung · im Menü: ab)', circ(216, 534, 28, 435, 700), 'screen', 'down')],
+      screen: (c) => lcdSingle(c, { bar: 'log', dlm: true }) },
+    como: { img: IMG + 'como.png', W: 327, H: 700, scr: rect(78, 53, 169, 109, 327, 700), css: { '--bg': '#cdd870', '--fg': '#232a05', '--off': '#a9b25c' },
+      // Handbuch CoMo 170 ZS (Bedienungsanleitung): Taste oben links: kurz = Kurzmenü (u. a. Nulleffektmessung), lang = Aus; Taste oben rechts: Ton aus/quittieren; Pfeiltasten wählen im Menü, Enter öffnet
+      pw: { id: 'ul', onMs: 0, offMs: 1500 }, snd: { alarm: { synth: 'alarm', every: 1200 }, warn: { synth: 'warn', every: 4000 } },
+      btns: [btn('ul', 'Oben links (kurz: Kurzmenü · lang: Aus)', circ(77, 226, 16, 327, 700), 'menu', 'back'), btn('ur', 'Oben rechts (Ton aus / quittieren)', circ(249, 226, 16, 327, 700), 'ack', 'back'),
+        btn('t1', 'Pfeil links (Kanal α/β-γ · im Menü: auf)', circ(106, 271, 17, 327, 700), 'mode', 'up'), btn('c', 'Enter (Messung Start/Stop · im Menü: Auswahl)', circ(163, 268, 17, 327, 700), 'ok', 'ok'), btn('t2', 'Pfeil rechts (Kanal α/β-γ · im Menü: ab)', circ(221, 271, 17, 327, 700), 'mode', 'down')],
       screen: (c) => lcdSingle(c, { bar: 'log2', both: true }) },
-    pid: { img: IMG + 'pid.png', W: 205, H: 700, scr: rect(40, 217, 125, 90, 205, 700), css: { '--bg': '#b9cfa8', '--fg': '#1b2a14', '--off': '#8fa383' }, power: ['ok', 'back'], menuOnUp: false,
-      btns: [btn('a', 'menu', 'A – Menü', circ(76, 372, 17, 205, 700)), btn('b', 'ok', 'B – Start / Stop · Ein', circ(131, 372, 17, 205, 700)), btn('up', 'up', '▲', circ(103, 398, 16, 205, 700)), btn('esc', 'back', 'Esc (lang: Aus)', circ(97, 437, 21, 205, 700)), btn('dn', 'down', '▼', circ(103, 484, 16, 205, 700))],
+    pid: { img: IMG + 'pid.png', W: 205, H: 700, scr: rect(40, 217, 125, 90, 205, 700), css: { '--bg': '#b9cfa8', '--fg': '#1b2a14', '--off': '#8fa383' },
+      // Handbuch TIGER: Tastenfeld = zwei Soft-Tasten A/B (frei belegbar), Auf/Ab, Esc, Enter/On/Off. EIN = Enter einmal drücken, AUS = Enter halten (3-s-Countdown). Zero = Soft-Taste
+      pw: { id: 'en', onMs: 0, offMs: 3000 }, snd: { alarm: { synth: 'alarm', every: 1200 }, warn: { synth: 'warn', every: 4000 } },
+      btns: [btn('a', 'A – Soft-Taste „Nullung“', circ(76, 372, 17, 205, 700), 'zero', 'back'), btn('b', 'B – Soft-Taste „Menü“', circ(131, 372, 17, 205, 700), 'menu', 'ok'), btn('up', '▲ (Anzeige wechseln / im Menü: auf)', circ(103, 398, 16, 205, 700), 'info', 'up'),
+        btn('esc', 'Esc (abbrechen / zurück)', circ(92, 431, 13, 205, 700), 'back', 'back'), btn('en', 'Enter / On / Off (Start/Stop · Aus: halten)', circ(115, 450, 12, 205, 700), 'ok', 'ok'), btn('dn', '▼ (Anzeige wechseln / im Menü: ab)', circ(103, 484, 16, 205, 700), 'info', 'down')],
       screen: (c) => lcdSingle(c, { bar: 'log3', minmax: true }) },
-    ims: { img: IMG + 'ims.png', W: 376, H: 700, scr: rect(100, 304, 191, 66, 376, 700), css: { '--bg': '#a9b39f', '--fg': '#1b2418', '--off': '#868f80' }, power: ['ok'], menuOnUp: true,
-      btns: [btn('k1', 'up', 'Drehknopf links (▲)', rect(36, 172, 18, 48, 376, 700)), btn('k2', 'ok', 'Drehknopf drücken (OK · lang: Aus)', rect(54, 172, 16, 48, 376, 700)), btn('k3', 'down', 'Drehknopf rechts (▼)', rect(70, 172, 18, 48, 376, 700))],
-      leds: Array.from({ length: 8 }, (_, i) => ({ ...circ(138 + i * 17.3, 431, 7.5, 376, 700) })), wheel: ['k1', 'k3'], screen: (c) => lcdIms(c) },
-    mgmg: { img: IMG + 'mgmg.png', W: 284, H: 700, scr: rect(68, 336, 156, 158, 284, 700), css: { '--bg': '#bcd3a3', '--fg': '#17230f', '--off': '#8ea184' }, power: ['ok'], menuOnUp: true,
-      btns: [btn('dn', 'down', '▼ (Info)', circ(85, 578, 24, 284, 700)), btn('ok', 'ok', 'OK – Start / Stop · Ein (lang: Aus)', circ(140, 578, 24, 284, 700)), btn('up', 'up', '▲ (Menü)', circ(197, 578, 24, 284, 700))],
+    ims: { img: IMG + 'ims.png', W: 376, H: 700, scr: rect(100, 304, 191, 66, 376, 700), css: { '--bg': '#a9b39f', '--fg': '#1b2418', '--off': '#868f80' },
+      // TODO: Bedienung des RAID-M 100 (Drehknopf) mit Herstellerhandbuch prüfen – hier: Knopf links/rechts = Auf/Ab, drücken = OK (halten: Ein/Aus)
+      pw: { id: 'k2', onMs: 1000, offMs: 2500 }, snd: { alarm: { synth: 'alarm', every: 1200 }, warn: { synth: 'warn', every: 4000 } }, wheel: ['k1', 'k3', 'k2'],
+      btns: [btn('k1', 'Drehknopf links (Menü / auf)', rect(36, 172, 18, 48, 376, 700), 'menu', 'up'), btn('k2', 'Drehknopf drücken (Start/Stop · halten: Ein/Aus · im Menü: Auswahl)', rect(54, 172, 16, 48, 376, 700), 'ok', 'ok'), btn('k3', 'Drehknopf rechts (Info / ab)', rect(70, 172, 18, 48, 376, 700), 'info', 'down')],
+      leds: Array.from({ length: 8 }, (_, i) => ({ ...circ(138 + i * 17.3, 431, 7.5, 376, 700) })), screen: (c) => lcdIms(c) },
+    mgmg: { img: IMG + 'mgmg.png', W: 284, H: 700, scr: rect(68, 336, 156, 158, 284, 700), css: { '--bg': '#bcd3a3', '--fg': '#17230f', '--off': '#8ea184' },
+      // Dräger X-am 8000: Bedienung über drei Tasten ▼ OK ▲ (Produktinformation); die Symbole ☰ 🔍 ★ am unteren Displayrand gehören zu den Tasten. OK halten = Ein/Aus, OK kurz = Alarm quittieren / Detail (Annahme)
+      pw: { id: 'ok', onMs: 1000, offMs: 3000 }, snd: { alarm: { file: 'mgmg_alarm', loop: true }, warn: { file: 'mgmg_alarm', every: 5000 } },
+      btns: [btn('dn', '▼ ☰ Menü (im Menü: ab)', circ(85, 578, 24, 284, 700), 'menu', 'down'), btn('ok', 'OK 🔍 (Alarm quittieren / Detail · im Menü: Auswahl · halten: Ein/Aus)', circ(140, 578, 24, 284, 700), 'okack', 'ok'), btn('up', '▲ ★ Start / Stop (im Menü: auf)', circ(197, 578, 24, 284, 700), 'a', 'up')],
       screen: (c) => lcdGas(c) },
   };
 
@@ -69,13 +88,21 @@
   }
   function lcdSingle(c, o) {
     const cm = common(c); if (cm) return cm + flashOf(c.st);
-    const { st, def } = c; const mode = def.modes.find((m) => m.id === st.mode);
-    const a = lvl(st); const meas = st.phase === 'MEASURING'; const head = st.err ? 'FEHLER' : meas ? (a !== 'NORMAL' ? alTxt[a] : st.stable ? 'STABIL' : 'MESSUNG …') : st.hasResult ? 'GESTOPPT' : 'BEREIT';
-    const stat = st.stats ? `<div class="row sm"><span>MIN ${num(st.stats.min, st.dec)}</span><span>MAX ${num(st.stats.max, st.dec)}</span><span>Ø ${num(st.stats.avg, st.dec)}</span></div>` : '';
-    return `<div class="in"><div class="row">${batt(st)}<span class="ic">${st.muted ? '🔇' : '🔊'}</span><span class="ic ${a !== 'NORMAL' ? 'al-' + a : ''}">${head}</span></div>
-      <div class="lbl" style="margin-top:1.5cqh">${esc(mode ? mode.label : '')}</div>
-      <div class="grow center"><div><div class="big ${a === 'ALARM' || a === 'WARNUNG' ? 'al-' + a : ''}">${fmt(st)}</div><div class="unit">${esc(st.unit)}</div></div></div>
-      ${o.bar ? barHtml(st.value, o.bar) : ''}${o.minmax || o.both ? stat : ''}</div>${flashOf(st)}`;
+    const { st, def } = c; let mode = def.modes.find((m) => m.id === st.mode);
+    const a = lvl(st); const meas = st.phase === 'MEASURING'; const acked = c.ui.ack && a !== 'NORMAL';
+    const head = st.err ? 'FEHLER' : meas ? (a !== 'NORMAL' ? alTxt[a] : st.stable ? 'STABIL' : 'MESSUNG …') : st.hasResult ? 'GESTOPPT' : 'BEREIT';
+    let val = fmt(st), unit = st.unit, stats = st.stats, label = mode ? mode.label : '';
+    if (o.dlm) { // RadEye: Taste Info wechselt die Anzeige (Dosisleistung · Dosis · Maximum · Info)
+      const v = c.ui.view || 'RATE';
+      if (v === 'INFO') return infoScreen(c) + flashOf(st);
+      if (v === 'DOSE') { val = st.dose == null ? '– – –' : num(st.dose, st.dose < 1 ? 3 : st.dose < 100 ? 2 : 1); unit = 'µSv'; label = 'Dosis'; }
+      else if (v === 'MAX') { val = st.stats ? num(st.stats.max, st.dec) : '– – –'; label = 'Maximum'; }
+    }
+    const stat = stats ? `<div class="row sm"><span>MIN ${num(stats.min, st.dec)}</span><span>MAX ${num(stats.max, st.dec)}</span><span>Ø ${num(stats.avg, st.dec)}</span></div>` : '';
+    return `<div class="in"><div class="row">${batt(st)}<span class="ic">${st.muted ? '🔇' : '🔊'}${acked ? ' ⏸' : ''}</span><span class="ic ${a !== 'NORMAL' && !acked ? 'al-' + a : ''}">${head}</span></div>
+      <div class="lbl" style="margin-top:1.5cqh">${esc(label)}</div>
+      <div class="grow center"><div><div class="big ${(a === 'ALARM' || a === 'WARNUNG') && !acked ? 'al-' + a : ''}">${val}</div><div class="unit">${esc(unit)}</div></div></div>
+      ${o.bar && !(o.dlm && c.ui.view === 'DOSE') ? barHtml(st.value, o.bar) : ''}${o.minmax || o.both ? stat : ''}</div>${flashOf(st)}`;
   }
   function lcdIms(c) {
     const cm = common(c); if (cm) return cm + flashOf(c.st);
@@ -100,8 +127,8 @@
   void RANK;
 
   // ---- Zustand / Aufbau --------------------------------------------------------------------------------------------
-  const U = { def: null, sk: null, st: null, page: 'main', cur: 0, vis: true, mouse: false, save: false, samples: [], keys: {}, prev: null };
-  let root, box, scr, toastEl, savePanel, hintEl, timerAlert = 0;
+  const U = { def: null, sk: null, st: null, page: 'main', cur: 0, vis: true, mouse: false, save: false, samples: [], keys: {}, view: 'RATE', light: false, ack: false, hold: null };
+  let root, box, scr, toastEl, savePanel, hintEl;
   const build = () => {
     if (root) root.remove();
     root = document.createElement('div'); root.id = 'dev'; document.body.appendChild(root);
@@ -113,24 +140,37 @@
     place(scr, sk.scr);
     (sk.leds || []).forEach((g, i) => { const e = document.createElement('div'); e.className = 'led'; e.dataset.i = i; place(e, g); box.appendChild(e); });
     for (const b of sk.btns) {
-      const e = document.createElement('button'); e.className = 'hs' + (b.sq ? ' sq' : ''); e.title = b.label; place(e, b); box.appendChild(e);
-      let t = 0, long = false;
-      e.addEventListener('pointerdown', (ev) => { ev.preventDefault(); e.classList.add('down'); long = false; t = setTimeout(() => { long = true; handle(b.act, true); }, 900); });
-      const up = () => { e.classList.remove('down'); if (t) { clearTimeout(t); t = 0; if (!long) handle(b.act, false); } };
-      e.addEventListener('pointerup', up); e.addEventListener('pointerleave', () => { e.classList.remove('down'); if (t) { clearTimeout(t); t = 0; } });
-      if (sk.wheel && sk.wheel.includes(b.id) || b.id === 'k2') e.addEventListener('wheel', (ev) => { ev.preventDefault(); handle(ev.deltaY < 0 ? 'up' : 'down', false); }, { passive: false });
+      const e = document.createElement('button'); e.className = 'hs'; e.title = b.label; place(e, b); box.appendChild(e);
+      const pw = sk.pw && sk.pw.id === b.id ? sk.pw : null; let t0 = 0, iv = 0, fired = false;
+      const need = () => (!U.st ? 0 : U.st.phase === 'OFF' ? pw.onMs : pw.offMs);
+      const stopHold = () => { clearInterval(iv); iv = 0; U.hold = null; if (U.st) render(); };
+      e.addEventListener('pointerdown', (ev) => {
+        ev.preventDefault(); e.classList.add('down'); t0 = Date.now(); fired = false;
+        const n = pw ? need() : 0;
+        if (pw && n > 0 && !(U.page === 'menu' && U.st && U.st.phase !== 'OFF')) iv = setInterval(() => { const p = (Date.now() - t0) / n; U.hold = { p: Math.min(1, p), off: U.st && U.st.phase !== 'OFF', left: Math.max(0, Math.ceil((n - (Date.now() - t0)) / 1000)) }; if (p >= 1 && !fired) { fired = true; clearInterval(iv); iv = 0; powerToggle(); U.hold = null; } render(); }, 100);
+        else if (!pw) iv = setTimeout(() => { fired = true; handleSem(U.page === 'menu' ? 'back' : b.main, true); }, 1000);
+      });
+      const up = () => { e.classList.remove('down'); if (iv) { clearInterval(iv); clearTimeout(iv); iv = 0; } if (U.hold) stopHold(); if (fired) return; fired = true;
+        if (pw && U.st && U.st.phase === 'OFF') { if (pw.onMs === 0) powerToggle(); else toast('Taste ' + Math.round(pw.onMs / 1000) + ' s halten zum Einschalten'); return; }
+        handleBtn(b); };
+      e.addEventListener('pointerup', up); e.addEventListener('pointerleave', () => { e.classList.remove('down'); if (iv) { clearInterval(iv); clearTimeout(iv); iv = 0; } U.hold = null; fired = true; });
+      if (sk.wheel && sk.wheel.includes(b.id)) e.addEventListener('wheel', (ev) => { ev.preventDefault(); handleSem(ev.deltaY < 0 ? 'up' : 'down', false); }, { passive: false });
     }
     root.querySelector('.dv-dim').addEventListener('mousedown', () => setMouse(false));
     root.classList.toggle('debug', /debug=1/.test(location.search));
   };
   const setMouse = (on, typing) => { U.mouse = !!on; root && root.classList.toggle('mouse', U.mouse); post('devMouse', { on: !!on, typing: !!typing }); hint(); };
-  const hint = () => { if (hintEl) hintEl.textContent = U.mouse ? 'Tasten anklicken · ↑ ↓ ← → Enter · ESC / E zurück' : 'E bedienen · ↑ ↓ ← → Enter · ⌫ ausblenden'; };
+  const hint = () => { if (hintEl) hintEl.textContent = U.mouse ? 'Tasten anklicken · Pfeile/Enter · ´ oder ESC: Mauszeiger aus' : '´ Mauszeiger · Pfeile/Enter · Enter halten: Ein/Aus · ⌫ ausblenden'; };
   const toast = (t, bad) => { if (!toastEl) return; toastEl.textContent = t; toastEl.className = 'dv-toast on' + (bad ? ' bad' : ''); clearTimeout(toast._t); toast._t = setTimeout(() => toastEl.classList.remove('on'), 3200); };
+  const powerToggle = () => { if (!U.st) return; act('power', { on: U.st.phase === 'OFF' }); };
 
   const ctx = () => ({ st: U.st, def: U.def, ui: U, menu: menuItems });
   function render() {
     if (!U.st || !scr) return;
-    scr.classList.toggle('off', U.st.phase === 'OFF'); scr.innerHTML = U.st.phase === 'OFF' ? '' : U.sk.screen(ctx());
+    scr.classList.toggle('off', U.st.phase === 'OFF'); scr.classList.toggle('lit', U.light);
+    let h = U.st.phase === 'OFF' ? '' : U.sk.screen(ctx());
+    if (U.hold) h += `<div class="flash">${U.hold.off ? 'AUS' : 'EIN'} in ${U.hold.left} s … halten</div>`;
+    scr.innerHTML = h;
     const leds = box.querySelectorAll('.led'); const ch = U.st.channels; const mx = ch ? Math.max(ch.G || 0, ch.H || 0, ch.T || 0) : 0;
     leds.forEach((l, i) => { l.className = 'led' + (U.st.phase === 'MEASURING' && i < mx ? ' on' : U.st.phase === 'READY' && i === 0 ? ' ok' : ''); });
   }
@@ -149,27 +189,46 @@
     it.push({ t: 'Ton: ' + (st.muted ? 'AUS' : 'EIN'), f: () => act('mute'), keep: true }, { t: 'Info', f: () => { U.page = 'info'; } }, { t: 'Ausschalten', f: () => act('power', { on: false }) });
     return it;
   }
-  function handle(a, long) {
-    const st = U.st; if (!st || U.save || !U.vis) return; AU.click();
-    const pw = U.sk.power.includes(a);
-    if (st.phase === 'OFF') { if (pw) act('power', { on: true }); return render(); }
+  /** Taste gedrückt → Bedeutung je nach Seite (Hauptbild/Menü) laut Skin */
+  function handleBtn(b) { AU.click(); handleSem(U.page === 'menu' ? b.menu : b.main, false); }
+  /** Bedeutungen: up down ok back menu info ack screen mode zero a b okack */
+  function handleSem(a, long) {
+    const st = U.st; if (!st || U.save || !U.vis) return;
+    if (st.phase === 'OFF') { if (a === 'ok' && U.sk.pw && U.sk.pw.onMs === 0) powerToggle(); return; }
     if (st.phase === 'BOOTING' || st.phase === 'SELF_TEST') return;
-    if (st.phase === 'ERROR') { if (a === 'ok' || a === 'back' || pw) act('power', { on: false }); return; }
-    if (long && pw) { act('power', { on: false }); return; }
-    if (a === 'mute') { act('mute'); return; }
+    if (st.phase === 'ERROR') { if (a === 'ok' || a === 'back') act('power', { on: false }); return; }
+    if (a === 'ack') { ack(); return; }
     if (U.page === 'menu') {
       const it = menuItems(); const n = it.length;
       if (a === 'up') U.cur = (U.cur + n - 1) % n; else if (a === 'down') U.cur = (U.cur + 1) % n;
-      else if (a === 'ok' || a === 'right') { const s = it[Math.min(U.cur, n - 1)]; if (!s.keep) U.page = 'main'; s.f(); }
-      else if (a === 'back' || a === 'menu' || a === 'left') U.page = 'main';
+      else if (a === 'ok') { const s = it[Math.min(U.cur, n - 1)]; if (!s.keep) U.page = 'main'; s.f(); }
+      else if (a === 'back' || a === 'menu') U.page = 'main';
       return render();
     }
     if (U.page === 'info') { U.page = 'main'; return render(); }
-    if (a === 'menu' || a === 'right' || (a === 'up' && U.sk.menuOnUp)) { U.page = 'menu'; U.cur = 0; return render(); }
-    if (a === 'ok') { if (st.phase === 'READY') act('start'); else if (st.phase === 'MEASURING') act('stop'); return; }
-    if (a === 'b') { if (st.hasResult) openSave(); else toast('Noch kein Messwert zum Speichern', true); return; }
-    if (a === 'up' || (a === 'down' && U.sk.menuOnUp)) { U.page = 'info'; return render(); }
-    if (a === 'down' && U.def.modes.length > 1 && st.phase === 'READY') { act('mode', { mode: U.def.modes[(U.def.modes.findIndex((m) => m.id === st.mode) + 1) % U.def.modes.length].id }); }
+    switch (a) {
+      case 'menu': U.page = 'menu'; U.cur = 0; break;
+      case 'ok': case 'a': if (st.phase === 'READY') act('start'); else if (st.phase === 'MEASURING') act('stop'); break;
+      case 'okack': if (st.alert !== 'NORMAL' && st.phase === 'MEASURING' && !U.ack) ack(); else U.page = 'info'; break;
+      case 'b': if (st.hasResult) openSave(); else toast('Noch kein Messwert zum Speichern', true); break;
+      case 'info': case 'up': case 'down':
+        if (U.sk.views) { U.view = U.sk.views[(U.sk.views.indexOf(U.view) + 1) % U.sk.views.length]; } else U.page = 'info'; break;
+      case 'screen': U.light = !U.light; break;
+      case 'mode': if (st.phase === 'READY' && U.def.modes.length > 1) act('mode', { mode: U.def.modes[(U.def.modes.findIndex((m) => m.id === st.mode) + 1) % U.def.modes.length].id }); else if (U.def.modes.length > 1) toast('Kanalwechsel nur im Zustand BEREIT', true); break;
+      case 'zero': if (U.def.zero) act('zero'); else toast('Dieses Gerät hat keine Nullung', true); break;
+      case 'left': case 'back': break;
+    }
+    render();
+  }
+  /** Alarm quittieren (Ton aus bis der Wert wieder im Normalbereich ist) */
+  function ack() { if (U.st && U.st.alert !== 'NORMAL') { U.ack = true; stopLoops(); toast('Alarm quittiert'); } else toast('Kein Alarm aktiv'); render(); }
+  /** Tastatur: Pfeile/Enter. Enter lang = Ein/Aus wie die Gerätetaste. */
+  function handleKey(k) {
+    const st = U.st; if (!st) return; AU.click();
+    if (k === 'enterlong') return powerToggle();
+    if (st.phase === 'OFF') { if (k === 'enter') { if (U.sk.pw && U.sk.pw.onMs === 0) powerToggle(); else toast('Enter halten zum Einschalten'); } return; }
+    const sem = U.page === 'menu' ? { up: 'up', down: 'down', left: 'back', right: 'ok', enter: 'ok', back: 'back' }[k] : { up: 'info', down: 'screen', left: 'back', right: 'menu', enter: 'ok', back: 'back' }[k];
+    if (sem) handleSem(sem, false);
   }
 
   function openSave() {
@@ -188,37 +247,46 @@
   const fmtSt = () => (U.st.channels && !U.st.value ? 'Mehrkanal-Messung' : `${fmt(U.st)} ${U.st.unit}`);
   function closeSave() { U.save = false; savePanel.classList.remove('on'); post('devMouse', { on: true, typing: false }); }
 
-  // ---- Töne bei Zustandswechseln -----------------------------------------------------------------------------------
+  // ---- Töne bei Zustandswechseln + Alarmschleifen (Aufnahmen des jeweiligen Geräts, sonst neutrale Töne) --------------
   function sounds(prev, st) {
-    if (!prev) return; if (prev.phase === 'OFF' && st.phase !== 'OFF') AU.on(); if (prev.phase !== 'OFF' && st.phase === 'OFF') AU.off();
+    if (!prev) return; if (prev.phase === 'OFF' && st.phase !== 'OFF') AU.on(); if (prev.phase !== 'OFF' && st.phase === 'OFF') { AU.off(); stopLoops(); }
     if (prev.phase === 'SELF_TEST' && st.phase === 'READY') AU.ready(); if (st.phase === 'ERROR' && prev.phase !== 'ERROR') AU.error();
     if (st.flash && st.flash !== prev.flash && /GESPEICHERT/.test(st.flash)) AU.saved();
+    if (st.alert === 'NORMAL' || st.phase !== 'MEASURING') { U.ack = false; stopLoops(); }
   }
-  setInterval(() => { // Warn-/Alarmton – zurückhaltend, mit Stummschaltung
-    const st = U.st; if (!st || st.muted || st.phase !== 'MEASURING') return; const n = Date.now();
-    if (st.alert === 'ALARM' && n - timerAlert > 1200) { timerAlert = n; AU.alarm(); } else if (st.alert === 'WARNUNG' && n - timerAlert > 4000) { timerAlert = n; AU.warn(); }
+  const last = {};
+  function stopLoops() { const sn = U.sk && U.sk.snd; if (sn) [sn.alarm, sn.warn].forEach((x) => x && x.file && AU.stop(x.file)); }
+  setInterval(() => { // zurückhaltend: Alarm nur solange nicht quittiert/stumm; Warnung selten
+    const st = U.st, sn = U.sk && U.sk.snd; if (!st || !sn || st.muted || st.phase !== 'MEASURING' || U.ack) return; const n = Date.now();
+    const cfg = st.alert === 'ALARM' ? sn.alarm : st.alert === 'WARNUNG' ? sn.warn : null; if (!cfg) return;
+    if (cfg.file && cfg.loop) { AU.play(cfg.file, true, 0.7); return; }
+    if (n - (last[st.alert] || 0) < (cfg.every || 4000)) return; last[st.alert] = n;
+    if (cfg.file) AU.play(cfg.file, false, 0.7); else if (cfg.synth) AU[cfg.synth]();
   }, 300);
   setInterval(() => { if (U.st && U.st.phase === 'MEASURING' && !U.save) render(); }, 500);
 
   // ---- Eingang: Nachrichten vom Lua-Client ------------------------------------------------------------------------
   const on = (d) => {
-    if (d.cmd === 'open') { U.def = d.def; U.sk = SKINS[d.def.ui] || SKINS.dlm; U.st = d.state; U.page = 'main'; U.cur = 0; U.vis = true; U.save = false; U.keys = d.keys || {}; build(); root.classList.add('on'); hint(); render(); }
+    if (d.cmd === 'open') { U.def = d.def; U.sk = SKINS[d.def.ui] || SKINS.dlm; U.st = d.state; U.page = 'main'; U.cur = 0; U.vis = true; U.save = false; U.keys = d.keys || {}; U.view = 'RATE'; U.light = false; U.ack = false; build(); root.classList.add('on'); hint(); render(); }
     else if (d.cmd === 'state') { sounds(U.st, d.state); U.st = d.state; if (!root) return; if (U.st.phase === 'OFF') U.page = 'main'; render(); }
-    else if (d.cmd === 'close') { if (root) root.classList.remove('on', 'mouse'); U.st = null; U.save = false; }
-    else if (d.cmd === 'visible') { U.vis = d.on; root && root.classList.toggle('hidden', !d.on); }
+    else if (d.cmd === 'close') { if (root) root.classList.remove('on', 'mouse'); stopLoops(); U.st = null; U.save = false; }
+    else if (d.cmd === 'visible') { U.vis = d.on; root && root.classList.toggle('hidden', !d.on); if (!d.on) stopLoops(); }
     else if (d.cmd === 'mouse') { U.mouse = d.on; root && root.classList.toggle('mouse', d.on); hint(); }
-    else if (d.cmd === 'key') handle(d.key === 'left' ? 'back' : d.key === 'enter' ? 'ok' : d.key, false);
+    else if (d.cmd === 'key') handleKey(d.key);
     else if (d.cmd === 'toast') toast(d.text, d.bad);
     else if (d.cmd === 'samples') { const s = savePanel && savePanel.querySelector('#dvs'); if (s) (d.list || []).forEach((x) => { const o = document.createElement('option'); o.value = x.id; o.textContent = `${x.id} · ${x.label}`; s.appendChild(o); }); }
     else if (d.cmd === 'saved') { if (d.ok) { if (U.save) closeSave(); toast(d.msg || 'Gespeichert'); } else toast(d.msg || 'Speichern nicht möglich', true); }
   };
   window.addEventListener('message', (e) => { const d = e.data || {}; if (d.type === 'dev') on(d); });
   // Tastatur im Maus-Modus (NUI hat den Fokus). Im HUD-Modus kommen die Tasten vom Lua-Client.
+  let enterT = 0, enterFired = false;
   window.addEventListener('keydown', (e) => {
     if (!U.st || !U.mouse || U.save) return; const k = e.key;
-    const m = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'back', ArrowRight: 'right', Enter: 'ok', Backspace: 'back', m: 'menu', M: 'menu', s: 'b', S: 'b' }[k];
-    if (m) { e.preventDefault(); e.stopImmediatePropagation(); handle(m, false); return; }
-    if (k === 'e' || k === 'E' || k === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); setMouse(false); }
+    if (k === 'Enter') { e.preventDefault(); e.stopImmediatePropagation(); if (!enterT) { enterFired = false; enterT = setTimeout(() => { enterFired = true; handleKey('enterlong'); }, 1000); } return; }
+    const m = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right', Backspace: 'back' }[k];
+    if (m) { e.preventDefault(); e.stopImmediatePropagation(); handleKey(m); return; }
+    if (e.code === 'Equal' || e.code === 'Backquote' || k === '´' || k === '`' || k === 'Dead' || k === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); setMouse(false); } // ´ schaltet den Mauszeiger wieder aus
   }, true);
-  window.CBRN_DEV = { on, U, SKINS, handle };
+  window.addEventListener('keyup', (e) => { if (e.key !== 'Enter' || !enterT) return; clearTimeout(enterT); enterT = 0; if (!enterFired && U.st && U.mouse && !U.save) handleKey('enter'); enterFired = false; }, true);
+  window.CBRN_DEV = { on, U, SKINS, handleSem, handleKey };
 })();

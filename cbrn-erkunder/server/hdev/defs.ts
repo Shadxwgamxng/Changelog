@@ -40,14 +40,14 @@ export const deviceList = () => Object.values(DEVICES);
 // ---- Dosisleistung (Gerätebild: Thermo RadEye PRD-ER4) --------------------------------------
 registerMeasurementDevice(dev({
   id: 'dlm', label: 'Dosisleistungsmessgerät', short: 'DLM', model: 'Thermo RadEye PRD-ER4 (Gerätebild)', engine: 'dose', ui: 'dlm', skin: 'default', devKey: 'DLM', category: 'RADIOLOGISCH',
-  modes: [{ id: 'RATE', label: 'Dosisleistung', unit: 'µSv/h', continuous: true }, { id: 'DOSE', label: 'Dosis', unit: 'µSv', integrates: true }], defaultMode: 'RATE',
+  modes: [{ id: 'RATE', label: 'Dosisleistung', unit: 'µSv/h', continuous: true }], defaultMode: 'RATE', // Dosis (µSv) und Maximum zeigt das Gerät als weitere Anzeige (Taste Info)
   range: { min: 0.01, max: 250, unit: 'µSv/h', src: 'Thermo RadEye PRD-ER4: 10 nSv/h – 250 µSv/h (Low-Rate-Detektor), bis 10 Sv/h mit High-Rate-Detektor (Herstellerangabe)' },
   resolution: { decimals: [[1, 3], [10, 2], [100, 1], [1e9, 0]], note: 'SIM: Auflösung nicht dokumentiert' },
   tau_s: 3, durations: { quick: 4000, normal: 10000, precise: 30000 }, stability: { rel: 0.06, abs: 0.004 }, noise: { rel: 0.005, abs: 0.002, counting: true },
   battery: { start: 100, drainPerMin: 0.06, measureExtra: 0.02, alarmExtra: 0.05, chargePerMin: 1.5, low: 15 }, // SIM (Herstellerangabe: >170 h Betrieb mit Alkaline-Batterien)
   selfTest: { bootMs: 3500, testMs: 4500, failChance: 0, items: ['Sensor', 'Speicher', 'Batterie', 'System'] },
-  thresholds: { RATE: { attention: 0.3, warning: 1.0, alarm: 25 } /* SIM */, DOSE: { attention: 5, warning: 20, alarm: 100 } /* SIM */ },
-  notes: ['Messbereich laut Herstellerangabe (Thermo Fisher). Alarmschwellen = SIMULATION.', 'Tasten laut Gerätebild: Menu, Info, Mute, On/Screen.'],
+  thresholds: { RATE: { attention: 0.3, warning: 1.0, alarm: 25 } /* SIM */ },
+  notes: ['Messbereich laut Herstellerangabe (Thermo Fisher). Alarmschwellen = SIMULATION.', 'Bedienung laut Handbuch DB-117 E: EIN = On-Taste ≥ 1 s halten; ▲/Info wechselt die Anzeigen; Menu-Taste wählt im Menü, Pfeile blättern; Mute quittiert Alarme.'],
 }));
 
 // ---- Kontamination (Gerätebild: Graetz CoMo 170 ZS) -----------------------------------------
@@ -86,7 +86,7 @@ registerMeasurementDevice(dev({
   resolution: { decimals: [[1e9, 0]] },
   tau_s: 2.5, durations: { quick: 5000, normal: 12000, precise: 30000 }, stability: { rel: 0.01, abs: 0.5 }, noise: { rel: 0, abs: 0 },
   battery: { start: 100, drainPerMin: 0.15, measureExtra: 0.05, alarmExtra: 0.1, chargePerMin: 2, low: 20 },
-  selfTest: { bootMs: 6000, testMs: 9000, failChance: 0, items: ['Messzelle', 'Pumpe', 'Batterie', 'System'] }, // SIM: reale Aufwärmzeit TODO prüfen
+  selfTest: { bootMs: 25000, testMs: 35000, failChance: 0, items: ['Messzelle', 'Pumpe', 'Batterie', 'System'] }, // Hersteller: Kaltstart bis messbereit 1–5 min (hier untere Grenze: 60 s)
   thresholds: { DETECT: { attention: 1, warning: 3, alarm: 5 } /* SIM */ },
   zero: { label: 'Reinigung (Auto-Purge)', ms: 12000 },
   notes: ['Klassen G/H/T und 8 Balken laut Herstellerangabe. Bedienung (Drehknopf) laut Gerätebild; reale Menüs: TODO Handbuch prüfen.'],

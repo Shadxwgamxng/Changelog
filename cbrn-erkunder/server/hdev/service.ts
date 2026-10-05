@@ -87,7 +87,7 @@ function snapshot(i: Inst) {
   const d = DEVICES[i.type]; const el = (Date.now() - i.startedAt) / 1000; if (i.stat.n === 0) return;
   const mean = i.stat.sum / i.stat.n; const stable = isStable(i, d);
   const rv = d.channels ? mean : (d.modes.find((m) => m.id === i.mode)?.integrates ? i.dose : i.shown);
-  i.result = { value: roundTo(d, d.channels ? 0 : rv), unit: d.modes.find((m) => m.id === i.mode)?.unit ?? '', channels: d.channels ? { ...i.shownCh } : i.type === 'ims' ? { ...i.shownCh } : undefined, aux: (i as any).aux,
+  i.result = { value: roundTo(d, d.channels ? 0 : rv), unit: d.modes.find((m) => m.id === i.mode)?.unit ?? '', channels: d.channels ? { ...i.shownCh } : i.type === 'ims' ? { ...i.shownCh } : d.engine === 'dose' ? { DOSE: +i.dose.toFixed(4) } : undefined, aux: (i as any).aux,
     stats: { min: i.stat.min, max: i.stat.max, avg: mean, n: i.stat.n }, series: i.series.slice(-HCFG.series), duration_s: Math.round(el), mode: i.mode, precision: i.precision, stable, alert: i.alert, channel: i.channel, pos: i.pos ?? { x: 0, y: 0, z: 0 }, startedAt: new Date(i.startedAt).toISOString(), over: i.over };
 }
 function isStable(i: Inst, d: DevDef) {
@@ -153,7 +153,7 @@ function measure(i: Inst, d: DevDef, dt: number, t: number) {
     let target = d.engine === 'dose' || d.engine === 'contam' || d.engine === 'voc' ? sample(d, tr.value, el) + i.drift : tr.value;
     if (d.engine === 'ims') { const tau = target < i.shown ? 14 : d.tau_s; i.shown = follow(i.shown, target, dt, tau); i.shownCh = Object.fromEntries(Object.entries(tr.channels ?? {}).map(([k, v]) => [k, Math.round(follow(i.shownCh[k] ?? 0, v, dt, v < (i.shownCh[k] ?? 0) ? 14 : d.tau_s))])); }
     else i.shown = follow(i.shown, target, dt, d.tau_s);
-    if (mdef?.integrates) i.dose += env.dose * dt / 3600; // Dosis = ∫ Dosisleistung dt (µSv)
+    if (d.engine === 'dose') i.dose += env.dose * dt / 3600; // Dosis = ∫ Dosisleistung dt (µSv) – läuft immer mit (Anzeige per Taste Info)
     i.shown = Math.max(0, i.shown); i.over = i.shown > d.range.max; if (i.over) i.shown = d.range.max;
     const shownV = mdef?.integrates ? i.dose : d.engine === 'ims' ? Math.round(i.shown) : i.shown;
     const a = alertOf(d, i.mode, shownV); i.alert = a.alert; i.channel = null;
@@ -172,7 +172,7 @@ export function publicState(i: Inst) {
   return { id: i.id, type: i.type, phase: i.phase, state, alert: meas ? i.alert : i.result?.alert ?? 'NORMAL', channel: i.channel, mode: i.mode, precision: i.precision, battery: Math.round(i.battery), batteryLow: i.battery <= d.battery.low, muted: i.muted, err: i.err,
     boot: i.phase === 'BOOTING' ? Math.min(1, (t - i.phaseAt) / d.selfTest.bootMs) : i.phase === 'OFF' ? 0 : 1, test: i.phase === 'SELF_TEST' ? { items: i.tests, ok: i.testResults, p: Math.min(1, (t - i.phaseAt) / d.selfTest.testMs) } : null,
     zero: i.zero ? { label: d.zero?.label, p: Math.min(1, (t - i.zero.start) / (i.zero.until - i.zero.start)) } : null,
-    value: meas || i.result ? (d.channels ? null : mdef?.integrates ? +i.dose.toFixed(4) : +v.toFixed(6)) : null, dec: decimalsFor(d, v), unit: mdef?.unit ?? '', over: i.over, channels: (d.channels || d.engine === 'ims') && (meas || i.result) ? (i.phase === 'MEASURING' ? i.shownCh : i.result?.channels ?? null) : null, aux: meas ? (i as any).aux ?? null : null,
+    value: meas || i.result ? (d.channels ? null : mdef?.integrates ? +i.dose.toFixed(4) : +v.toFixed(6)) : null, dec: decimalsFor(d, v), unit: mdef?.unit ?? '', over: i.over, dose: d.engine === 'dose' && (meas || i.result) ? +i.dose.toFixed(4) : null, channels: (d.channels || d.engine === 'ims') && (meas || i.result) ? (i.phase === 'MEASURING' ? i.shownCh : i.result?.channels ?? null) : null, aux: meas ? (i as any).aux ?? null : null,
     elapsed: Math.round(el), duration: d.durations[i.precision] / 1000, stable, stats: meas ? (i.stat.n ? { min: i.stat.min, max: i.stat.max, avg: i.stat.sum / i.stat.n } : null) : i.result ? i.result.stats : null,
     hasResult: !!i.result || (meas && i.stat.n > 3), canSave: (meas ? el * 1000 : (i.result?.duration_s ?? 0) * 1000) >= HCFG.saveMinMs && (meas || !!i.result), flash: i.flash && i.flash.until > t ? i.flash.text : null };
 }

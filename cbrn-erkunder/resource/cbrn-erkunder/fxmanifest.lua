@@ -17,6 +17,7 @@ files {
   'web/index.html',
   'web/devices.js',
   'web/devices.css',
+  'web/sounds/*.ogg',
   'app/**',
   'config.json',
 }

@@ -55,3 +55,4 @@
 #dev .dv-save .btns{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
 #dev .dv-save button{background:#1c1c1c;border:1px solid #3a3a3a;color:#ebe9e6;border-radius:5px;padding:7px 14px;cursor:pointer;font:inherit;font-size:13px}
 #dev .dv-save button.pri{background:#f0500a;border-color:#f0500a;color:#fff;font-weight:700}
+#dev .dv-scr.lit:not(.off){filter:brightness(1.14) saturate(1.1);box-shadow:inset 0 0 1.4cqmin rgba(255,255,255,.35),0 0 1.2vh rgba(255,255,200,.35)}

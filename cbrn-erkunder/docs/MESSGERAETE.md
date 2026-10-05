@@ -69,6 +69,26 @@ Alles, was nicht aus diesen Quellen stammt (Schwellen, Aufwärmzeiten, Messdauer
 
 Admin: `/offset` (Punktarten sample/storage/device/computer/equipment), `/createcbrnsource`, `/clearcbrnsources`, `/debugdevice`, `/debugmeasurement`, `/cbrndeviceerror` (nächster Selbsttest schlägt fehl).
 
+## 5a. Tastenbelegung (nach Herstellerhandbüchern, soweit öffentlich belegt)
+
+| Gerät | Belegung im Spiel | Beleg |
+|---|---|---|
+| RadEye PRD-ER4 | **On/Screen** ▼: ≥ 1 s halten = Ein, 3 s halten = Aus, kurz = Display-Beleuchtung · **Info** ▲: Anzeige wechseln (Dosisleistung → Dosis → Maximum → Info); im Menü auf · **Menu**: Menü öffnen, im Menü Auswahl · **Mute**: Alarm quittieren | Handbuch DB-117 E: EIN = On-Taste ≥ 1 s; ▲/Info kurz = weitere Anzeigen; Pfeile blättern im Menü, Menu-Taste wählt; Mute/Alarm-Quittierung. *Display-Beleuchtung und 3-s-Aus = Annahme* |
+| CoMo 170 ZS | **Oben links**: kurz = Kurzmenü (u. a. Nulleffekt-Messung), halten = Aus · **Oben rechts**: Ton aus / quittieren · **Pfeile**: im Menü auf/ab, im Hauptbild Kanal α ↔ β/γ · **Enter**: Messung Start/Stop, im Menü Auswahl | Bedienungsanleitung CoMo 170 ZS (BABS/Graetz): 5 Funktionstasten, Taste oben links Ein/Aus + Kurzmenü + Nulleffektmessung, oben rechts Ton unterdrücken, Pfeile + Enter im Menü. *Einschalten über die Taste oben links und Kanalumschaltung = Annahme* |
+| TIGER (XTL im Bild) | **A** Soft-Taste „Nullung“ · **B** Soft-Taste „Menü“ · **▲▼** Anzeige/Menü · **Esc** abbrechen · **Enter/On/Off** (unten rechts im Mittelkreis): kurz = Ein, im Betrieb Start/Stop, halten = Aus mit 3-s-Countdown | TIGER-Handbuch: Soft-Tasten A/B (frei belegbar), Auf/Ab, Esc, Enter/On/Off; EIN = einmal drücken, AUS = halten (3-s-Countdown); „Zero“-Soft-Taste. *Belegung A/B ist Annahme (laut Handbuch konfigurierbar)* |
+| X-am 8000 | **▼** = ☰ Menü (im Menü ab) · **OK** = 🔍 Alarm quittieren / Detail, im Menü Auswahl, halten = Ein (1 s) / Aus (3 s) · **▲** = ★ Start/Stop (im Menü auf) | Dräger-Produktinformation: Bedienung über drei Tasten. Die Symbole ☰ 🔍 ★ am Displayrand gehören laut Gerätebild zu den Tasten. *Haltezeiten und genaue Funktionen = Annahme, Technisches Handbuch X-am 3500/8000 bitte gegenprüfen* |
+| RAID-M 100 | Drehknopf: links = Menü/auf, drücken = Start/Stop (halten: Ein/Aus), rechts = Info/ab | **TODO**: Bedienung nicht öffentlich belegt (nur Hersteller: 1–5 min Kaltstart bis messbereit – hier 60 s Selbsttest) |
+
+Bei allen Geräten bedienen **Pfeiltasten + Enter** (Enter halten = Ein/Aus) die Tasten; **´** (Taste rechts neben ß, FiveM-Name `EQUALS`) schaltet den **Mauszeiger** ein, ´ oder ESC schaltet ihn aus. Rücktaste blendet das Gerät aus/ein.
+
+## 5b. Sounds
+
+* Dräger (X-am/MGMG): Aufnahme `web/sounds/mgmg_alarm.ogg` – Alarm läuft als Schleife bis quittiert (OK) oder Wert wieder normal; Warnung = einzelner Zyklus alle 5 s.
+* RadEye: Aufnahme `web/sounds/dlm_alarm.ogg` – einmal bei Alarm, Wiederholung alle 20 s bis Mute.
+* Atemschutz „Gerät leer“: Aufnahme `web/sounds/pa_leer.ogg` – im Computer einmal bei Pfeife (55 bar) und einmal bei leer.
+* CoMo, TIGER, RAID-M 100: keine Aufnahme vorhanden → neutrale WebAudio-Töne.
+* Die Datei `am-2500---alarms.mp3` enthält laut Spektralanalyse überwiegend Sprache/tieffrequentes Signal (kein klarer Alarmton) und wurde **nicht** verwendet.
+
 ## 6. Bekannte Grenzen / TODO
 
 * Reale Tastenbelegung und Menüs der Geräte (CoMo, TIGER, RAID-M 100) nicht aus Handbüchern übernommen → TODO.
