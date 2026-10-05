@@ -36,7 +36,20 @@ export default function Devices() {
             {hasPwr && <div className="mt-3"><PowerButton k={d.id} /></div>}
           </Link>); })}
       </div>
+      <HandDevices />
     </Page>
+  );
+}
+
+/** Gerätebestand der Handmessgeräte (Entnahme am Fahrzeug im Spiel): wer hat welches Gerät, Akkustand. */
+function HandDevices() {
+  const inv = useApi<any[]>('/hdev', ['poll', 'measurement.created']); const rows = inv.data ?? [];
+  return (
+    <div className="mt-4"><div className="lbl mb-1">Handmessgeräte – Bestand</div>
+      <Panel body="!p-0"><table className="t"><thead><tr><th>Gerät</th><th>Fahrzeug</th><th>Status</th><th>Träger</th><th>Akku</th></tr></thead><tbody>
+        {rows.map((d) => <tr key={d.id}><td><b>{d.short}</b> <span className="text-dim text-[11.5px]">{d.model}</span></td><td className="font-mono text-[11.5px]">{d.vehicle_id}</td><td><StatusBadge s={d.status} /></td><td>{d.holder ?? '–'}</td><td className="font-mono">{d.battery} %</td></tr>)}
+        {!rows.length && <tr><td colSpan={5} className="text-dim">Noch kein Gerät am Fahrzeug entnommen – Bestand wird beim ersten Zugriff im Spiel angelegt.</td></tr>}
+      </tbody></table></Panel></div>
   );
 }
 

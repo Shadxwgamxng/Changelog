@@ -14,6 +14,8 @@ export const DATA_SRC: Record<string, string> = { REAL: 'REAL DATA', SIMULATED: 
 export const STATUS_COLOR = (s?: string | null) => {
   const t = (s ?? '').toUpperCase();
   if (/ALARM|HOCH|OFFLINE|OFFEN|ABGEBROCHEN/.test(t)) return '#e5534b';
+  if (/^WARNUNG|IN VERWENDUNG/.test(t)) return '#f0500a';
+  if (/AUFFÄLLIG/.test(t)) return '#d29922';
   if (/STARTET|IN ANALYSE|TRANSPORT|ENTNOMMEN/.test(t)) return '#d29922';
   if (/EINGELAGERT/.test(t)) return '#3fb950';
   if (/ERHÖHT|AUSWERTUNG|VERDACHT|ÜBERMITTELT|NACHBESTELLEN|HINWEIS/.test(t)) return '#d29922';

@@ -19,3 +19,4 @@ declare function IsPlayerAceAllowed(src: number | string, ace: string): boolean;
 declare function GetNumPlayerIdentifiers(src: number | string): number;
 declare function GetPlayerIdentifier(src: number | string, idx: number): string;
 declare function GetResourceState(name: string): string;
+declare function GetEntityHealth(ent: number): number;

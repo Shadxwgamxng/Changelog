@@ -88,13 +88,14 @@ CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, vehicle_id TEXT, na
 CREATE INDEX IF NOT EXISTS ix_meas_veh ON measurements(vehicle_id);
 CREATE TABLE IF NOT EXISTS incidents (id TEXT PRIMARY KEY, name TEXT, status TEXT, created_at TEXT, created_by TEXT, ended_at TEXT, location_text TEXT, report TEXT, category TEXT, ref_type TEXT, ref_id TEXT, known INTEGER DEFAULT 0, amount TEXT, radius_m REAL, peak REAL, lat REAL, lon REAL);
 CREATE TABLE IF NOT EXISTS incident_crew (incident_id TEXT, name TEXT, funktion TEXT, vehicle_id TEXT, since TEXT, PRIMARY KEY (incident_id, name, funktion, vehicle_id));
+CREATE TABLE IF NOT EXISTS measurement_sources (id TEXT PRIMARY KEY, type TEXT, x REAL, y REAL, z REAL, intensity REAL, radius REAL, substance_id TEXT, active INTEGER DEFAULT 1, incident_id TEXT, created_by TEXT, created_at TEXT, note TEXT);
 CREATE TABLE IF NOT EXISTS incident_fires (id TEXT PRIMARY KEY, incident_id TEXT, lat REAL, lon REAL, size TEXT, type TEXT, active INTEGER DEFAULT 1, created_by TEXT, created_at TEXT, label TEXT);
 CREATE TABLE IF NOT EXISTS runs (id TEXT PRIMARY KEY, vehicle_id TEXT, name TEXT, started_at TEXT, ended_at TEXT, started_by TEXT, distance_m REAL DEFAULT 0, points INTEGER DEFAULT 0, max_dose REAL, max_pid REAL, source TEXT, mission_id TEXT);
 `;
 function setupSchema() {
 db.exec(SCHEMA);
 // Migration älterer Datenbanken: fehlende Spalten ergänzen
-for (const [t, c] of [['substances', 'traits'], ['substances', 'response'], ['substances', 'gestis_zvg'], ['radionuclides', 'response'], ['biological_agents', 'response'], ['measurements', 'run_id'], ['samples', 'analysis'], ['runs', 'start_lat'], ['runs', 'start_lon'], ['runs', 'incident_id'], ['measurements', 'incident_id'], ['reports', 'incident_id'], ['samples', 'label'], ['samples', 'info'], ['samples', 'sample_type'], ['samples', 'source_description'], ['samples', 'collected_by'], ['samples', 'collected_license'], ['samples', 'collection_pos'], ['samples', 'collection_offset'], ['samples', 'collection_model'], ['samples', 'status'], ['samples', 'incident_id'], ['samples', 'container'], ['samples', 'stored_at'], ['samples', 'truth_ratio'], ['runs', 'mode']] as const) {
+for (const [t, c] of [['substances', 'traits'], ['substances', 'response'], ['substances', 'gestis_zvg'], ['radionuclides', 'response'], ['biological_agents', 'response'], ['measurements', 'run_id'], ['samples', 'analysis'], ['runs', 'start_lat'], ['runs', 'start_lon'], ['runs', 'incident_id'], ['measurements', 'incident_id'], ['reports', 'incident_id'], ['samples', 'label'], ['samples', 'info'], ['samples', 'sample_type'], ['samples', 'source_description'], ['samples', 'collected_by'], ['samples', 'collected_license'], ['samples', 'collection_pos'], ['samples', 'collection_offset'], ['samples', 'collection_model'], ['samples', 'status'], ['samples', 'incident_id'], ['samples', 'container'], ['samples', 'stored_at'], ['samples', 'truth_ratio'], ['runs', 'mode'], ['measurements', 'hdevice_id'], ['measurements', 'mode'], ['measurements', 'player'], ['measurements', 'duration_s'], ['measurements', 'stats'], ['measurements', 'series'], ['measurements', 'label'], ['measurements', 'note'], ['measurements', 'sample_id'], ['measurements', 'source'], ['measurements', 'pos'], ['measurements', 'incident_id']] as const) {
   const cols = (db.prepare(`PRAGMA table_info(${t})`).all() as { name: string }[]).map((x) => x.name);
   if (!cols.includes(c)) db.exec(`ALTER TABLE ${t} ADD COLUMN ${c} TEXT`);
 }
@@ -104,13 +105,13 @@ const JSON_COLS: Record<string, string[]> = {
   substances: ['synonyms', 'ghs', 'h', 'p', 'methods', 'devices', 'traits', 'response'],
   radionuclides: ['radiation', 'gamma_kev', 'response'],
   biological_agents: ['response'],
-  measurements: ['channels', 'candidates'],
+  measurements: ['channels', 'candidates', 'stats', 'series', 'pos'],
   samples: ['readings', 'weather', 'lab_result', 'truth_ref', 'analysis', 'collection_pos', 'collection_offset'],
   sample_analyses: ['result'],
   scenarios: ['devices'],
   reports: ['data'],
 };
-export const TABLES = ['sources', 'substances', 'radionuclides', 'biological_agents', 'measurement_devices', 'measurement_methods', 'test_tubes', 'users', 'vehicles', 'crew', 'scenarios', 'missions', 'measurements', 'samples', 'weather_records', 'alarms', 'reports', 'audit_log', 'runs', 'incidents', 'incident_crew', 'sample_analyses', 'incident_fires'];
+export const TABLES = ['sources', 'substances', 'radionuclides', 'biological_agents', 'measurement_devices', 'measurement_methods', 'test_tubes', 'users', 'vehicles', 'crew', 'scenarios', 'missions', 'measurements', 'samples', 'weather_records', 'alarms', 'reports', 'audit_log', 'runs', 'incidents', 'incident_crew', 'sample_analyses', 'incident_fires', 'measurement_sources'];
 
 const colCache = new Map<string, string[]>();
 export const columns = (t: string) => {

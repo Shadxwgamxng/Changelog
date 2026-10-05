@@ -71,3 +71,7 @@ Analyse: Dauer je Art in `Config.Sample.AnalysisDurations`; das Ergebnis wird au
 
 - Der **Fahrer** öffnet den Computer mit **J** (Key-Mapping `cbrn_open_pc`, in `config.lua` → `DriverKey`), Beifahrer weiter mit E.
 - Menü **Atemschutz**: 4 Geräte (Fahrer, Beifahrer, hinten links/rechts). Anlegen/Ablegen am Computer, 300 bar Fülldruck, je Flasche 10–15 min Vorrat (zufällig, Simulation). Warnung bei 100 bar, Pfeife bei 55 bar, Alarm bei leer; „Flasche wechseln“ füllt wieder auf. Eine Person kann nur ein Gerät tragen.
+
+## Handmessgeräte (Messgeräte-System)
+
+Details, Recherchetabelle und Architektur: [`docs/MESSGERAETE.md`](docs/MESSGERAETE.md). Kurz: Gerät am Messgerätefach nehmen (J halten), E = Maus-Bedienmodus, Pfeile/Enter bedienen das Gerät, ⌫ blendet aus; Messungen werden serverseitig simuliert und als Messpunkt gespeichert. Admin: `/createcbrnsource`, `/clearcbrnsources`, `/debugdevice`, `/debugmeasurement`.

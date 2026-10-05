@@ -2222,9 +2222,9 @@ var Stmt = class {
   }
   all(...params) {
     return this.exec(params, (s) => {
-      const out = [];
-      while (s.step()) out.push(s.getAsObject());
-      return out;
+      const out2 = [];
+      while (s.step()) out2.push(s.getAsObject());
+      return out2;
     });
   }
 };
@@ -2326,12 +2326,13 @@ CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, vehicle_id TEXT, na
 CREATE INDEX IF NOT EXISTS ix_meas_veh ON measurements(vehicle_id);
 CREATE TABLE IF NOT EXISTS incidents (id TEXT PRIMARY KEY, name TEXT, status TEXT, created_at TEXT, created_by TEXT, ended_at TEXT, location_text TEXT, report TEXT, category TEXT, ref_type TEXT, ref_id TEXT, known INTEGER DEFAULT 0, amount TEXT, radius_m REAL, peak REAL, lat REAL, lon REAL);
 CREATE TABLE IF NOT EXISTS incident_crew (incident_id TEXT, name TEXT, funktion TEXT, vehicle_id TEXT, since TEXT, PRIMARY KEY (incident_id, name, funktion, vehicle_id));
+CREATE TABLE IF NOT EXISTS measurement_sources (id TEXT PRIMARY KEY, type TEXT, x REAL, y REAL, z REAL, intensity REAL, radius REAL, substance_id TEXT, active INTEGER DEFAULT 1, incident_id TEXT, created_by TEXT, created_at TEXT, note TEXT);
 CREATE TABLE IF NOT EXISTS incident_fires (id TEXT PRIMARY KEY, incident_id TEXT, lat REAL, lon REAL, size TEXT, type TEXT, active INTEGER DEFAULT 1, created_by TEXT, created_at TEXT, label TEXT);
 CREATE TABLE IF NOT EXISTS runs (id TEXT PRIMARY KEY, vehicle_id TEXT, name TEXT, started_at TEXT, ended_at TEXT, started_by TEXT, distance_m REAL DEFAULT 0, points INTEGER DEFAULT 0, max_dose REAL, max_pid REAL, source TEXT, mission_id TEXT);
 `;
 function setupSchema() {
   db.exec(SCHEMA);
-  for (const [t, c] of [["substances", "traits"], ["substances", "response"], ["substances", "gestis_zvg"], ["radionuclides", "response"], ["biological_agents", "response"], ["measurements", "run_id"], ["samples", "analysis"], ["runs", "start_lat"], ["runs", "start_lon"], ["runs", "incident_id"], ["measurements", "incident_id"], ["reports", "incident_id"], ["samples", "label"], ["samples", "info"], ["samples", "sample_type"], ["samples", "source_description"], ["samples", "collected_by"], ["samples", "collected_license"], ["samples", "collection_pos"], ["samples", "collection_offset"], ["samples", "collection_model"], ["samples", "status"], ["samples", "incident_id"], ["samples", "container"], ["samples", "stored_at"], ["samples", "truth_ratio"], ["runs", "mode"]]) {
+  for (const [t, c] of [["substances", "traits"], ["substances", "response"], ["substances", "gestis_zvg"], ["radionuclides", "response"], ["biological_agents", "response"], ["measurements", "run_id"], ["samples", "analysis"], ["runs", "start_lat"], ["runs", "start_lon"], ["runs", "incident_id"], ["measurements", "incident_id"], ["reports", "incident_id"], ["samples", "label"], ["samples", "info"], ["samples", "sample_type"], ["samples", "source_description"], ["samples", "collected_by"], ["samples", "collected_license"], ["samples", "collection_pos"], ["samples", "collection_offset"], ["samples", "collection_model"], ["samples", "status"], ["samples", "incident_id"], ["samples", "container"], ["samples", "stored_at"], ["samples", "truth_ratio"], ["runs", "mode"], ["measurements", "hdevice_id"], ["measurements", "mode"], ["measurements", "player"], ["measurements", "duration_s"], ["measurements", "stats"], ["measurements", "series"], ["measurements", "label"], ["measurements", "note"], ["measurements", "sample_id"], ["measurements", "source"], ["measurements", "pos"], ["measurements", "incident_id"]]) {
     const cols = db.prepare(`PRAGMA table_info(${t})`).all().map((x) => x.name);
     if (!cols.includes(c)) db.exec(`ALTER TABLE ${t} ADD COLUMN ${c} TEXT`);
   }
@@ -2340,7 +2341,7 @@ var JSON_COLS = {
   substances: ["synonyms", "ghs", "h", "p", "methods", "devices", "traits", "response"],
   radionuclides: ["radiation", "gamma_kev", "response"],
   biological_agents: ["response"],
-  measurements: ["channels", "candidates"],
+  measurements: ["channels", "candidates", "stats", "series", "pos"],
   samples: ["readings", "weather", "lab_result", "truth_ref", "analysis", "collection_pos", "collection_offset"],
   sample_analyses: ["result"],
   scenarios: ["devices"],
@@ -2388,10 +2389,10 @@ var setSetting = (k, v) => {
   db.prepare("INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)").run(k, JSON.stringify(v));
 };
 var now = () => (/* @__PURE__ */ new Date()).toISOString();
-function audit(user, action, entity, entityId, detail) {
+function audit(user, action2, entity, entityId, detail) {
   const ts = now();
-  const info = db.prepare("INSERT INTO audit_log(ts,user_id,action,entity,entity_id,detail) VALUES(?,?,?,?,?,?)").run(ts, user, action, entity, entityId, detail ? JSON.stringify(detail) : null);
-  return { id: info.lastInsertRowid, ts, user_id: user, action, entity, entity_id: entityId, detail };
+  const info = db.prepare("INSERT INTO audit_log(ts,user_id,action,entity,entity_id,detail) VALUES(?,?,?,?,?,?)").run(ts, user, action2, entity, entityId, detail ? JSON.stringify(detail) : null);
+  return { id: info.lastInsertRowid, ts, user_id: user, action: action2, entity, entity_id: entityId, detail };
 }
 
 // server/config.ts
@@ -4974,10 +4975,10 @@ function startRun(userLabel, vehicleId, name, start, mode = "CBRN") {
   state.runs[vehicleId] = R2;
   (state.track[vehicleId] ??= { len: 0, last: null }).last = null;
   insert("runs", { id: R2.id, vehicle_id: R2.vehicle_id, name: R2.name, started_at: R2.started_at, started_by: userLabel, distance_m: 0, points: 0, source: R2.source, mission_id: R2.mission_id, mode, start_lat: start.lat, start_lon: start.lon, incident_id: inc.id });
-  const dev2 = fivemConnected(vehicleId) ? Math.round(distM(start, { lat: get("vehicles", vehicleId).lat, lon: get("vehicles", vehicleId).lon })) : 0;
-  audit(userLabel, "start", "run", R2.id, { source: R2.source, vehicle: vehicleId, start, deviation_m: dev2 });
+  const dev3 = fivemConnected(vehicleId) ? Math.round(distM(start, { lat: get("vehicles", vehicleId).lat, lon: get("vehicles", vehicleId).lon })) : 0;
+  audit(userLabel, "start", "run", R2.id, { source: R2.source, vehicle: vehicleId, start, deviation_m: dev3 });
   emit2("run.started", runInfo(vehicleId));
-  return { run: runInfo(vehicleId), deviation_m: dev2 };
+  return { run: runInfo(vehicleId), deviation_m: dev3 };
 }
 function stopRun(userLabel, vehicleId) {
   const R2 = state.runs[vehicleId];
@@ -5492,12 +5493,12 @@ function publicSample(id, withDetails = true) {
   const s = get("samples", id);
   if (!s) return null;
   const { truth_ref, truth_ratio, collected_license, ...pub } = s;
-  const out = { ...pub, status_text: STATUS_TEXT[pub.status] ?? pub.status, type_text: SAMPLE_TYPES[pub.sample_type] ?? pub.sample_type };
+  const out2 = { ...pub, status_text: STATUS_TEXT[pub.status] ?? pub.status, type_text: SAMPLE_TYPES[pub.sample_type] ?? pub.sample_type };
   if (withDetails) {
-    out.analyses = list("sample_analyses", "WHERE sample_id = ? ORDER BY started_at", [id]).map(publicAnalysis);
-    out.events = list("sample_events", "WHERE sample_id = ?", [id], "ORDER BY id");
+    out2.analyses = list("sample_analyses", "WHERE sample_id = ? ORDER BY started_at", [id]).map(publicAnalysis);
+    out2.events = list("sample_events", "WHERE sample_id = ?", [id], "ORDER BY id");
   }
-  return out;
+  return out2;
 }
 function publicAnalysis(a) {
   const elapsed = a.status === "RUNNING" ? Date.now() - Date.parse(a.started_at) : a.duration_ms;
@@ -5621,10 +5622,10 @@ var refName = (t, id) => {
   var _a, _b, _c;
   return (t === "substance" ? (_a = get("substances", id)) == null ? void 0 : _a.name : t === "radionuclide" ? (_b = get("radionuclides", id)) == null ? void 0 : _b.name : (_c = get("biological_agents", id)) == null ? void 0 : _c.name) ?? id;
 };
-function analysisResult(sample, type) {
+function analysisResult(sample2, type) {
   const base = { simulated: true, outcome: "NO_FINDING", outcome_text: "KEIN BEFUND", category: null, group: null, ref_type: null, substance_id: null, candidates: [], confidence: null, description: "Es wurde keine Auff\xE4lligkeit festgestellt." };
-  const truth = sample.truth_ref;
-  const ratio = (sample.truth_ratio ?? 0) + (Math.random() - 0.5) * 0.06;
+  const truth = sample2.truth_ref;
+  const ratio = (sample2.truth_ratio ?? 0) + (Math.random() - 0.5) * 0.06;
   if (!truth) return base;
   if (truth.type === "fire") {
     const ft = FIRE_TYPES[truth.id];
@@ -5642,10 +5643,10 @@ Eine Einzelstoff-Identifikation ist nicht m\xF6glich.` };
   const row = truth.type === "substance" ? get("substances", truth.id) : truth.type === "radionuclide" ? get("radionuclides", truth.id) : get("biological_agents", truth.id);
   const group = truth.type === "substance" ? row == null ? void 0 : row.substance_group : truth.type === "radionuclide" ? "Radionuklid (Gammastrahler)" : (row == null ? void 0 : row.kind) ?? "Biologischer Gefahrstoff";
   const lead = cat === "CHEMISCH" ? "Chemische" : cat === "RADIOLOGISCH" ? "Radiologische" : "Biologische";
-  const res2 = { ...base, category: cat, group, ref_type: truth.type };
+  const res3 = { ...base, category: cat, group, ref_type: truth.type };
   const general = type === "GENERAL";
-  if (ratio < (general ? 0.1 : 0.06)) return { ...res2, outcome: "UNKNOWN", outcome_text: "UNBEKANNT", description: `${lead} Auff\xE4lligkeit nicht ausgeschlossen, aber nicht n\xE4her bestimmbar. Weitere Untersuchung empfohlen.`, group: null };
-  if (general || ratio < 0.2) return { ...res2, outcome: "GROUP", outcome_text: "STOFFGRUPPE ERKANNT", description: `${lead} Auff\xE4lligkeit festgestellt.
+  if (ratio < (general ? 0.1 : 0.06)) return { ...res3, outcome: "UNKNOWN", outcome_text: "UNBEKANNT", description: `${lead} Auff\xE4lligkeit nicht ausgeschlossen, aber nicht n\xE4her bestimmbar. Weitere Untersuchung empfohlen.`, group: null };
+  if (general || ratio < 0.2) return { ...res3, outcome: "GROUP", outcome_text: "STOFFGRUPPE ERKANNT", description: `${lead} Auff\xE4lligkeit festgestellt.
 Stoffgruppe: ${group}
 Eine eindeutige Identifikation ist nicht m\xF6glich.` };
   if (ratio < 0.5) {
@@ -5653,9 +5654,9 @@ Eine eindeutige Identifikation ist nicht m\xF6glich.` };
     const alt = others.length ? pick(others) : null;
     const cands = [{ id: truth.id, name: refName(truth.type, truth.id) }, ...alt ? [{ id: alt.id, name: alt.name }] : []];
     if (Math.random() < 0.5) cands.reverse();
-    return { ...res2, outcome: "SUSPECT", outcome_text: "VERDACHT AUF BESTIMMTEN STOFF", candidates: cands, substance_id: cands[0].id, confidence: Math.round(35 + ratio * 60), description: `Verdacht auf ${cands.map((c) => c.name).join(" oder ")} (${group}). Best\xE4tigung durch weitere Untersuchung erforderlich.` };
+    return { ...res3, outcome: "SUSPECT", outcome_text: "VERDACHT AUF BESTIMMTEN STOFF", candidates: cands, substance_id: cands[0].id, confidence: Math.round(35 + ratio * 60), description: `Verdacht auf ${cands.map((c) => c.name).join(" oder ")} (${group}). Best\xE4tigung durch weitere Untersuchung erforderlich.` };
   }
-  return { ...res2, outcome: "IDENTIFIED", outcome_text: "SIMULIERTE IDENTIFIKATION", substance_id: truth.id, candidates: [{ id: truth.id, name: refName(truth.type, truth.id) }], confidence: Math.min(95, Math.round(70 + ratio * 25)), description: `M\xF6glicher Stoff: ${refName(truth.type, truth.id)} (${group}).` };
+  return { ...res3, outcome: "IDENTIFIED", outcome_text: "SIMULIERTE IDENTIFIKATION", substance_id: truth.id, candidates: [{ id: truth.id, name: refName(truth.type, truth.id) }], confidence: Math.min(95, Math.round(70 + ratio * 25)), description: `M\xF6glicher Stoff: ${refName(truth.type, truth.id)} (${group}).` };
 }
 function completeAnalysis(a) {
   const s = get("samples", a.sample_id);
@@ -5670,6 +5671,794 @@ function completeAnalysis(a) {
 }
 function tickAnalyses() {
   for (const a of list("sample_analyses", "WHERE status = 'RUNNING'")) if (Date.now() - Date.parse(a.started_at) >= a.duration_ms) completeAnalysis(a);
+}
+
+// server/hdev/defs.ts
+var dev2 = (d) => d;
+var DEVICES = {};
+var ENGINES = {};
+function registerMeasurementDevice(d) {
+  DEVICES[d.id] = d;
+  return d;
+}
+function registerEngine(name, fn) {
+  ENGINES[name] = fn;
+}
+registerMeasurementDevice(dev2({
+  id: "dlm",
+  label: "Dosisleistungsmessger\xE4t",
+  short: "DLM",
+  model: "Thermo RadEye PRD-ER4 (Ger\xE4tebild)",
+  engine: "dose",
+  ui: "dlm",
+  skin: "default",
+  devKey: "DLM",
+  category: "RADIOLOGISCH",
+  modes: [{ id: "RATE", label: "Dosisleistung", unit: "\xB5Sv/h", continuous: true }, { id: "DOSE", label: "Dosis", unit: "\xB5Sv", integrates: true }],
+  defaultMode: "RATE",
+  range: { min: 0.01, max: 250, unit: "\xB5Sv/h", src: "Thermo RadEye PRD-ER4: 10 nSv/h \u2013 250 \xB5Sv/h (Low-Rate-Detektor), bis 10 Sv/h mit High-Rate-Detektor (Herstellerangabe)" },
+  resolution: { decimals: [[1, 3], [10, 2], [100, 1], [1e9, 0]], note: "SIM: Aufl\xF6sung nicht dokumentiert" },
+  tau_s: 3,
+  durations: { quick: 4e3, normal: 1e4, precise: 3e4 },
+  stability: { rel: 0.06, abs: 4e-3 },
+  noise: { rel: 5e-3, abs: 2e-3, counting: true },
+  battery: { start: 100, drainPerMin: 0.06, measureExtra: 0.02, alarmExtra: 0.05, chargePerMin: 1.5, low: 15 },
+  // SIM (Herstellerangabe: >170 h Betrieb mit Alkaline-Batterien)
+  selfTest: { bootMs: 3500, testMs: 4500, failChance: 0, items: ["Sensor", "Speicher", "Batterie", "System"] },
+  thresholds: {
+    RATE: { attention: 0.3, warning: 1, alarm: 25 },
+    DOSE: { attention: 5, warning: 20, alarm: 100 }
+    /* SIM */
+  },
+  notes: ["Messbereich laut Herstellerangabe (Thermo Fisher). Alarmschwellen = SIMULATION.", "Tasten laut Ger\xE4tebild: Menu, Info, Mute, On/Screen."]
+}));
+registerMeasurementDevice(dev2({
+  id: "como",
+  label: "Kontaminationsnachweisger\xE4t",
+  short: "CoMo",
+  model: "Graetz CoMo 170 ZS (Ger\xE4tebild)",
+  engine: "contam",
+  ui: "como",
+  skin: "default",
+  devKey: "COMO",
+  category: "RADIOLOGISCH",
+  modes: [{ id: "BETA_GAMMA", label: "\u03B2/\u03B3-Kanal", unit: "cps", continuous: true }, { id: "ALPHA", label: "\u03B1-Kanal", unit: "cps", continuous: true }],
+  defaultMode: "BETA_GAMMA",
+  range: { min: 0, max: 2e4, unit: "cps", src: "CoMo 170: \u03B1-Kanal bis 2.500 Ip/s, \u03B2/\u03B3-Kanal bis 20.000 Ip/s; Anzeige in cps oder Bq / Bq/cm\xB2 (Herstellerangabe)" },
+  resolution: { decimals: [[100, 1], [1e9, 0]], note: "SIM" },
+  tau_s: 1.6,
+  durations: { quick: 3e3, normal: 8e3, precise: 2e4 },
+  stability: { rel: 0.12, abs: 0.6 },
+  noise: { rel: 1, abs: 0, counting: true },
+  battery: { start: 100, drainPerMin: 0.08, measureExtra: 0.02, alarmExtra: 0.04, chargePerMin: 1.5, low: 15 },
+  selfTest: { bootMs: 3e3, testMs: 5e3, failChance: 0, items: ["Detektor", "Speicher", "Batterie", "System"] },
+  thresholds: {
+    BETA_GAMMA: { attention: 8, warning: 25, alarm: 200 },
+    ALPHA: { attention: 1, warning: 3, alarm: 20 }
+    /* SIM */
+  },
+  zero: { label: "Nullrate messen", ms: 8e3 },
+  // TODO: reale Bedienung des CoMo 170 (Nulleffekt-Messung) mit Herstellerhandbuch prüfen
+  notes: ["Bereiche laut Herstellerangabe. Bedienung/Tastenbelegung: TODO Herstellerhandbuch pr\xFCfen (laut Hersteller 5 Funktionstasten).", "Nullrate-Messung = Simulationsannahme."]
+}));
+registerMeasurementDevice(dev2({
+  id: "pid",
+  label: "Photoionisationsdetektor (PID)",
+  short: "PID",
+  model: "Ion Science TIGER XTL (Ger\xE4tebild)",
+  engine: "voc",
+  ui: "pid",
+  skin: "default",
+  devKey: "PID",
+  category: "CHEMISCH",
+  modes: [{ id: "LIVE", label: "Momentanwert (VOC)", unit: "ppm", continuous: true }],
+  defaultMode: "LIVE",
+  range: { min: 1e-3, max: 2e4, unit: "ppm", src: "Ion Science TIGER (XT): 1 ppb \u2013 20.000 ppm, Ansprechzeit ca. 2 s (Herstellerangabe; XTL-Bereich: TODO pr\xFCfen)" },
+  resolution: { decimals: [[10, 3], [100, 2], [1e3, 1], [1e9, 0]], note: "SIM" },
+  tau_s: 0.9,
+  durations: { quick: 3e3, normal: 8e3, precise: 2e4 },
+  stability: { rel: 0.04, abs: 0.02 },
+  noise: { rel: 0.03, abs: 0.015 },
+  battery: { start: 100, drainPerMin: 0.07, measureExtra: 0.03, alarmExtra: 0.05, chargePerMin: 2, low: 15 },
+  selfTest: { bootMs: 3500, testMs: 5500, failChance: 0, items: ["Lampe", "Sensor", "Batterie", "System"] },
+  thresholds: {
+    LIVE: { attention: 2, warning: 20, alarm: 100 }
+    /* SIM */
+  },
+  zero: { label: "Nullung (Frischluft)", ms: 6e3 },
+  // TODO: Bedienablauf TIGER prüfen
+  notes: ["Ansprechzeit/Bereich laut Herstellerangabe (TIGER-Reihe). Schwellen = SIMULATION.", "PID zeigt VOC-Summe \u2013 keine Stoffidentifikation."]
+}));
+registerMeasurementDevice(dev2({
+  id: "ims",
+  label: "Ionenmobilit\xE4tsspektrometer (IMS)",
+  short: "IMS",
+  model: "Bruker RAID-M 100 (Ger\xE4tebild)",
+  engine: "ims",
+  ui: "ims",
+  skin: "default",
+  devKey: "IMS",
+  category: "CHEMISCH",
+  modes: [{ id: "DETECT", label: "Detektion (G/H/T)", unit: "Balken", continuous: true }],
+  defaultMode: "DETECT",
+  range: { min: 0, max: 8, unit: "Balken", src: "RAID-M 100: Anzeige der Gefahrenstufe in 8 Balkensegmenten je Klasse G, H, T; akustischer + optischer Alarm; Auto-Purge (Herstellerangabe)" },
+  resolution: { decimals: [[1e9, 0]] },
+  tau_s: 2.5,
+  durations: { quick: 5e3, normal: 12e3, precise: 3e4 },
+  stability: { rel: 0.01, abs: 0.5 },
+  noise: { rel: 0, abs: 0 },
+  battery: { start: 100, drainPerMin: 0.15, measureExtra: 0.05, alarmExtra: 0.1, chargePerMin: 2, low: 20 },
+  selfTest: { bootMs: 6e3, testMs: 9e3, failChance: 0, items: ["Messzelle", "Pumpe", "Batterie", "System"] },
+  // SIM: reale Aufwärmzeit TODO prüfen
+  thresholds: {
+    DETECT: { attention: 1, warning: 3, alarm: 5 }
+    /* SIM */
+  },
+  zero: { label: "Reinigung (Auto-Purge)", ms: 12e3 },
+  notes: ["Klassen G/H/T und 8 Balken laut Herstellerangabe. Bedienung (Drehknopf) laut Ger\xE4tebild; reale Men\xFCs: TODO Handbuch pr\xFCfen."]
+}));
+registerMeasurementDevice(dev2({
+  id: "mgmg",
+  label: "Mehrgasmessger\xE4t",
+  short: "MGMG",
+  model: "Dr\xE4ger X-am 8000 (Ger\xE4tebild)",
+  engine: "gas",
+  ui: "mgmg",
+  skin: "default",
+  devKey: "MGMG",
+  category: "CHEMISCH",
+  modes: [{ id: "MEASURE", label: "Messung", unit: "", continuous: true }],
+  defaultMode: "MEASURE",
+  range: { min: 0, max: 100, unit: "", src: "X-am 8000: O2 0\u201325 Vol%, CO 0\u20132000 ppm (LC), H2S 0\u2013100 ppm (LC), CH4 0\u2013100 %UEG; Bedienung \xFCber 3 Tasten (Dr\xE4ger Produktinformation)" },
+  resolution: { decimals: [[1e9, 1]] },
+  tau_s: 5,
+  durations: { quick: 8e3, normal: 2e4, precise: 45e3 },
+  stability: { rel: 0.03, abs: 0.2 },
+  noise: { rel: 0.01, abs: 0.1 },
+  battery: { start: 100, drainPerMin: 0.05, measureExtra: 0.01, alarmExtra: 0.05, chargePerMin: 2, low: 15 },
+  // SIM (Herstellerangabe: >24 h Betrieb)
+  selfTest: { bootMs: 4e3, testMs: 8e3, failChance: 0, items: ["Sensoren", "Pumpe", "Batterie", "System"] },
+  thresholds: {},
+  channels: [
+    { id: "iBut", label: "iBut", unit: "ppm", decimals: 1, range: 2e3 },
+    { id: "CO2", label: "CO\u2082", unit: "Vol%", decimals: 2, range: 5 },
+    { id: "CH4", label: "CH\u2084", unit: "%UEG", decimals: 0, range: 100, thr: { attention: 5, warning: 10, alarm: 20 } },
+    { id: "O2", label: "O\u2082", unit: "Vol%", decimals: 1, range: 25, thr: { lowWarning: 20, lowAlarm: 19, warning: 21.5, alarm: 23 } },
+    // SIM
+    { id: "H2S", label: "H\u2082S", unit: "ppm", decimals: 1, range: 100, thr: { attention: 1, warning: 5, alarm: 10 } },
+    // SIM
+    { id: "CO", label: "CO", unit: "ppm", decimals: 0, range: 2e3, thr: { warning: 20, alarm: 40 } },
+    // A1 20 ppm / A2 40 ppm laut Dräger-Unterlage (CO-Sensor)
+    { id: "SO2", label: "SO\u2082", unit: "ppm", decimals: 1, range: 100, thr: { warning: 0.5, alarm: 2 } }
+    // SIM
+  ],
+  notes: ["Messbereiche O2/CO/H2S/CH4 und 3-Tasten-Bedienung laut Dr\xE4ger. Schwellen au\xDFer CO = SIMULATION. Sensorbest\xFCckung der BBK-Ger\xE4te: TODO pr\xFCfen."]
+}));
+var publicDef = (d) => ({ id: d.id, label: d.label, short: d.short, model: d.model, ui: d.ui, skin: d.skin, category: d.category, modes: d.modes, defaultMode: d.defaultMode, range: d.range, durations: d.durations, zero: d.zero ?? null, channels: d.channels ?? null, resolution: d.resolution, battery: { low: d.battery.low }, selfTest: { items: d.selfTest.items }, thresholds: d.thresholds });
+
+// server/hdev/env.ts
+var BG2 = { dose: 0.085, cps: 1.1, alphaCps: 0.02, voc: 0.06, co: 0.4, o2: 20.9, co2: 0.042 };
+var taper = (d, R2) => d <= R2 ? 1 : d >= 1.5 * R2 ? 0 : Math.cos((d - R2) / (0.5 * R2) * (Math.PI / 2)) ** 2;
+var sourceDefaults = {
+  RADIOLOGICAL: { intensity: 50, radius: 40, unit: "\xB5Sv/h in 1 m" },
+  CHEMICAL: { intensity: 60, radius: 80, unit: "ppm im Kern" },
+  BIOLOGICAL: { intensity: 1, radius: 30, unit: "\u2013" }
+};
+var nextSourceId = () => "SOURCE-" + String((db.prepare("SELECT COUNT(*) c FROM measurement_sources").get().c ?? 0) + 1).padStart(3, "0");
+function addSource(by, b) {
+  var _a;
+  const type = String(b.type).toUpperCase();
+  if (!(type in sourceDefaults)) throw new Error("Typ ung\xFCltig");
+  const d = sourceDefaults[type];
+  const intensity = Number.isFinite(+b.intensity) && +b.intensity > 0 ? Math.min(+b.intensity, 1e6) : d.intensity;
+  const radius = Number.isFinite(+b.radius) && +b.radius > 0 ? Math.min(+b.radius, 2e3) : d.radius;
+  let substance_id = b.substance_id ? String(b.substance_id) : null;
+  if (substance_id) {
+    const t = type === "RADIOLOGICAL" ? "radionuclides" : type === "CHEMICAL" ? "substances" : "biological_agents";
+    if (!get(t, substance_id)) throw new Error("Stoff nicht in der Stoffdatenbank");
+  }
+  const row = { id: nextSourceId(), type, x: +b.x, y: +b.y, z: +b.z, intensity, radius, substance_id, active: 1, incident_id: ((_a = activeIncident()) == null ? void 0 : _a.id) ?? null, created_by: by, created_at: now(), note: b.note ?? null };
+  insert("measurement_sources", row);
+  audit(by, "create", "source", row.id, { type, intensity, radius, substance_id });
+  return row;
+}
+var clearSources = (by) => {
+  const n = db.prepare("SELECT COUNT(*) c FROM measurement_sources WHERE active = 1").get().c;
+  db.exec("UPDATE measurement_sources SET active = 0");
+  audit(by, "clear", "source", "*", { n });
+  return n;
+};
+var activeSources = () => {
+  var _a;
+  const inc = ((_a = activeIncident()) == null ? void 0 : _a.id) ?? null;
+  return list("measurement_sources", "WHERE active = 1").filter((s) => !s.incident_id || s.incident_id === inc);
+};
+var countSources = () => activeSources().length;
+function plume(dx, dy, R2, windFrom) {
+  const th = (windFrom + 180) % 360 * (Math.PI / 180);
+  const ux = Math.sin(th), uy = Math.cos(th);
+  const along = dx * ux + dy * uy, cross = -dx * uy + dy * ux;
+  const sx = along > 0 ? 0.6 * R2 : 0.12 * R2, sy = 0.18 * R2 + Math.max(0, along) * 0.1;
+  return Math.exp(-(along * along) / (2 * sx * sx) - cross * cross / (2 * sy * sy));
+}
+function envAt(pos) {
+  const wind = state.weather.wind_from;
+  const ll = gameToLL(pos.x, pos.y);
+  const o = llToOffset(ll.lat, ll.lon);
+  const r = readingsAt(o.x, o.y, 0, "CBRN");
+  const g = { O2: BG2.o2, CO: BG2.co, H2S: 0, CH4: 0, CO2: BG2.co2, SO2: 0, iBut: 0, HCN: 0, NO2: 0, HCl: 0 };
+  for (const [k, v] of Object.entries(r.mgmg.channels)) if (v != null) g[k === "LEL" ? "CH4" : k] = k === "CO2" ? v / 1e4 : v;
+  let dose = Math.max(0, r.dose.value - 0.09) + BG2.dose, cps = Math.max(0, r.como.value - 1.2) + BG2.cps, voc = Math.max(0, r.pid.value - 0.1) + BG2.voc, alpha = BG2.alphaCps;
+  const ims = { G: 0, H: 0, T: 0, substance_id: null, code: null, group: null };
+  const inc = r.ims;
+  if (inc == null ? void 0 : inc.level) {
+    const bars = inc.level === "hinweis" ? 2 : inc.level === "verdacht" ? 4 : Math.min(8, 5 + Math.round((inc.confidence ?? 60) / 33));
+    const s = inc.substance_id ? get("substances", inc.substance_id) : null;
+    imsAdd(ims, bars, s, inc.group);
+  }
+  if (hasFire()) {
+    const sm = smokeAt(o.x, o.y, wind, Date.now() / 1e3);
+    g.CO += sm.gases.CO;
+    g.CO2 += sm.gases.CO2 / 1e4;
+    g.HCN += sm.gases.HCN;
+    g.NO2 += sm.gases.NO2;
+    g.HCl += sm.gases.HCl;
+    g.SO2 += sm.gases.SO2;
+    voc += sm.gases.VOC;
+    g.O2 -= sm.gases.CO2 / 1e4;
+  }
+  let nearest = null;
+  for (const s of activeSources()) {
+    const dx = pos.x - s.x, dy = pos.y - s.y, dz = pos.z - s.z, d = Math.hypot(dx, dy, dz);
+    const w = taper(d, s.radius);
+    if (!nearest || d < nearest.d) nearest = { id: s.id, type: s.type, d };
+    if (w <= 0) continue;
+    if (s.type === "RADIOLOGICAL") {
+      dose += s.intensity / Math.max(d, 0.3) ** 2 * w;
+      cps += s.intensity * 8 / (1 + (d / 0.4) ** 2) * w;
+      const nuc = s.substance_id ? get("radionuclides", s.substance_id) : null;
+      if (!nuc || /alpha|α/i.test(JSON.stringify(nuc.radiation ?? ""))) alpha += s.intensity * 1.5 / (1 + (d / 0.25) ** 2) * w;
+    } else if (s.type === "CHEMICAL") {
+      const c = s.intensity * plume(dx, dy, s.radius, wind) * w;
+      if (c <= 0) continue;
+      const ref = s.substance_id ? get("substances", s.substance_id) : null;
+      if (!ref || ref.ie_ev != null && ref.ie_ev < PID_LAMP_EV) voc += c;
+      if ((ref == null ? void 0 : ref.cas) === "630-08-0") g.CO += c;
+      if ((ref == null ? void 0 : ref.cas) === "7783-06-4") g.H2S += c;
+      if ((ref == null ? void 0 : ref.cas) === "7446-09-5") g.SO2 += c;
+      if (ref == null ? void 0 : ref.lel_vol) g.CH4 += c / (ref.lel_vol * 1e4) * 100;
+      g.O2 -= c / 1e4;
+      imsAdd(ims, Math.min(8, Math.round(c / s.intensity * 8 + (c > 0.5 ? 0.5 : 0))), ref, (ref == null ? void 0 : ref.substance_group) ?? null);
+    }
+  }
+  g.O2 = Math.max(0, g.O2);
+  return { dose, cps, alphaCps: alpha, voc, gases: g, ims, nearest };
+}
+function imsAdd(ims, bars, s, group) {
+  var _a, _b;
+  if (bars <= 0) return;
+  const grp = String((s == null ? void 0 : s.substance_group) ?? group ?? "");
+  const cls = /nerv/i.test(grp) ? "G" : /haut|blister|lost|senf/i.test(grp) ? "H" : "T";
+  if (bars > ims[cls]) {
+    ims[cls] = bars;
+    ims.substance_id = (s == null ? void 0 : s.id) ?? ims.substance_id;
+    ims.group = grp || ims.group;
+    ims.code = (s == null ? void 0 : s.formula) ?? ((_b = (_a = s == null ? void 0 : s.name) == null ? void 0 : _a.slice(0, 5)) == null ? void 0 : _b.toUpperCase()) ?? cls;
+  }
+}
+
+// server/hdev/engine.ts
+var gauss2 = () => (Math.random() + Math.random() + Math.random() + Math.random() - 2) / 0.58;
+registerEngine("dose", ({ env }) => ({ value: env.dose, unit: "\xB5Sv/h" }));
+registerEngine("contam", ({ env, mode }) => ({ value: mode === "ALPHA" ? env.alphaCps : env.cps, unit: "cps" }));
+registerEngine("voc", ({ env }) => ({ value: env.voc, unit: "ppm" }));
+registerEngine("ims", ({ env }) => {
+  const m = Math.max(env.ims.G, env.ims.H, env.ims.T);
+  return { value: m, unit: "Balken", channels: { G: env.ims.G, H: env.ims.H, T: env.ims.T }, aux: { code: env.ims.code, substance_id: env.ims.substance_id, group: env.ims.group } };
+});
+registerEngine("gas", ({ env }) => ({ value: 0, unit: "", channels: { iBut: env.gases.iBut, CO2: env.gases.CO2, CH4: env.gases.CH4, O2: env.gases.O2, H2S: env.gases.H2S, CO: env.gases.CO, SO2: env.gases.SO2 } }));
+var truthOf = (def, mode, env) => ENGINES[def.engine]({ env, mode, def });
+function noiseSigma(def, value, tInt) {
+  const n = def.noise;
+  const t = Math.max(1, tInt);
+  if (n.counting) return Math.sqrt(Math.max(value, 0) * n.rel / t) + n.abs / Math.sqrt(t);
+  return n.abs / Math.sqrt(t) + Math.abs(value) * n.rel / Math.sqrt(t);
+}
+var follow = (cur, target, dt, tau) => cur + (target - cur) * (1 - Math.exp(-dt / Math.max(0.05, tau)));
+var sample = (def, value, tInt) => Math.max(0, value + gauss2() * noiseSigma(def, value, tInt));
+var decimalsFor = (def, v) => {
+  for (const [lim, dec] of def.resolution.decimals) if (Math.abs(v) < lim) return dec;
+  return 0;
+};
+var roundTo = (def, v) => {
+  const d = decimalsFor(def, v);
+  return +v.toFixed(d);
+};
+function judge(v, t) {
+  if (!t) return "NORMAL";
+  if (t.alarm != null && v >= t.alarm || t.lowAlarm != null && v <= t.lowAlarm) return "ALARM";
+  if (t.warning != null && v >= t.warning || t.lowWarning != null && v <= t.lowWarning) return "WARNUNG";
+  if (t.attention != null && v >= t.attention) return "AUFF\xC4LLIG";
+  return "NORMAL";
+}
+var RANK = { NORMAL: 0, "AUFF\xC4LLIG": 1, WARNUNG: 2, ALARM: 3 };
+function alertOf(def, mode, value, channels) {
+  if (def.channels && channels) {
+    let a = "NORMAL", ch = null;
+    for (const c of def.channels) {
+      const j = judge(channels[c.id] ?? 0, c.thr);
+      if (RANK[j] > RANK[a]) {
+        a = j;
+        ch = c.id;
+      }
+    }
+    return { alert: a, channel: ch };
+  }
+  return { alert: judge(value, def.thresholds[mode]), channel: null };
+}
+
+// server/hdev/service.ts
+var HCFG = { maxEquipped: 1, batteryScale: 1, series: 900, saveMinMs: 2500 };
+var inst = /* @__PURE__ */ new Map();
+var keyId = (key, type) => `${key}::${type}`;
+var CLEAN = { iBut: 0, CO2: 0.042, CH4: 0, O2: 20.9, H2S: 0, CO: 0.4, SO2: 0 };
+var providers = { pos: (_src) => null, vehicleAt: (_p) => null, alive: (_src) => true, notify: (_src, _s) => {
+} };
+function make(key, type, vehicleId, netId) {
+  const d = DEVICES[type];
+  return {
+    id: keyId(key, type),
+    type,
+    key,
+    vehicleId,
+    netId,
+    holder: null,
+    phase: "OFF",
+    mode: d.defaultMode,
+    precision: "normal",
+    battery: d.battery.start,
+    muted: false,
+    err: null,
+    tests: d.selfTest.items,
+    phaseAt: 0,
+    testResults: [],
+    shown: 0,
+    shownCh: {},
+    over: false,
+    alert: "NORMAL",
+    channel: null,
+    startedAt: 0,
+    ring: [],
+    stat: { min: 0, max: 0, sum: 0, n: 0 },
+    series: [],
+    lastSerie: 0,
+    dose: 0,
+    zero: null,
+    drift: 0,
+    result: null,
+    flash: null,
+    pos: null,
+    forceError: false,
+    lastJson: ""
+  };
+}
+function inventory(key, vehicleId, netId) {
+  return Object.keys(DEVICES).map((t) => {
+    const id = keyId(key, t);
+    let i = inst.get(id);
+    if (!i) {
+      i = make(key, t, vehicleId, netId);
+      inst.set(id, i);
+    }
+    if (vehicleId) i.vehicleId = vehicleId;
+    if (netId) i.netId = netId;
+    return i;
+  });
+}
+var heldBy = (src) => [...inst.values()].filter((i) => {
+  var _a;
+  return ((_a = i.holder) == null ? void 0 : _a.src) === src;
+});
+var allInst = () => [...inst.values()];
+var err4 = (m) => Object.assign(new Error(m), { statusCode: 409 });
+function publicInventory(key, vehicleId, netId, me) {
+  return inventory(key, vehicleId, netId).map((i) => {
+    var _a;
+    return { type: i.type, label: DEVICES[i.type].label, short: DEVICES[i.type].short, category: DEVICES[i.type].category, battery: Math.round(i.battery), status: i.holder ? i.holder.src === me ? "IN DEINER HAND" : "IN VERWENDUNG" : i.battery <= 1 ? "AKKU LEER" : "VERF\xDCGBAR", holder: ((_a = i.holder) == null ? void 0 : _a.name) ?? null };
+  });
+}
+function take(p, key, vehicleId, netId, type) {
+  if (!DEVICES[type]) throw err4("Unbekanntes Messger\xE4t.");
+  if (heldBy(p.src).length >= HCFG.maxEquipped) throw err4("Du hast bereits ein Messger\xE4t in Benutzung.");
+  const i = inventory(key, vehicleId, netId).find((x) => x.type === type);
+  if (i.holder) throw err4(`Dieses Messger\xE4t ist bereits in Verwendung (${i.holder.name}).`);
+  i.holder = p;
+  resetRuntime(i);
+  audit(p.name, "take", "device", i.id, { battery: Math.round(i.battery) });
+  return i;
+}
+function resetRuntime(i) {
+  i.phase = "OFF";
+  i.err = null;
+  i.result = null;
+  i.zero = null;
+  i.flash = null;
+  i.alert = "NORMAL";
+  i.startedAt = 0;
+  i.testResults = [];
+  i.over = false;
+  i.lastJson = "";
+}
+function release(i, why = "return") {
+  if (!i.holder) return;
+  audit(i.holder.name, why, "device", i.id, { battery: Math.round(i.battery) });
+  const h = i.holder;
+  i.holder = null;
+  resetRuntime(i);
+  providers.notify(h.src, { id: i.id, released: true });
+}
+function giveBack(p, key, netId) {
+  const i = heldBy(p.src).find((x) => x.key === key || netId != null && x.netId === netId);
+  if (!i) throw err4("Du hast kein Messger\xE4t dieses Fahrzeugs.");
+  release(i, "return");
+  return i;
+}
+var releaseAll = (src, why) => heldBy(src).forEach((i) => release(i, why));
+var flash = (i, text, ms = 3500) => {
+  i.flash = { text, until: Date.now() + ms };
+};
+function action(src, act, a = {}) {
+  const i = heldBy(src)[0];
+  if (!i) throw err4("Du hast kein Messger\xE4t.");
+  const d = DEVICES[i.type];
+  const t = Date.now();
+  switch (act) {
+    case "power": {
+      if (a.on === false) {
+        if (i.phase === "MEASURING" && i.result == null) snapshot(i);
+        i.phase = "OFF";
+        i.zero = null;
+        i.flash = null;
+        break;
+      }
+      if (i.phase !== "OFF") break;
+      if (i.battery <= 0.5) {
+        flash(i, "BATTERIE LEER");
+        throw err4("Batterie leer.");
+      }
+      i.phase = "BOOTING";
+      i.phaseAt = t;
+      i.err = null;
+      i.testResults = [];
+      break;
+    }
+    case "mode": {
+      if (!["READY", "MEASURING"].includes(i.phase)) throw err4("Ger\xE4t nicht bereit.");
+      if (!d.modes.some((m) => m.id === a.mode)) throw err4("Modus ung\xFCltig.");
+      if (i.phase === "MEASURING") throw err4("Messung l\xE4uft \u2013 erst stoppen.");
+      i.mode = a.mode;
+      i.result = null;
+      break;
+    }
+    case "precision": {
+      if (!(a.precision in d.durations)) throw err4("Messdauer ung\xFCltig.");
+      if (i.phase === "MEASURING") throw err4("Messung l\xE4uft.");
+      i.precision = a.precision;
+      break;
+    }
+    case "mute":
+      i.muted = !i.muted;
+      break;
+    case "start": {
+      if (i.phase !== "READY") throw err4("Ger\xE4t nicht bereit.");
+      if (i.zero) throw err4("Nullung l\xE4uft.");
+      startMeasure(i, d);
+      break;
+    }
+    case "stop": {
+      if (i.phase !== "MEASURING") break;
+      snapshot(i);
+      i.phase = "READY";
+      break;
+    }
+    case "zero": {
+      if (!d.zero) throw err4("Dieses Ger\xE4t hat keine Nullung.");
+      if (i.phase !== "READY") throw err4("Nullung nur im Zustand BEREIT.");
+      i.zero = { start: t, until: t + d.zero.ms };
+      i.result = null;
+      break;
+    }
+    case "save":
+      return save(i, a);
+    case "discard":
+      i.result = null;
+      break;
+    default:
+      throw err4("Unbekannte Aktion.");
+  }
+  return null;
+}
+function startMeasure(i, d) {
+  i.phase = "MEASURING";
+  i.startedAt = Date.now();
+  i.ring = [];
+  i.series = [];
+  i.lastSerie = 0;
+  i.result = null;
+  i.alert = "NORMAL";
+  i.channel = null;
+  i.over = false;
+  i.shown = d.engine === "dose" ? 0.085 : d.engine === "contam" ? 1.1 : d.engine === "voc" ? 0.06 : 0;
+  i.shownCh = d.channels ? Object.fromEntries(d.channels.map((c) => [c.id, CLEAN[c.id] ?? 0])) : {};
+  i.stat = { min: Infinity, max: -Infinity, sum: 0, n: 0 };
+  i.dose = 0;
+}
+function snapshot(i) {
+  var _a, _b;
+  const d = DEVICES[i.type];
+  const el = (Date.now() - i.startedAt) / 1e3;
+  if (i.stat.n === 0) return;
+  const mean = i.stat.sum / i.stat.n;
+  const stable = isStable(i, d);
+  const rv = d.channels ? mean : ((_a = d.modes.find((m) => m.id === i.mode)) == null ? void 0 : _a.integrates) ? i.dose : i.shown;
+  i.result = {
+    value: roundTo(d, d.channels ? 0 : rv),
+    unit: ((_b = d.modes.find((m) => m.id === i.mode)) == null ? void 0 : _b.unit) ?? "",
+    channels: d.channels ? { ...i.shownCh } : i.type === "ims" ? { ...i.shownCh } : void 0,
+    aux: i.aux,
+    stats: { min: i.stat.min, max: i.stat.max, avg: mean, n: i.stat.n },
+    series: i.series.slice(-HCFG.series),
+    duration_s: Math.round(el),
+    mode: i.mode,
+    precision: i.precision,
+    stable,
+    alert: i.alert,
+    channel: i.channel,
+    pos: i.pos ?? { x: 0, y: 0, z: 0 },
+    startedAt: new Date(i.startedAt).toISOString(),
+    over: i.over
+  };
+}
+function isStable(i, d) {
+  const el = Date.now() - i.startedAt;
+  if (el < d.durations[i.precision] || i.ring.length < 6) return false;
+  const arr = i.ring.slice(-8);
+  const mx = Math.max(...arr), mn = Math.min(...arr), avg = arr.reduce((a, b) => a + b, 0) / arr.length;
+  return mx - mn <= Math.max(d.stability.abs, d.stability.rel * Math.abs(avg));
+}
+function save(i, a) {
+  var _a, _b, _c;
+  const d = DEVICES[i.type];
+  if (i.phase === "MEASURING") snapshot(i);
+  const r = i.result;
+  if (!r) throw err4("Keine Messung zum Speichern.");
+  if (r.duration_s * 1e3 < HCFG.saveMinMs) throw err4("Messung zu kurz \u2013 bitte den Wert erst ansprechen lassen.");
+  const label = String(a.label ?? "").trim().slice(0, 40) || null, note = String(a.note ?? "").trim().slice(0, 500) || null;
+  let sample_id = a.sample_id ? String(a.sample_id) : null;
+  if (sample_id && !get("samples", sample_id)) sample_id = null;
+  const ll = gameToLL(r.pos.x, r.pos.y);
+  const vid = i.vehicleId ?? providers.vehicleAt(r.pos);
+  const inc = activeIncident();
+  const mission = vid ? list("missions", "WHERE vehicle_id = ? AND status IN ('IN BEARBEITUNG','ANGENOMMEN') ORDER BY created_at DESC LIMIT 1", [vid])[0] : null;
+  const run = vid ? state.runs[vid] : null;
+  const mdef = d.modes.find((m) => m.id === r.mode);
+  const pr = r.channels ? (d.channels ?? []).map((c) => {
+    var _a2;
+    return `${c.label} ${(_a2 = r.channels[c.id]) == null ? void 0 : _a2.toFixed(c.decimals)} ${c.unit}`;
+  }).join(" \xB7 ") : "";
+  const primary = d.channels && r.channel ? r.channels[r.channel] : r.value;
+  const punit = d.channels && r.channel ? d.channels.find((c) => c.id === r.channel).unit : r.unit;
+  const status = r.alert;
+  const row = storeMeasurement({
+    ts: now(),
+    lat: ll.lat,
+    lon: ll.lon,
+    vehicle_id: vid,
+    mission_id: (mission == null ? void 0 : mission.id) ?? null,
+    incident_id: (inc == null ? void 0 : inc.id) ?? null,
+    run_id: (run == null ? void 0 : run.id) ?? null,
+    device: d.devKey,
+    value: primary ?? null,
+    unit: punit,
+    channels: r.channels ?? null,
+    substance_id: i.type === "ims" ? ((_a = r.aux) == null ? void 0 : _a.substance_id) ?? null : null,
+    status,
+    level: null,
+    headline: `${d.label} \xB7 ${(mdef == null ? void 0 : mdef.label) ?? r.mode}${r.over ? " \xB7 \xDCBERBEREICH" : ""}${pr ? " \xB7 " + pr : ""}${r.stable ? "" : " \xB7 nicht stabilisiert"}`.slice(0, 300),
+    remark: null,
+    hdevice_id: i.id,
+    mode: r.mode,
+    player: ((_b = i.holder) == null ? void 0 : _b.name) ?? null,
+    duration_s: r.duration_s,
+    stats: r.stats,
+    series: thin(r.series, 300),
+    label,
+    note,
+    sample_id,
+    source: "HANDHELD",
+    pos: r.pos
+  });
+  audit(((_c = i.holder) == null ? void 0 : _c.name) ?? "?", "save", "measurement", row.id, { device: i.type, value: row.value, status });
+  i.result = null;
+  flash(i, `GESPEICHERT ${row.id}`, 4500);
+  return row;
+}
+var thin = (s, n) => s.length <= n ? s : s.filter((_, k) => k % Math.ceil(s.length / n) === 0);
+var lastTick = Date.now();
+var tickN = 0;
+function tick2() {
+  const t = Date.now(), dt = Math.min(2, (t - lastTick) / 1e3);
+  lastTick = t;
+  tickN++;
+  for (const i of inst.values()) {
+    const d = DEVICES[i.type];
+    if (!i.holder) {
+      if (tickN % 10 === 0 && i.battery < 100) i.battery = Math.min(100, i.battery + d.battery.chargePerMin * dt * 10 / 60);
+      continue;
+    }
+    if (!providers.alive(i.holder.src)) {
+      release(i, "dead");
+      continue;
+    }
+    if (i.phase === "OFF") {
+      out(i);
+      continue;
+    }
+    i.pos = providers.pos(i.holder.src) ?? i.pos;
+    const drain = (d.battery.drainPerMin + (i.phase === "MEASURING" ? d.battery.measureExtra : 0) + (i.alert === "ALARM" ? d.battery.alarmExtra : 0)) * HCFG.batteryScale;
+    i.battery = Math.max(0, i.battery - drain * dt / 60);
+    if (i.battery <= 0) {
+      i.phase = "OFF";
+      flash(i, "BATTERIE LEER", 6e3);
+      out(i);
+      continue;
+    }
+    if (i.flash && i.flash.until < t) i.flash = null;
+    if (i.phase === "BOOTING" && t - i.phaseAt >= d.selfTest.bootMs) {
+      i.phase = "SELF_TEST";
+      i.phaseAt = t;
+    } else if (i.phase === "SELF_TEST") {
+      const frac = (t - i.phaseAt) / d.selfTest.testMs;
+      i.testResults = d.selfTest.items.map((_, k) => frac > (k + 1) / (d.selfTest.items.length + 0.5));
+      if (frac >= 1) {
+        const fail3 = i.forceError || Math.random() < d.selfTest.failChance || i.battery < 3;
+        if (fail3) {
+          i.phase = "ERROR";
+          i.err = i.battery < 3 ? "BATTERIE SCHWACH" : "SENSORFEHLER \u2013 Messung nicht m\xF6glich";
+          i.forceError = false;
+        } else i.phase = "READY";
+      }
+    }
+    if (i.zero) {
+      if (t >= i.zero.until) {
+        i.zero = null;
+        i.drift = 0;
+        flash(i, d.id === "ims" ? "REINIGUNG ABGESCHLOSSEN" : "NULLUNG ABGESCHLOSSEN");
+      }
+    }
+    if (i.phase === "MEASURING" && i.pos) measure(i, d, dt, t);
+    out(i);
+  }
+}
+function measure(i, d, dt, t) {
+  var _a;
+  const env = envAt(i.pos);
+  const tr = truthOf(d, i.mode, env);
+  const el = (t - i.startedAt) / 1e3;
+  const mdef = d.modes.find((m) => m.id === i.mode);
+  i.drift += (Math.random() - 0.5) * d.noise.abs * 0.02 * dt;
+  i.aux = tr.aux;
+  if (d.channels) {
+    for (const c of d.channels) {
+      const tg = sample(d, tr.channels[c.id] ?? 0, el);
+      i.shownCh[c.id] = Math.min(c.range, follow(i.shownCh[c.id], tg, dt, d.tau_s));
+    }
+    const a = alertOf(d, i.mode, 0, i.shownCh);
+    i.alert = a.alert;
+    i.channel = a.channel;
+    i.shown = a.channel ? i.shownCh[a.channel] : 0;
+    i.over = d.channels.some((c) => i.shownCh[c.id] >= c.range);
+    i.stat = { min: 0, max: 0, sum: 0, n: i.stat.n + 1 };
+  } else {
+    let target = d.engine === "dose" || d.engine === "contam" || d.engine === "voc" ? sample(d, tr.value, el) + i.drift : tr.value;
+    if (d.engine === "ims") {
+      const tau = target < i.shown ? 14 : d.tau_s;
+      i.shown = follow(i.shown, target, dt, tau);
+      i.shownCh = Object.fromEntries(Object.entries(tr.channels ?? {}).map(([k, v]) => [k, Math.round(follow(i.shownCh[k] ?? 0, v, dt, v < (i.shownCh[k] ?? 0) ? 14 : d.tau_s))]));
+    } else i.shown = follow(i.shown, target, dt, d.tau_s);
+    if (mdef == null ? void 0 : mdef.integrates) i.dose += env.dose * dt / 3600;
+    i.shown = Math.max(0, i.shown);
+    i.over = i.shown > d.range.max;
+    if (i.over) i.shown = d.range.max;
+    const shownV = (mdef == null ? void 0 : mdef.integrates) ? i.dose : d.engine === "ims" ? Math.round(i.shown) : i.shown;
+    const a = alertOf(d, i.mode, shownV);
+    i.alert = a.alert;
+    i.channel = null;
+    i.ring.push(shownV);
+    if (i.ring.length > 12) i.ring.shift();
+    i.stat.min = Math.min(i.stat.min, shownV);
+    i.stat.max = Math.max(i.stat.max, shownV);
+    i.stat.sum += shownV;
+    i.stat.n++;
+    if (t - i.lastSerie >= 1e3) {
+      i.lastSerie = t;
+      i.series.push([+el.toFixed(0), +shownV.toFixed(4)]);
+      if (i.series.length > HCFG.series) i.series.shift();
+    }
+  }
+  if (i.alert === "ALARM" && i.pos && el > 2) {
+    const vid = i.vehicleId;
+    const ll = gameToLL(i.pos.x, i.pos.y);
+    try {
+      createAlarm({ source: d.short, category: d.category === "RADIOLOGISCH" ? "RADIOLOGISCH" : "CHEMISCH", description: `${d.short} (Handger\xE4t, ${((_a = i.holder) == null ? void 0 : _a.name) ?? "?"}): Alarmschwelle erreicht`, lat: ll.lat, lon: ll.lon, vehicle_id: vid ?? "" }, `hdev-${i.id}`);
+    } catch {
+    }
+  }
+}
+function publicState(i) {
+  var _a, _b, _c, _d, _e, _f;
+  const d = DEVICES[i.type];
+  const t = Date.now();
+  const meas = i.phase === "MEASURING";
+  const mdef = d.modes.find((m) => m.id === i.mode);
+  const v = (mdef == null ? void 0 : mdef.integrates) ? i.dose : d.engine === "ims" ? Math.round(i.shown) : i.shown;
+  const el = meas ? (t - i.startedAt) / 1e3 : ((_a = i.result) == null ? void 0 : _a.duration_s) ?? 0;
+  const state2 = i.phase === "MEASURING" ? i.alert === "ALARM" ? "ALARM" : i.alert === "WARNUNG" ? "WARNING" : "MEASURING" : i.phase;
+  const stable = meas ? isStable(i, d) : !!((_b = i.result) == null ? void 0 : _b.stable);
+  return {
+    id: i.id,
+    type: i.type,
+    phase: i.phase,
+    state: state2,
+    alert: meas ? i.alert : ((_c = i.result) == null ? void 0 : _c.alert) ?? "NORMAL",
+    channel: i.channel,
+    mode: i.mode,
+    precision: i.precision,
+    battery: Math.round(i.battery),
+    batteryLow: i.battery <= d.battery.low,
+    muted: i.muted,
+    err: i.err,
+    boot: i.phase === "BOOTING" ? Math.min(1, (t - i.phaseAt) / d.selfTest.bootMs) : i.phase === "OFF" ? 0 : 1,
+    test: i.phase === "SELF_TEST" ? { items: i.tests, ok: i.testResults, p: Math.min(1, (t - i.phaseAt) / d.selfTest.testMs) } : null,
+    zero: i.zero ? { label: (_d = d.zero) == null ? void 0 : _d.label, p: Math.min(1, (t - i.zero.start) / (i.zero.until - i.zero.start)) } : null,
+    value: meas || i.result ? d.channels ? null : (mdef == null ? void 0 : mdef.integrates) ? +i.dose.toFixed(4) : +v.toFixed(6) : null,
+    dec: decimalsFor(d, v),
+    unit: (mdef == null ? void 0 : mdef.unit) ?? "",
+    over: i.over,
+    channels: (d.channels || d.engine === "ims") && (meas || i.result) ? i.phase === "MEASURING" ? i.shownCh : ((_e = i.result) == null ? void 0 : _e.channels) ?? null : null,
+    aux: meas ? i.aux ?? null : null,
+    elapsed: Math.round(el),
+    duration: d.durations[i.precision] / 1e3,
+    stable,
+    stats: meas ? i.stat.n ? { min: i.stat.min, max: i.stat.max, avg: i.stat.sum / i.stat.n } : null : i.result ? i.result.stats : null,
+    hasResult: !!i.result || meas && i.stat.n > 3,
+    canSave: (meas ? el * 1e3 : (((_f = i.result) == null ? void 0 : _f.duration_s) ?? 0) * 1e3) >= HCFG.saveMinMs && (meas || !!i.result),
+    flash: i.flash && i.flash.until > t ? i.flash.text : null
+  };
+}
+function out(i) {
+  if (!i.holder) return;
+  const s = publicState(i);
+  const j = JSON.stringify(s);
+  if (j !== i.lastJson) {
+    i.lastJson = j;
+    providers.notify(i.holder.src, s);
+  }
+}
+var defsFor = (type) => publicDef(DEVICES[type]);
+var setForceError = (src) => {
+  const i = heldBy(src)[0];
+  if (i) i.forceError = true;
+  return !!i;
+};
+function startService() {
+  setInterval(() => {
+    try {
+      tick2();
+    } catch (e) {
+      console.error("[cbrn] Ger\xE4te-Tick", e);
+    }
+  }, 500);
 }
 
 // server/incident.ts
@@ -6002,12 +6791,12 @@ function registerRoutes(app) {
     const t = (q(req).q ?? "").trim().toLowerCase();
     if (t.length < 1) return [];
     const l = `%${t}%`;
-    const out = [];
+    const out2 = [];
     for (const s of list("substances", "WHERE lower(name) LIKE ? OR lower(synonyms) LIKE ? OR cas LIKE ? OR lower(un_number) LIKE ? OR lower(formula) LIKE ? OR lower(substance_group) LIKE ? LIMIT 12", [l, l, l, l, l, l]))
-      out.push({ type: "substance", id: s.id, title: s.name, cas: s.cas, un: s.un_number, category: s.cbrn_category, sub: s.subcategory, state: s.state, formula: s.formula });
-    for (const r of list("radionuclides", "WHERE lower(name) LIKE ? OR lower(element) LIKE ? LIMIT 6", [l, l])) out.push({ type: "radionuclide", id: r.id, title: r.name, category: r.cbrn_category, sub: r.element });
-    for (const b of list("biological_agents", "WHERE lower(name) LIKE ? OR lower(disease) LIKE ? LIMIT 6", [l, l])) out.push({ type: "biological", id: b.id, title: b.name, category: "B", sub: b.kind });
-    return out;
+      out2.push({ type: "substance", id: s.id, title: s.name, cas: s.cas, un: s.un_number, category: s.cbrn_category, sub: s.subcategory, state: s.state, formula: s.formula });
+    for (const r of list("radionuclides", "WHERE lower(name) LIKE ? OR lower(element) LIKE ? LIMIT 6", [l, l])) out2.push({ type: "radionuclide", id: r.id, title: r.name, category: r.cbrn_category, sub: r.element });
+    for (const b of list("biological_agents", "WHERE lower(name) LIKE ? OR lower(disease) LIKE ? LIMIT 6", [l, l])) out2.push({ type: "biological", id: b.id, title: b.name, category: "B", sub: b.kind });
+    return out2;
   });
   app.get("/api/vehicles", async () => list("vehicles"));
   app.get("/api/vehicles/:id", async (req) => {
@@ -6022,6 +6811,13 @@ function registerRoutes(app) {
     if (!v) throw nf("Fahrzeug");
     const { x, y } = llToOffset(v.lat, v.lon);
     return { ...spectrumAt(x, y), label: "SIMULIERTE AUSWERTUNG", data_source: "SIMULATED" };
+  });
+  app.get("/api/hdev", async (req) => {
+    need(req, 1);
+    return allInst().map((i) => {
+      var _a;
+      return { id: i.id, type: i.type, label: DEVICES[i.type].label, short: DEVICES[i.type].short, model: DEVICES[i.type].model, vehicle_id: i.vehicleId ?? i.key, battery: Math.round(i.battery), status: i.holder ? "IN VERWENDUNG" : i.battery <= 1 ? "AKKU LEER" : "VERF\xDCGBAR", holder: ((_a = i.holder) == null ? void 0 : _a.name) ?? null, phase: i.phase };
+    });
   });
   app.get("/api/ags", async (req) => agsList(need(req, 1).vehicle_id));
   for (const [act, fn] of [["don", agsDon], ["doff", agsDoff], ["refill", agsRefill]]) app.post(`/api/ags/:slot/${act}`, async (req) => {
@@ -6098,13 +6894,13 @@ function registerRoutes(app) {
     const s = get("samples", id);
     if (!s) throw nf("Probe");
     const obs = req.body ?? {};
-    const res2 = analyze({ ...obs, kind: s.kind });
-    const top = res2.candidates[0];
+    const res3 = analyze({ ...obs, kind: s.kind });
+    const top = res3.candidates[0];
     const label = !top || top.score < 3 ? "UNBEKANNT" : `${top.level === "moegliche_identifikation" ? "M\xD6GLICHE IDENTIFIKATION" : top.level === "verdacht" ? "VERDACHT" : "HINWEIS"}: ${top.name.toUpperCase()}`;
-    update("samples", id, { analysis: { observations: obs, result: res2, at: now(), by: u.id }, onsite_assessment: label, updated_at: now() });
+    update("samples", id, { analysis: { observations: obs, result: res3, at: now(), by: u.id }, onsite_assessment: label, updated_at: now() });
     audit(u.id, "analysis", "sample", id, { top: top == null ? void 0 : top.id, level: top == null ? void 0 : top.level, score: top == null ? void 0 : top.score });
     emit2("sample.updated", get("samples", id));
-    return { ...res2, label };
+    return { ...res3, label };
   });
   app.get("/api/missions", async () => list("missions", "", [], "ORDER BY created_at DESC").map((m) => {
     var _a;
@@ -6276,15 +7072,15 @@ function registerRoutes(app) {
     const table = req.params.table;
     if (!["substances", "radionuclides", "biological_agents", "test_tubes"].includes(table)) throw Object.assign(new Error("Tabelle nicht importierbar"), { statusCode: 400 });
     const b = req.body;
-    const res2 = validateImport(table, b.format, b.content);
+    const res3 = validateImport(table, b.format, b.content);
     if (b.commit) {
       const tx = db.transaction(() => {
-        for (const r of [...res2.valid, ...res2.review]) insert(table, { ...r, quality: "unverified" }, true);
+        for (const r of [...res3.valid, ...res3.review]) insert(table, { ...r, quality: "unverified" }, true);
       });
       tx();
-      audit(u.id, "import", table, table, { valid: res2.valid.length, review: res2.review.length });
+      audit(u.id, "import", table, table, { valid: res3.valid.length, review: res3.review.length });
     }
-    return { total: res2.total, valid: res2.valid.length, review: res2.review.map((r) => ({ id: r.id, name: r.name, reasons: r._reasons })), invalid: res2.invalid, committed: !!b.commit };
+    return { total: res3.total, valid: res3.valid.length, review: res3.review.map((r) => ({ id: r.id, name: r.name, reasons: r._reasons })), invalid: res3.invalid, committed: !!b.commit };
   });
   app.get("/api/admin/:table", async (req) => {
     need(req, 4);
@@ -6363,8 +7159,8 @@ var App = class {
       if (!r) return { status: 404, body: { error: "Nicht gefunden" }, headers: {} };
       const m = r.re.exec(path4);
       r.keys.forEach((k, i) => req.params[k] = decodeURIComponent(m[i + 1]));
-      const out = await r.fn(req, rep);
-      return { status: rep.statusCode, body: out === void 0 ? {} : out, headers: rep.headers };
+      const out2 = await r.fn(req, rep);
+      return { status: rep.statusCode, body: out2 === void 0 ? {} : out2, headers: rep.headers };
     } catch (e) {
       return { status: e.statusCode ?? 500, body: { error: e.message }, headers: {} };
     }
@@ -6413,7 +7209,7 @@ var cfx = () => {
 var self2 = () => GetCurrentResourceName();
 function setCfg(c) {
   const points = /* @__PURE__ */ new Map();
-  for (const p of c.points ?? []) points.set(p.model >>> 0, { sample: p.sample, storage: p.storage });
+  for (const p of c.points ?? []) points.set(p.model >>> 0, { sample: p.sample, storage: p.storage, device: p.device ?? p.sample, computer: p.computer, equipment: p.equipment });
   const n = { ...DEFAULT2, ...c, points };
   cfg = n;
   applySampleConfig({ maxSamples: n.maxSamples, containerType: n.containerType, analysisDurations: n.analysisDurations });
@@ -6428,6 +7224,7 @@ function getCfg(force = false) {
   }
   return cfg ?? DEFAULT2;
 }
+var licenseOfPlayer = (src) => licenseOf(src);
 var players = /* @__PURE__ */ new Map();
 var licenseOf = (src) => {
   const n = GetNumPlayerIdentifiers(src);
@@ -6476,7 +7273,7 @@ function checkPoint(src, netId, which, maxDist) {
   if (!pts) return "Kein Probenentnahmepunkt f\xFCr dieses Fahrzeug konfiguriert.";
   const off = pts[which];
   const world = worldPoint(ent, off);
-  if (dist(posOf(src), world) > maxDist + 1) return which === "storage" ? "Du befindest dich nicht am vorgesehenen Probenablagepunkt." : "Du befindest dich nicht am Probenentnahmepunkt.";
+  if (dist(posOf(src), world) > maxDist + 1) return which === "storage" ? "Du befindest dich nicht am vorgesehenen Probenablagepunkt." : which === "device" ? "Du befindest dich nicht am Messger\xE4tefach." : "Du befindest dich nicht am Probenentnahmepunkt.";
   return { ent, world, off, model };
 }
 var carryingOf = (p) => list("samples", "WHERE collected_license = ? AND status IN ('COLLECTED','TRANSPORT') ORDER BY ts DESC LIMIT 1", [p.license])[0] ?? null;
@@ -6556,20 +7353,20 @@ function registerSampleEvents() {
       delete p.active;
       return fail(src, "create", "Du hast kein Probenentnahmeset mehr.");
     }
-    let sample;
+    let sample2;
     try {
-      sample = createSample({ source: sourceText, type, description, by: a.by, license: p.license, pos: a.pos, vehicleId: ((_a = p.kitVeh) == null ? void 0 : _a.vehicleId) ?? null, model: ((_b = p.kitVeh) == null ? void 0 : _b.model) ?? null, offset: ((_c = p.kitVeh) == null ? void 0 : _c.off) ?? null });
+      sample2 = createSample({ source: sourceText, type, description, by: a.by, license: p.license, pos: a.pos, vehicleId: ((_a = p.kitVeh) == null ? void 0 : _a.vehicleId) ?? null, model: ((_b = p.kitVeh) == null ? void 0 : _b.model) ?? null, offset: ((_c = p.kitVeh) == null ? void 0 : _c.off) ?? null });
     } catch (e) {
       return fail(src, "create", e.message);
     }
     delete p.active;
     if (inv()) {
       try {
-        ox().AddItem(src, c.containerItem, 1, { sample_id: sample.id, type: c.containerType });
+        ox().AddItem(src, c.containerItem, 1, { sample_id: sample2.id, type: c.containerType });
       } catch {
       }
     }
-    res(src, "create", true, { sample: { id: sample.id } });
+    res(src, "create", true, { sample: { id: sample2.id } });
   });
   onNet("cbrn:sample:label", (id, label, info) => {
     const src = source, p = pl(src), cur = carryingOf(p);
@@ -6622,6 +7419,151 @@ function registerSampleEvents() {
   });
 }
 
+// server/hdev/events.ts
+var cfx2 = () => globalThis.exports;
+var isAdmin = (src) => {
+  try {
+    return !!cfx2()[GetCurrentResourceName()].isAdmin(src);
+  } catch {
+    return false;
+  }
+};
+var player = (src) => ({ src, license: licenseOfPlayer(src), name: GetPlayerName(src) ?? `Spieler ${src}` });
+var res2 = (src, ev, ok2, extra = {}) => emitNet("cbrn:dev:res", src, { ev, ok: ok2, ...extra });
+var fail2 = (src, ev, msg) => res2(src, ev, false, { msg });
+var alive = (src) => {
+  try {
+    const ped = GetPlayerPed(src);
+    return !!ped && DoesEntityExist(ped) && GetEntityHealth(ped) > 100;
+  } catch {
+    return false;
+  }
+};
+var vkey = (netId) => `net:${netId}`;
+function registerDeviceEvents() {
+  providers.pos = (src) => {
+    try {
+      return posOf(src);
+    } catch {
+      return null;
+    }
+  };
+  providers.vehicleAt = (p) => resolveVehicleId(p.x, p.y);
+  providers.alive = alive;
+  providers.notify = (src, s) => emitNet("cbrn:dev:state", src, s);
+  const apply = (c) => {
+    const d = c == null ? void 0 : c.devices;
+    if (!d) return;
+    HCFG.maxEquipped = Math.max(1, d.maxEquipped | 0 || 1);
+    HCFG.batteryScale = Number(d.batteryScale) || 1;
+  };
+  on("cbrn:sampleConfig", apply);
+  apply(getCfg());
+  startService();
+  const dock = (src, netId) => {
+    if (GetVehiclePedIsIn(GetPlayerPed(src), false) !== 0) return "Steige zuerst aus dem Fahrzeug aus.";
+    const chk = checkPoint(src, netId, "device", getCfg().interactDistance);
+    if (typeof chk === "string") return chk;
+    const ent = chk.ent;
+    const [x, y] = GetEntityCoords(ent);
+    return { key: vkey(Number(netId)), vehicleId: resolveVehicleId(x, y), netId: Number(netId) };
+  };
+  onNet("cbrn:dev:inventory", (netId) => {
+    const src = source;
+    const d = dock(src, netId);
+    if (typeof d === "string") return fail2(src, "inventory", d);
+    emitNet("cbrn:dev:inv", src, { devices: publicInventory(d.key, d.vehicleId, d.netId, src), held: heldBy(src).length, max: HCFG.maxEquipped });
+  });
+  onNet("cbrn:dev:take", (netId, type) => {
+    const src = source;
+    const d = dock(src, netId);
+    if (typeof d === "string") return fail2(src, "take", d);
+    if (!alive(src)) return fail2(src, "take", "Nicht m\xF6glich.");
+    try {
+      const i = take(player(src), d.key, d.vehicleId, d.netId, String(type));
+      res2(src, "take", true, { def: defsFor(i.type), state: publicState(i), msg: `${DEVICES[i.type].label} entnommen.` });
+    } catch (e) {
+      fail2(src, "take", e.message);
+    }
+  });
+  onNet("cbrn:dev:return", (netId) => {
+    const src = source;
+    const d = dock(src, netId);
+    if (typeof d === "string") return fail2(src, "return", "Das Messger\xE4t kann nur am Messger\xE4tefach zur\xFCckgelegt werden.");
+    try {
+      const i = giveBack(player(src), d.key, d.netId);
+      res2(src, "return", true, { msg: `${DEVICES[i.type].label} zur\xFCckgelegt.` });
+    } catch (e) {
+      fail2(src, "return", e.message);
+    }
+  });
+  onNet("cbrn:dev:action", (act, payload) => {
+    const src = source;
+    if (typeof act !== "string") return;
+    try {
+      const r = action(src, act, payload && typeof payload === "object" ? payload : {});
+      if (act === "save") res2(src, "save", true, { id: r == null ? void 0 : r.id, msg: `Messung gespeichert (${r == null ? void 0 : r.id}).` });
+    } catch (e) {
+      res2(src, "action", false, { msg: e.message, act });
+    }
+  });
+  onNet("cbrn:dev:sync", () => {
+    const src = source;
+    const i = heldBy(src)[0];
+    if (i) res2(src, "take", true, { def: defsFor(i.type), state: publicState(i), resume: true });
+  });
+  onNet("cbrn:dev:samples", () => {
+    const src = source;
+    const lic = licenseOfPlayer(src);
+    emitNet("cbrn:dev:sampleList", src, list("samples", "WHERE collected_license = ? ORDER BY ts DESC LIMIT 8", [lic]).map((s) => ({ id: s.id, label: s.label ?? "unbeschriftet" })));
+  });
+  onNet("cbrn:dev:forceReturn", () => {
+    const src = source;
+    if (!alive(src)) releaseAll(src, "dead");
+    else if (getCfg() && globalThis.__cbrnForceVeh !== false && GetVehiclePedIsIn(GetPlayerPed(src), false) !== 0) releaseAll(src, "vehicle");
+  });
+  on("playerDropped", () => releaseAll(source, "disconnect"));
+  onNet("cbrn:source:options", () => {
+    const src = source;
+    if (!isAdmin(src)) return;
+    emitNet("cbrn:source:options", src, { defaults: sourceDefaults, substances: list("substances", "WHERE cbrn_category = 'C' ORDER BY name").map((s) => ({ id: s.id, name: s.name })), nuclides: list("radionuclides", "ORDER BY name").map((s) => ({ id: s.id, name: s.name })), count: countSources() });
+  });
+  onNet("cbrn:source:create", (b) => {
+    const src = source;
+    if (!isAdmin(src)) return res2(src, "source", false, { msg: "Keine Berechtigung." });
+    try {
+      const p = posOf(src);
+      const r = addSource(GetPlayerName(src) ?? "admin", { type: b == null ? void 0 : b.type, x: p.x, y: p.y, z: p.z - 1, intensity: b == null ? void 0 : b.intensity, radius: b == null ? void 0 : b.radius, substance_id: b == null ? void 0 : b.substance_id, note: b == null ? void 0 : b.note });
+      res2(src, "source", true, { msg: `${r.id} (${r.type}) erstellt \u2013 Intensit\xE4t ${r.intensity}, Radius ${r.radius} m.` });
+    } catch (e) {
+      res2(src, "source", false, { msg: e.message });
+    }
+  });
+  onNet("cbrn:source:clear", () => {
+    const src = source;
+    if (!isAdmin(src)) return;
+    res2(src, "source", true, { msg: `${clearSources(GetPlayerName(src) ?? "admin")} Messquelle(n) entfernt.` });
+  });
+  onNet("cbrn:dev:debug", (what) => {
+    const src = source;
+    if (!isAdmin(src)) return res2(src, "debug", false, { msg: "Keine Berechtigung." });
+    if (what === "error") return res2(src, "debug", setForceError(src), { msg: "N\xE4chster Selbsttest schl\xE4gt fehl." });
+    const i = heldBy(src)[0];
+    const p = posOf(src);
+    const lines = what === "measurement" ? list("measurements", "WHERE source = 'HANDHELD' ORDER BY seq DESC LIMIT 5").map((m) => `${m.id} ${m.device} ${m.value} ${m.unit} ${m.status} (${m.player ?? "?"})`) : i ? (() => {
+      var _a;
+      const d = DEVICES[i.type];
+      const e = envAt(p);
+      const t = truthOf(d, i.mode, e);
+      return [`DEVICE: ${i.type}`, `STATE: ${publicState(i).state}`, `VALUE: ${i.shown.toFixed(4)} (wahr ${t.value.toFixed(4)})`, `UNIT: ${t.unit}`, `SOURCE: ${((_a = e.nearest) == null ? void 0 : _a.id) ?? "-"}`, `DISTANCE: ${e.nearest ? e.nearest.d.toFixed(2) + " m" : "-"}`, `BATTERY: ${i.battery.toFixed(1)}`];
+    })() : ["Kein Ger\xE4t in der Hand.", `Quellen aktiv: ${countSources()}`, `Ger\xE4te gesamt: ${allInst().length}`];
+    console.log(`^3[cbrn:debug ${what}]^7 ${lines.join(" | ")}`);
+    res2(src, "debug", true, { lines });
+  });
+  void inventory;
+  void get;
+}
+
 // server/fivem.ts
 var CHUNK = 12e3;
 var subs = /* @__PURE__ */ new Set();
@@ -6635,21 +7577,21 @@ var live = (src) => {
 boot({ dbFile: import_node_path3.default.join(RES_DIR, "data", "cbrn.db"), wasmFile: import_node_path3.default.join(RES_DIR, "server", "sql-wasm.wasm") }).then((app) => {
   onNet("cbrn:req", async (id, method, url, body, token) => {
     const src = source;
-    let res2;
+    let res3;
     try {
-      res2 = await app.dispatch(String(method), String(url), body, { "x-session": String(token ?? "") });
+      res3 = await app.dispatch(String(method), String(url), body, { "x-session": String(token ?? "") });
     } catch (e) {
-      res2 = { status: 500, body: { error: (e == null ? void 0 : e.message) ?? "Fehler" } };
+      res3 = { status: 500, body: { error: (e == null ? void 0 : e.message) ?? "Fehler" } };
     }
-    if (res2.status !== 401 && token) {
+    if (res3.status !== 401 && token) {
       if (!subs.has(src)) {
         subs.add(src);
         emitNet("cbrn:evt", src, JSON.stringify({ type: "hello", payload: systemStatus(), ts: (/* @__PURE__ */ new Date()).toISOString() }));
       }
     }
-    const text = JSON.stringify(res2.body === void 0 ? {} : res2.body);
+    const text = JSON.stringify(res3.body === void 0 ? {} : res3.body);
     const total = Math.max(1, Math.ceil(text.length / CHUNK));
-    for (let i = 0; i < total; i++) emitNet("cbrn:resp", src, id, i, total, res2.status, text.slice(i * CHUNK, (i + 1) * CHUNK));
+    for (let i = 0; i < total; i++) emitNet("cbrn:resp", src, id, i, total, res3.status, text.slice(i * CHUNK, (i + 1) * CHUNK));
   });
   onNet("cbrn:telemetry", (d) => {
     const src = source;
@@ -6657,6 +7599,7 @@ boot({ dbFile: import_node_path3.default.join(RES_DIR, "data", "cbrn.db"), wasmF
     ingestFivem({ ...d, player: GetPlayerName(src) ?? void 0 });
   });
   registerSampleEvents();
+  registerDeviceEvents();
   bus.on("event", (e) => {
     if (!subs.size) return;
     const msg = JSON.stringify(e);

@@ -14,7 +14,7 @@ const circlePoly = (lon: number, lat: number, r: number) => {
   const pts = Array.from({ length: 33 }, (_, i) => { const a = (i / 32) * 2 * Math.PI; return [lon + (r * Math.cos(a)) / (111320 * Math.cos((lat * Math.PI) / 180)), lat + (r * Math.sin(a)) / 111320]; });
   return { type: 'Polygon', coordinates: [pts] };
 };
-const statusColor = ['match', ['get', 'status'], 'ALARM', '#e5534b', 'HOCH', '#e5534b', 'ERHÖHT', '#d29922', 'AUSWERTUNG ERFORDERLICH', '#f0500a', 'NORMAL', '#58a6ff', '#817d78'] as any;
+const statusColor = ['match', ['get', 'status'], 'ALARM', '#e5534b', 'HOCH', '#e5534b', 'WARNUNG', '#f0500a', 'AUFFÄLLIG', '#d29922', 'ERHÖHT', '#d29922', 'AUSWERTUNG ERFORDERLICH', '#f0500a', 'NORMAL', '#58a6ff', '#817d78'] as any;
 
 export function MapView({ layers, onSelect, follow = true, grid = true, showVehicleLabels = true, onMapClick }: { onMapClick?: (p: { lat: number; lon: number }) => void; layers: Layers; onSelect?: (s: { type: string; id: string }) => void; follow?: boolean; grid?: boolean; showVehicleLabels?: boolean }) {
   const el = useRef<HTMLDivElement>(null); const mapRef = useRef<maplibregl.Map | null>(null); const ready = useRef(false);

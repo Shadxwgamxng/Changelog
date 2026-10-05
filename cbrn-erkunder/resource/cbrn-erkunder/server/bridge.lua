@@ -3,12 +3,13 @@ local function vec(v) return { x = v.x + 0.0, y = v.y + 0.0, z = v.z + 0.0 } end
 
 local function buildConfig()
   local pts = {}
-  for model, e in pairs(CBRN.Points) do pts[#pts + 1] = { model = model, sample = vec(e.sample), storage = vec(e.storage) } end
+  for model, e in pairs(CBRN.Points) do pts[#pts + 1] = { model = model, sample = vec(e.sample), storage = vec(e.storage), device = vec(e.device), computer = e.computer and vec(e.computer) or nil, equipment = e.equipment and vec(e.equipment) or nil } end
   local c = Config.Sample
   return {
     points = pts, interactDistance = c.InteractDistance, returnDistance = Config.SampleReturnDistance, collectionDuration = Config.SampleCollectionDuration,
     maxSamples = Config.MaxSamples, allowWithoutIncident = c.AllowWithoutIncident, useInventory = c.UseInventory, kitItem = c.KitItem, containerItem = c.ContainerItem,
     containerType = c.ContainerType, analysisDurations = c.AnalysisDurations, debug = c.Debug, requireJob = Config.RequireJob,
+    devices = { maxEquipped = Config.Devices.MaxEquipped, batteryScale = Config.Devices.BatteryScale, forceReturnOnVehicle = Config.Devices.ForceReturnOnVehicle },
   }
 end
 exports('getSampleConfig', buildConfig)

@@ -8,6 +8,8 @@ import { config } from './config.js';
 import { buildReport, reportCsv } from './report.js';
 import { validateImport } from './import.js';
 import { listSamples, publicSample, startAnalysis, archiveSample, storedCount, SC } from './samples.js';
+import { allInst } from './hdev/service.js';
+import { DEVICES } from './hdev/defs.js';
 import { agsList, agsDon, agsDoff, agsRefill } from './ags.js';
 import { addFire, removeFire, listFires } from './fire.js';
 import { createIncident, endIncident, publicIncident } from './incident.js';
@@ -120,6 +122,7 @@ export function registerRoutes(app: FastifyInstance) {
   app.get('/api/live', async () => ({ vehicles: state.live, weather: weatherNow(), status: systemStatus() }));
   app.get('/api/live/spectrum', async (req) => { const v = get('vehicles', q(req).vehicle ?? user(req).vehicle_id); if (!v) throw nf('Fahrzeug'); const { x, y } = llToOffset(v.lat, v.lon); return { ...spectrumAt(x, y), label: 'SIMULIERTE AUSWERTUNG', data_source: 'SIMULATED' }; });
   // ---------- Einsatz
+  app.get('/api/hdev', async (req) => { need(req, 1); return allInst().map((i) => ({ id: i.id, type: i.type, label: DEVICES[i.type].label, short: DEVICES[i.type].short, model: DEVICES[i.type].model, vehicle_id: i.vehicleId ?? i.key, battery: Math.round(i.battery), status: i.holder ? 'IN VERWENDUNG' : i.battery <= 1 ? 'AKKU LEER' : 'VERFÜGBAR', holder: i.holder?.name ?? null, phase: i.phase })); });
   app.get('/api/ags', async (req) => agsList(need(req, 1).vehicle_id));
   for (const [act, fn] of [['don', agsDon], ['doff', agsDoff], ['refill', agsRefill]] as const) app.post(`/api/ags/:slot/${act}`, async (req) => { const u = need(req, 1); return fn(u.vehicle_id, Number((req.params as any).slot), u.name); });
   app.get('/api/fires', async () => listFires());

@@ -6,7 +6,8 @@ import { list } from './db.js';
 import { randomBytes } from 'node:crypto';
 
 type Pt = { x: number; y: number; z: number };
-interface Cfg { requireJob?: boolean; points: Map<number, { sample: Pt; storage: Pt }>; interactDistance: number; returnDistance: number; collectionDuration: number; maxSamples: number; allowWithoutIncident: boolean; useInventory: boolean; kitItem: string; containerItem: string; containerType: string; analysisDurations: Record<string, number> }
+export type Pts = { sample: Pt; storage: Pt; device: Pt; computer?: Pt; equipment?: Pt };
+interface Cfg { requireJob?: boolean; points: Map<number, Pts>; interactDistance: number; returnDistance: number; collectionDuration: number; maxSamples: number; allowWithoutIncident: boolean; useInventory: boolean; kitItem: string; containerItem: string; containerType: string; analysisDurations: Record<string, number> }
 interface P { kit: boolean; license: string; kitVeh?: { vehicleId: string | null; model: string; off: Pt }; active?: { token: string; start: number; pos: Pt; dur: number; noIncident: boolean; by: string } }
 
 const DEFAULT: Cfg & { requireJob?: boolean } = { points: new Map(), interactDistance: 2.0, returnDistance: 1.5, collectionDuration: 5000, maxSamples: 20, allowWithoutIncident: true, useInventory: true, kitItem: 'sample_collection_kit', containerItem: 'sample_container', containerType: 'UNIVERSAL SAMPLE CONTAINER', analysisDurations: {} };
@@ -15,7 +16,7 @@ const cfx = (): any => { try { if (typeof exports !== 'undefined') return export
 const self = () => GetCurrentResourceName();
 
 function setCfg(c: any): Cfg {
-  const points = new Map<number, { sample: Pt; storage: Pt }>(); for (const p of c.points ?? []) points.set(p.model >>> 0, { sample: p.sample, storage: p.storage });
+  const points = new Map<number, Pts>(); for (const p of c.points ?? []) points.set(p.model >>> 0, { sample: p.sample, storage: p.storage, device: p.device ?? p.sample, computer: p.computer, equipment: p.equipment });
   const n: Cfg = { ...DEFAULT, ...c, points }; cfg = n; applySampleConfig({ maxSamples: n.maxSamples, containerType: n.containerType, analysisDurations: n.analysisDurations });
   return n;
 }
@@ -26,13 +27,14 @@ export function getCfg(force = false): Cfg {
   return cfg ?? DEFAULT;
 }
 
+export const licenseOfPlayer = (src: number) => licenseOf(src);
 const players = new Map<number, P>();
 const licenseOf = (src: number) => { const n = GetNumPlayerIdentifiers(src); for (let i = 0; i < n; i++) { const id = GetPlayerIdentifier(src, i); if (id.startsWith('license:')) return id; } return `src:${src}`; };
 const pl = (src: number) => { let p = players.get(src); if (!p) { p = { kit: false, license: licenseOf(src) }; players.set(src, p); } return p; };
 const res = (src: number, ev: string, ok: boolean, extra: Record<string, unknown> = {}) => emitNet('cbrn:sample:res', src, { ev, ok, ...extra });
 const fail = (src: number, ev: string, msg: string) => res(src, ev, false, { msg });
 const dist = (a: Pt, b: Pt) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
-const posOf = (src: number): Pt => { const [x, y, z] = GetEntityCoords(GetPlayerPed(src)); return { x, y, z }; };
+export const posOf = (src: number): Pt => { const [x, y, z] = GetEntityCoords(GetPlayerPed(src)); return { x, y, z }; };
 
 /** Lokaler Offset -> Welt. X = rechts, Y = vorne, Z = oben (GTA: Heading 0 = Norden, gegen den Uhrzeigersinn). Pitch/Roll werden vernachlässigt (Toleranz deckt das ab). */
 export function worldPoint(ent: number, off: Pt): Pt {
@@ -47,12 +49,12 @@ const ox = () => cfx().ox_inventory;
 const hasKit = (src: number, p: P) => (inv() ? Number(ox().Search(src, 'count', getCfg().kitItem)) > 0 : p.kit);
 
 /** Prüft Fahrzeug (Netzwerk-ID), konfigurierten Punkt und Abstand des Spielers. */
-function checkPoint(src: number, netId: unknown, which: 'sample' | 'storage', maxDist: number): { ent: number; world: Pt; off: Pt; model: number } | string {
+export function checkPoint(src: number, netId: unknown, which: 'sample' | 'storage' | 'device', maxDist: number): { ent: number; world: Pt; off: Pt; model: number } | string {
   const ent = NetworkGetEntityFromNetworkId(Number(netId)); if (!ent || !DoesEntityExist(ent)) return 'Fahrzeug nicht gefunden.';
   const model = GetEntityModel(ent) >>> 0; const pts = getCfg().points.get(model);
   if (!pts) return 'Kein Probenentnahmepunkt für dieses Fahrzeug konfiguriert.';
-  const off = pts[which]; const world = worldPoint(ent, off);
-  if (dist(posOf(src), world) > maxDist + 1.0) return which === 'storage' ? 'Du befindest dich nicht am vorgesehenen Probenablagepunkt.' : 'Du befindest dich nicht am Probenentnahmepunkt.';
+  const off = pts[which] as Pt; const world = worldPoint(ent, off);
+  if (dist(posOf(src), world) > maxDist + 1.0) return which === 'storage' ? 'Du befindest dich nicht am vorgesehenen Probenablagepunkt.' : which === 'device' ? 'Du befindest dich nicht am Messgerätefach.' : 'Du befindest dich nicht am Probenentnahmepunkt.';
   return { ent, world, off, model };
 }
 const carryingOf = (p: P) => list('samples', "WHERE collected_license = ? AND status IN ('COLLECTED','TRANSPORT') ORDER BY ts DESC LIMIT 1", [p.license])[0] ?? null;

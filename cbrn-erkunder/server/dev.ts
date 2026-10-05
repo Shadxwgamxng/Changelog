@@ -6,6 +6,8 @@ import path from 'node:path';
 import { boot } from './core.js';
 import { bus, ingestFivem } from './sim.js';
 import { list } from './db.js';
+import { providers, startService, take, giveBack, action, heldBy, publicState, defsFor, publicInventory, releaseAll } from './hdev/service.js';
+import { addSource, clearSources, envAt } from './hdev/env.js';
 import { createSample, labelSample, storeSample, applySampleConfig } from './samples.js';
 
 const root = path.resolve(process.cwd(), 'resource', 'cbrn-erkunder');
@@ -13,6 +15,11 @@ const appDir = path.join(root, 'app');
 const app = await boot({ dbFile: process.env.DB_FILE ?? path.resolve(process.cwd(), 'data', 'dev.db'), wasmFile: path.join(root, 'server', 'sql-wasm.wasm') });
 const MIME: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.json': 'application/json' };
 const clients = new Set<http.ServerResponse>();
+// ---- Handmessgeräte im Entwicklungsserver: ein Testspieler (src 1), Position frei setzbar
+let devPos = { x: 0, y: 0, z: 30 }; const devPlayer = { src: 1, license: 'license:dev', name: 'Max Muster' };
+const sse = (o: any) => { const m = `data: ${JSON.stringify(o)}\n\n`; for (const c of clients) c.write(m); };
+providers.pos = () => devPos; providers.alive = () => true; providers.vehicleAt = () => (list('vehicles')[0] as any)?.id ?? null; providers.notify = (_s, st) => sse({ type: 'hdev', state: st });
+startService();
 bus.on('event', (e) => { const m = `data: ${JSON.stringify(e)}\n\n`; for (const c of clients) c.write(m); });
 
 http.createServer(async (req, res) => {
@@ -30,7 +37,26 @@ http.createServer(async (req, res) => {
       res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ id: s.id })); } catch (e: any) { res.writeHead(400); res.end(JSON.stringify({ error: e.message })); }
     return;
   }
+  if (req.method === 'POST' && u.pathname === '/__dev/hdev') {
+    let b = ''; for await (const c of req) b += c; const j = JSON.parse(b || '{}'); const out = (o: any, code = 200) => { res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify(o)); };
+    try {
+      if (j.op === 'take') { const i = take(devPlayer, 'net:1', providers.vehicleAt(devPos), 1, j.type); return out({ def: defsFor(i.type), state: publicState(i) }); }
+      if (j.op === 'return') { giveBack(devPlayer, 'net:1', 1); sse({ type: 'hdev-close' }); return out({ ok: true }); }
+      if (j.op === 'action') { const r = action(1, j.act, j.payload ?? {}); return out({ ok: true, id: (r as any)?.id }); }
+      if (j.op === 'pos') { devPos = { x: +j.x, y: +j.y, z: +(j.z ?? 30) }; return out({ ok: true }); }
+      if (j.op === 'source') { return out(addSource('dev', { ...j.source, x: j.source.x ?? devPos.x, y: j.source.y ?? devPos.y, z: j.source.z ?? devPos.z })); }
+      if (j.op === 'clear') return out({ n: clearSources('dev') });
+      if (j.op === 'env') return out(envAt(devPos));
+      if (j.op === 'inventory') return out(publicInventory('net:1', providers.vehicleAt(devPos), 1, 1));
+      if (j.op === 'state') { const i = heldBy(1)[0]; return out(i ? publicState(i) : null); }
+      if (j.op === 'drop') { releaseAll(1, 'dead'); return out({ ok: true }); }
+      return out({ error: 'op?' }, 400);
+    } catch (e: any) { return out({ error: e.message }, 409); }
+  }
   if (u.pathname === '/__events') { res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' }); res.write(':ok\n\n'); clients.add(res); req.on('close', () => clients.delete(res)); return; }
+  if (u.pathname.startsWith('/web/')) { const wf = path.join(root, path.normalize(u.pathname)); if (wf.startsWith(path.join(root, 'web')) && fs.existsSync(wf)) { res.writeHead(200, { 'content-type': MIME[path.extname(wf)] ?? 'application/octet-stream' }); fs.createReadStream(wf).pipe(res); return; } }
+  if (u.pathname.startsWith('/app/')) u.pathname = u.pathname.slice(4);
+  if (u.pathname === '/devui') { res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); res.end(fs.readFileSync(path.join(root, 'web', 'devtest.html'))); return; }
   let f = path.join(appDir, u.pathname === '/' ? 'index.html' : path.normalize(u.pathname)); if (!f.startsWith(appDir) || !fs.existsSync(f)) f = path.join(appDir, 'index.html');
   res.writeHead(200, { 'content-type': MIME[path.extname(f)] ?? 'application/octet-stream' }); fs.createReadStream(f).pipe(res);
 }).listen(+(process.env.PORT ?? 3001), () => console.log(`Entwickler-Testserver: http://localhost:${process.env.PORT ?? 3001}`));

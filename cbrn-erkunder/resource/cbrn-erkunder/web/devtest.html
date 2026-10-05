@@ -1,0 +1,21 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Geräte-Testseite (nur Entwicklung)</title>
+<link rel="stylesheet" href="/web/devices.css"><style>body{margin:0;background:#2b3a2b;font:13px Segoe UI,Arial,sans-serif;color:#eee}#ctl{position:fixed;left:8px;top:8px;background:#000a;padding:8px;border-radius:6px;z-index:9;max-width:340px}#ctl button{margin:2px}</style></head><body>
+<div id="ctl">Nur Entwicklung (kein FiveM): <span id="m"></span><br></div>
+<script>
+// Ersetzt die FiveM-Rückrufe durch den Entwicklungsserver
+const real = window.fetch; const call = (op, o) => real('/__dev/hdev', { method: 'POST', body: JSON.stringify({ op, ...o }) }).then((r) => r.json());
+window.GetParentResourceName = () => 'cbrn-erkunder';
+window.fetch = (u, init) => {
+  const m = /^https:\/\/cbrn-erkunder\/(\w+)/.exec(u); if (!m) return real(u, init); const b = JSON.parse((init && init.body) || '{}');
+  if (m[1] === 'devAction') call('action', { act: b.act, payload: b.payload }).then((r) => { if (r.error) postMessage({ type: 'dev', cmd: 'toast', text: r.error, bad: true }, '*'); else if (b.act === 'save') postMessage({ type: 'dev', cmd: 'saved', ok: true, id: r.id, msg: 'Messung gespeichert (' + r.id + ')' }, '*'); });
+  if (m[1] === 'devMouse') postMessage({ type: 'dev', cmd: 'mouse', on: b.on }, '*');
+  if (m[1] === 'devSamples') postMessage({ type: 'dev', cmd: 'samples', list: [] }, '*');
+  return Promise.resolve(new Response('ok'));
+};
+const es = new EventSource('/__events'); es.onmessage = (e) => { const d = JSON.parse(e.data); if (d.type === 'hdev') postMessage({ type: 'dev', cmd: 'state', state: d.state }, '*'); if (d.type === 'hdev-close') postMessage({ type: 'dev', cmd: 'close' }, '*'); };
+window.devTake = async (t) => { const r = await call('take', { type: t }); postMessage({ type: 'dev', cmd: 'open', def: r.def, state: r.state, keys: {} }, '*'); };
+const ctl = document.getElementById('ctl');
+for (const t of ['dlm', 'como', 'pid', 'ims', 'mgmg']) { const b = document.createElement('button'); b.textContent = t; b.onclick = () => devTake(t); ctl.appendChild(b); }
+const mk = (txt, f) => { const b = document.createElement('button'); b.textContent = txt; b.onclick = f; ctl.appendChild(b); };
+mk('Mausmodus', () => postMessage({ type: 'dev', cmd: 'mouse', on: true }, '*'));
+</script><script src="/web/devices.js"></script></body></html>

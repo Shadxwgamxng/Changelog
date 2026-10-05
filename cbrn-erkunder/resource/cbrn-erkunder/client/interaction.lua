@@ -41,12 +41,35 @@ function CBRN.takeKit(veh)
   TriggerServerEvent('cbrn:sample:takeKit', VehToNet(veh))
 end
 
---- Was kann im Kreis gerade getan werden? (nil = nichts, z. B. während der Entnahme)
-local function circleAction(veh)
+--- Probenaktion im Kreis (nil = nichts, z. B. während der Entnahme)
+local function sampleAction(veh)
   if S.busy or S.phase == 'collecting' then return nil end
   if S.phase == 'carrying' then return { text = 'Probe abgeben', run = function() CreateThread(CBRN.returnSample) end } end
   if S.kit then return { text = 'Probenentnahmeset zurückgeben', run = function() TriggerServerEvent('cbrn:sample:returnKit', VehToNet(veh)) end } end
   return { text = 'Probenentnahmeset nehmen', run = function() CBRN.takeKit(veh) end }
+end
+
+--- Was kann am Punkt gerade getan werden? which = 'sample' | 'device'.
+--- Ohne eigenen Messgerätepunkt (deviceShared) teilen sich Probenset und Messgeräte einen Kreis: dann öffnet sich ein kleines Auswahlmenü.
+local function circleAction(veh, which)
+  if S.busy or S.phase == 'collecting' then return nil end
+  if which == 'device' then return CBRN.deviceAction and CBRN.deviceAction(veh) or nil end
+  local sa = sampleAction(veh)
+  local e = CBRN.Points[modelOf(veh)]
+  if e and e.deviceShared and CBRN.deviceAction then
+    local da = CBRN.deviceAction(veh)
+    if da and sa then
+      return { text = 'Ausrüstung', run = function()
+        lib.registerContext({ id = 'cbrn_equipment', title = 'AUSRÜSTUNG', options = {
+          { title = sa.text, icon = 'vial', onSelect = function() sa.run() end },
+          { title = da.text, icon = 'gauge', onSelect = function() da.run() end },
+        } })
+        lib.showContext('cbrn_equipment')
+      end }
+    end
+    return da or sa
+  end
+  return sa
 end
 
 -- Interaktions-Pin (wie bei "Ansehen"-Prompts): kleiner Kreis mit der Taste genau am Punkt, in Reichweite mit Textschild und Halte-Fortschritt.
@@ -75,13 +98,18 @@ CreateThread(function()
       if S.inCircle then S.inCircle, S.circleVeh, S.holdPct = false, nil, 0; if CBRN.refreshHud then CBRN.refreshHud(false) end end
     else
       while DoesEntityExist(veh) and onFoot() do
-        local p = CBRN.worldPoint(veh, 'sample')
         local pc = GetEntityCoords(PlayerPedId())
-        local d = #(pc - p) -- Abstand zum Punkt (3D)
+        local which, p, d = 'sample', CBRN.worldPoint(veh, 'sample'), nil
+        d = #(pc - p) -- Abstand zum Punkt (3D)
+        local pe = CBRN.Points[modelOf(veh)]
+        if pe and not pe.deviceShared then -- eigener Messgerätepunkt: der nähere Punkt gewinnt
+          local pd = CBRN.worldPoint(veh, 'device'); local dd = #(pc - pd)
+          if dd < d then which, p, d = 'device', pd, dd end
+        end
         if d > Config.Sample.CircleShowDistance + 3.0 then break end
         local inside = d <= Config.Sample.CircleRadius
         local onScreen, sx, sy = GetScreenCoordFromWorldCoord(p.x, p.y, p.z)
-        local act = inside and circleAction(veh) or nil
+        local act = inside and circleAction(veh, which) or nil
         if onScreen and d <= Config.Sample.CircleShowDistance then sendPin(sx, sy, inside, act and act.text or nil, math.floor((S.holdPct or 0) * 100)) else hidePin() end -- Pin nur in unmittelbarer Nähe
         local changed = (inside ~= S.inCircle)
         S.inCircle, S.circleVeh, S.circleAction = inside, inside and veh or nil, act

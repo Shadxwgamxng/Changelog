@@ -11,6 +11,24 @@ Config.SamplePoints = {
     [`elwblaichach`] = vector3(-0.950, 0.168, 0.785),
 }
 
+-- Weitere Punktarten je Fahrzeugmodell (alle mit /offset ermittelbar): sample, storage, device, computer, equipment
+--   [`modell`] = { sample = vector3(..), storage = vector3(..), device = vector3(..), computer = vector3(..), equipment = vector3(..) }
+-- Ohne eigenen 'device'-Punkt dient der Probenpunkt auch als Messgerätefach (ein Kreis, Auswahlmenü).
+-- Messgerätefach getrennt vom Probenpunkt: Config.DevicePoints = { [`elwblaichach`] = vector3(x, y, z) }   (hier die Werte aus /offset eintragen)
+Config.DevicePoints = {
+    -- [`elwblaichach`] = vector3(0.0, 0.0, 0.0),
+}
+
+-- Handmessgeräte (Entnahme aus dem Fahrzeug, Bedienung per NUI)
+Config.Devices = {
+  MaxEquipped = 1,                -- so viele Messgeräte gleichzeitig pro Spieler (Config.MaxEquippedDevices / MaxActiveDevices)
+  BatteryScale = 1.0,             -- Batterie-Verbrauch: 1.0 = Standard, 2.0 = doppelt so schnell
+  ForceReturnOnVehicle = true,    -- Gerät wird automatisch ins Fahrzeug zurückgelegt, wenn man in ein Fahrzeug steigt
+  Keys = { operate = 'E', hide = 'BACK' },   -- E: Maus-Bedienmodus ein/aus · Rücktaste: Gerät ein-/ausblenden (Pfeiltasten + Enter bedienen das Gerät)
+  Anim = { dict = 'amb@code_human_in_bus_passenger_idles@female@tablet@base', clip = 'base', flag = 49 },   -- Haltepose (nil = keine Animation)
+  Props = {},                     -- optional je Geraet: Props = { dlm = { model = 'prop_...', bone = 28422, pos = vec3(0,0,0), rot = vec3(0,0,0) } }
+}
+
 Config.OffsetStep = 0.01              -- Schrittweite des Offset Finders (Meter)
 Config.OffsetStepFast = 0.10          -- SHIFT + Pfeiltaste
 Config.OffsetStepSlow = 0.01          -- STRG + Pfeiltaste
@@ -60,8 +78,9 @@ local function u32(h) return h & 0xFFFFFFFF end
 CBRN.u32 = u32
 CBRN.Points = {}
 for model, entry in pairs(Config.SamplePoints) do
-  local sample, storage
-  if type(entry) == 'table' then sample = entry.sample or entry.storage; storage = entry.storage or entry.sample
+  local sample, storage, device, computer, equipment
+  if type(entry) == 'table' then sample = entry.sample or entry.storage; storage = entry.storage or entry.sample; device = entry.device; computer = entry.computer; equipment = entry.equipment
   else sample = entry; storage = entry end
-  if sample then CBRN.Points[u32(model)] = { sample = sample, storage = storage or sample } end
+  device = (Config.DevicePoints and Config.DevicePoints[model]) or device
+  if sample then CBRN.Points[u32(model)] = { sample = sample, storage = storage or sample, device = device or sample, deviceShared = (device == nil), computer = computer, equipment = equipment } end
 end

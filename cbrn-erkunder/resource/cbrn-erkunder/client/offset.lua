@@ -76,40 +76,49 @@ end
 
 local function fmt(v) return ('vector3(%.3f, %.3f, %.3f)'):format(v.x, v.y, v.z) end
 
-local function report(model, sample, storage)
+local KIND_LABEL = { sample = 'Probenentnahme-Set (sample)', storage = 'Probenablage (storage)', device = 'Messgerätefach (device)', computer = 'Computer (computer)', equipment = 'Ausrüstung (equipment)' }
+local KIND_ORDER = { 'sample', 'storage', 'device', 'computer', 'equipment' }
+
+local function report(model, pts)
   local key = modelName(model)
+  local lines = {}
+  for _, k in ipairs(KIND_ORDER) do if pts[k] then lines[#lines + 1] = ('        %s = %s'):format(k, fmt(pts[k])) end end
   local cfg
-  if storage then
-    cfg = ('Config.SamplePoints = {\n    [%s] = {\n        sample = %s,\n        storage = %s\n    }\n}'):format(key, fmt(sample), fmt(storage))
-  else
-    cfg = ('Config.SamplePoints = {\n    [%s] = %s\n}'):format(key, fmt(sample))
-  end
+  if #lines == 1 and pts.sample then cfg = ('Config.SamplePoints = {\n    [%s] = %s\n}'):format(key, fmt(pts.sample))
+  else cfg = ('Config.SamplePoints = {\n    [%s] = {\n%s\n    }\n}'):format(key, table.concat(lines, ',\n')) end
+  if pts.device and not pts.sample then cfg = ('Config.DevicePoints = {\n    [%s] = %s\n}'):format(key, fmt(pts.device)) end
   print('^2[cbrn] OFFSET GESPEICHERT^7\n' .. cfg)
   lib.setClipboard(cfg)
   TriggerServerEvent('cbrn:offset:report', cfg)
   lib.alertDialog({ header = 'OFFSET GESPEICHERT', centered = true, size = 'lg',
-    content = ('**X:** %.3f  **Y:** %.3f  **Z:** %.3f\n\n**Code:**\n\n`%s`\n\n**Konfiguration:**\n\n```\n%s\n```\n\nIn die Zwischenablage kopiert und in der Server-Konsole ausgegeben.'):format(sample.x, sample.y, sample.z, fmt(sample), cfg) })
+    content = ('**Konfiguration** (in sample_config.lua eintragen):\n\n```\n%s\n```\n\nIn die Zwischenablage kopiert und in der Server-Konsole ausgegeben.'):format(cfg) })
 end
 
 local function startFinder()
   if running then return end
   local veh = pickVehicle()
   if not veh then return notify('error', 'Kein Fahrzeug in der Nähe. Setze dich in das Fahrzeug oder stelle dich daneben.') end
+  local opts = {}
+  for _, k in ipairs(KIND_ORDER) do opts[#opts + 1] = { value = k, label = KIND_LABEL[k] } end
+  local dlg = lib.inputDialog('Welche Punkte festlegen?', { { type = 'multi-select', label = 'Punktarten (nacheinander)', options = opts, default = { 'sample' }, required = true } })
+  if not dlg or not dlg[1] or #dlg[1] == 0 then return end
+  local chosen = {}
+  for _, k in ipairs(KIND_ORDER) do for _, v in ipairs(dlg[1]) do if v == k then chosen[#chosen + 1] = k end end end
   running = true
   local model = GetEntityModel(veh)
   FreezeEntityPosition(veh, true)
   local mn, mx = GetModelDimensions(model)
-  local start = vector3((mn.x + mx.x) / 2.0, (mn.y + mx.y) / 2.0, (mn.z + mx.z) / 2.0) -- ungefähr Fahrzeugmitte
-  local sample = runFinder(veh, 'CBRN OFFSET FINDER', start)
-  local storage
-  if sample then
-    local c = lib.alertDialog({ header = 'Separaten Ablagepunkt festlegen?', content = 'Standardmäßig gilt der Entnahmepunkt auch als Ablagepunkt.\n\nSoll jetzt ein getrennter Ablagepunkt gesetzt werden?', centered = true, cancel = true })
-    if c == 'confirm' then storage = runFinder(veh, 'ABLAGEPUNKT', sample) end
+  local cur = vector3((mn.x + mx.x) / 2.0, (mn.y + mx.y) / 2.0, (mn.z + mx.z) / 2.0) -- ungefähr Fahrzeugmitte
+  local pts, aborted = {}, false
+  for _, kind in ipairs(chosen) do
+    local p = runFinder(veh, 'OFFSET: ' .. KIND_LABEL[kind], pts[kind] or cur)
+    if not p then aborted = true; break end
+    pts[kind] = p; cur = p
   end
   FreezeEntityPosition(veh, false)
   CBRN.hud({ mode = 'off' }); CBRN.refreshHud(true)
   running = false
-  if sample then report(model, sample, storage) else notify('inform', 'Offset Finder abgebrochen.') end
+  if not aborted and next(pts) then report(model, pts) else notify('inform', 'Offset Finder abgebrochen.') end
 end
 
 RegisterNetEvent('cbrn:admin:grant', function(action) if action == 'offset' then CreateThread(startFinder) end end)

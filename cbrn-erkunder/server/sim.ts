@@ -12,9 +12,9 @@ export const bus = new EventEmitter();
 export const emit = (type: string, payload: any) => bus.emit('event', { type, payload, ts: now() });
 
 export const BG = { dose: 0.09, o2: 20.9, co: 0.5, pid: 0.1, cps: 1.2 };
-const PID_LAMP_EV = 10.6;
-const rnd = (a = 1) => (Math.random() - 0.5) * 2 * a;
-const gauss = () => (Math.random() + Math.random() + Math.random() + Math.random() - 2) / 0.58;
+export const PID_LAMP_EV = 10.6;
+export const rnd = (a = 1) => (Math.random() - 0.5) * 2 * a;
+export const gauss = () => (Math.random() + Math.random() + Math.random() + Math.random() - 2) / 0.58;
 
 // ---- Test-Route (nur mit DEV_DRIVE=1): liegende Acht um das Einsatzzentrum
 const ROUTE = Array.from({ length: 480 }, (_, i) => { const t = (i / 480) * Math.PI * 2; return { x: 750 * Math.sin(t), y: 480 * Math.sin(2 * t) }; });
@@ -92,7 +92,7 @@ export function truthAt(x: number, y: number) {
 }
 
 const PID_GROUPS_AROM = ['Aromatische Kohlenwasserstoffe', 'Lösemittel', 'VOC-Gemische'];
-function pidGroups(sub: any) {
+export function pidGroups(sub: any) {
   if (!sub) return ['Flüchtige organische Verbindungen (VOC)'];
   const g = (sub.substance_group ?? '').toLowerCase();
   if (g.includes('aromat')) return PID_GROUPS_AROM;
