@@ -27,7 +27,7 @@ function routePos(s: number) {
 }
 
 // ---- Laufzeitzustand
-export interface Run { id: string; vehicle_id: string; name: string; started_at: string; started_by: string; dist: number; points: number; maxDose: number; maxPid: number; source: string; mission_id: string | null }
+export interface Run { id: string; vehicle_id: string; name: string; started_at: string; started_by: string; dist: number; points: number; maxDose: number; maxPid: number; source: string; mission_id: string | null; start: { lat: number; lon: number } | null }
 export const state = {
   drive: process.env.DEV_DRIVE === '1', s: 0, s2: 0, speed: 12, seen: {} as Record<string, number>, // m/s
   weather: { temperature: 11.4, humidity: 78, pressure: 1014, wind_speed: 3.4, wind_from: 315, cloud_okta: 5, precipitation: 0 },
@@ -41,11 +41,13 @@ export const state = {
 export const fivemConnected = (id?: string) => (id ? Date.now() - (state.seen[id] ?? 0) < 10000 : Object.values(state.seen).some((t) => Date.now() - t < 10000));
 
 // ---- Szenario & Ausbreitung
+export const activeIncident = () => list('incidents', "WHERE status = 'AKTIV' ORDER BY created_at DESC LIMIT 1")[0] ?? null;
+// Die Simulation rechnet mit dem verdeckten Wahrheitsstoff des aktiven Einsatzes (Quelle = Einsatzstelle).
 export function activeScenario() {
-  const sc = get('scenarios', getSetting('active_scenario', 'sc-chlor'));
-  if (!sc) return null;
-  const ref = sc.ref_type === 'substance' ? get('substances', sc.ref_id) : sc.ref_type === 'radionuclide' ? get('radionuclides', sc.ref_id) : get('biological_agents', sc.ref_id);
-  return { sc, ref, src: getSetting('source_offset', { x: 160, y: 90 }) as { x: number; y: number } };
+  const inc = activeIncident(); if (!inc) return null;
+  const ref = inc.ref_type === 'substance' ? get('substances', inc.ref_id) : inc.ref_type === 'radionuclide' ? get('radionuclides', inc.ref_id) : get('biological_agents', inc.ref_id);
+  const sc = { id: inc.id, name: inc.name, category: inc.ref_type === 'radionuclide' ? 'R' : inc.ref_type === 'biological' ? 'B' : 'C', display: inc.category, ref_type: inc.ref_type, ref_id: inc.ref_id, radius_m: inc.radius_m, peak: inc.peak };
+  return { sc, ref, src: llToOffset(inc.lat, inc.lon) as { x: number; y: number } };
 }
 function concAt(x: number, y: number, A: NonNullable<ReturnType<typeof activeScenario>>, windFrom: number, t: number) {
   const { sc, src } = A; const th = ((windFrom + 180) % 360) * (Math.PI / 180); // Wind kommt AUS windFrom, Fahne zieht nach windFrom+180
@@ -155,7 +157,7 @@ const LEVEL_TXT: Record<string, string> = { hinweis: 'Hinweis', verdacht: 'Verda
 export const levelText = (l: string | null) => (l ? LEVEL_TXT[l] : '–');
 
 function evaluateAndStore(v: any, pos: { lat: number; lon: number }, r: ReturnType<typeof readingsAt>, mission: any, forceRoutine: boolean) {
-  const base = { lat: pos.lat, lon: pos.lon, vehicle_id: v.id, mission_id: mission?.id ?? null, run_id: state.runs[v.id]?.id ?? null };
+  const base = { lat: pos.lat, lon: pos.lon, vehicle_id: v.id, mission_id: mission?.id ?? null, run_id: state.runs[v.id]?.id ?? null, incident_id: activeIncident()?.id ?? null };
   const rows: any[] = [];
   const throttle = state.tick % 3 === 0;
   // PID
@@ -179,7 +181,7 @@ function evaluateAndStore(v: any, pos: { lat: number; lon: number }, r: ReturnTy
     }
     if (m.device === 'MGMG' && m.status === 'ALARM') createAlarm({ source: 'MGMG', category: 'CHEMISCH', description: 'MGMG: Alarmschwelle überschritten (Schwelle, Simulation)', lat: m.lat, lon: m.lon, vehicle_id: v.id, measurement_id: m.id }, `${v.id}-mgmg`);
     if (m.device === 'DLM' && m.status === 'ALARM') createAlarm({ source: 'DLM', category: activeScenario()?.sc.category === 'N' ? 'NUKLEAR' : 'RADIOLOGISCH', description: `Dosisleistung ${m.value} µSv/h (Schwelle 1 µSv/h, Simulation)`, lat: m.lat, lon: m.lon, vehicle_id: v.id, measurement_id: m.id }, `${v.id}-dlm`);
-    if (m.device === 'PID' && m.status === 'HOCH') createAlarm({ source: 'PID', category: activeScenario()?.sc.category === 'U' ? 'UNBEKANNT' : 'CHEMISCH', description: `PID-Screening HOCH (${m.value} ppm)`, lat: m.lat, lon: m.lon, vehicle_id: v.id, measurement_id: m.id }, `${v.id}-pid`);
+    if (m.device === 'PID' && m.status === 'HOCH') createAlarm({ source: 'PID', category: activeScenario()?.sc.display === 'U' ? 'UNBEKANNT' : 'CHEMISCH', description: `PID-Screening HOCH (${m.value} ppm)`, lat: m.lat, lon: m.lon, vehicle_id: v.id, measurement_id: m.id }, `${v.id}-pid`);
   }
 }
 
@@ -220,19 +222,24 @@ export function ingestFivem(d: FivemIn) {
 }
 
 // ---- Messfahrt (Run) – je Fahrzeug eine
-export function runInfo(vehicleId: string) { const R = state.runs[vehicleId]; return R ? { id: R.id, name: R.name, vehicle_id: R.vehicle_id, started_at: R.started_at, distance_m: Math.round(R.dist), points: R.points, source: R.source, max_dose: R.maxDose, max_pid: R.maxPid } : null; }
+export function runInfo(vehicleId: string) { const R = state.runs[vehicleId]; return R ? { id: R.id, name: R.name, vehicle_id: R.vehicle_id, started_at: R.started_at, distance_m: Math.round(R.dist), points: R.points, source: R.source, max_dose: R.maxDose, max_pid: R.maxPid, start: R.start } : null; }
 function saveRun(R: Run) {
   const pts = (db.prepare('SELECT COUNT(*) c FROM measurements WHERE run_id = ?').get(R.id) as any).c; R.points = pts;
   update('runs', R.id, { distance_m: Math.round(R.dist), points: pts, max_dose: R.maxDose, max_pid: R.maxPid });
 }
-export function startRun(userLabel: string, vehicleId: string, name?: string) {
+export function startRun(userLabel: string, vehicleId: string, name?: string, start?: { lat: number; lon: number }) {
   if (state.runs[vehicleId]) return { error: 'Auf diesem Fahrzeug läuft bereits eine Messfahrt' };
+  const inc = activeIncident(); if (!inc) return { error: 'Kein aktiver Einsatz – bitte zuerst einen Einsatz anlegen' };
+  if (!start || !Number.isFinite(start.lat) || !Number.isFinite(start.lon)) return { error: 'Startposition fehlt – bitte den Standort auf der Karte markieren' };
+  // Ohne FiveM-Verbindung gilt die markierte Position als Fahrzeugposition; mit FiveM kommt alles Weitere laufend aus GTA.
+  if (!fivemConnected(vehicleId)) { update('vehicles', vehicleId, { lat: start.lat, lon: start.lon, speed: 0 }); emit('vehicle.position', get('vehicles', vehicleId)); }
   const n = ((db.prepare('SELECT COUNT(*) c FROM runs').get() as any).c ?? 0) + 1;
   const mission = list('missions', "WHERE vehicle_id = ? AND status = 'IN BEARBEITUNG' LIMIT 1", [vehicleId])[0];
-  const R: Run = { id: 'MF-' + String(n).padStart(4, '0'), vehicle_id: vehicleId, name: name || `Messfahrt ${n}`, started_at: now(), started_by: userLabel, dist: 0, points: 0, maxDose: 0, maxPid: 0, source: fivemConnected(vehicleId) ? 'FIVEM' : 'OFFLINE', mission_id: mission?.id ?? null };
+  const R: Run = { id: 'MF-' + String(n).padStart(4, '0'), vehicle_id: vehicleId, name: name || `Messfahrt ${n}`, started_at: now(), started_by: userLabel, dist: 0, points: 0, maxDose: 0, maxPid: 0, source: fivemConnected(vehicleId) ? "FIVEM" : "MANUELL", mission_id: mission?.id ?? null, start };
   state.runs[vehicleId] = R; (state.track[vehicleId] ??= { len: 0, last: null }).last = null;
-  insert('runs', { id: R.id, vehicle_id: R.vehicle_id, name: R.name, started_at: R.started_at, started_by: userLabel, distance_m: 0, points: 0, source: R.source, mission_id: R.mission_id });
-  audit(userLabel, 'start', 'run', R.id, { source: R.source, vehicle: vehicleId }); emit('run.started', runInfo(vehicleId)); return { run: runInfo(vehicleId) };
+  insert('runs', { id: R.id, vehicle_id: R.vehicle_id, name: R.name, started_at: R.started_at, started_by: userLabel, distance_m: 0, points: 0, source: R.source, mission_id: R.mission_id, start_lat: start.lat, start_lon: start.lon, incident_id: inc.id });
+  const dev = fivemConnected(vehicleId) ? Math.round(distM(start, { lat: get('vehicles', vehicleId)!.lat, lon: get('vehicles', vehicleId)!.lon })) : 0;
+  audit(userLabel, 'start', 'run', R.id, { source: R.source, vehicle: vehicleId, start, deviation_m: dev }); emit('run.started', runInfo(vehicleId)); return { run: runInfo(vehicleId), deviation_m: dev };
 }
 export function stopRun(userLabel: string, vehicleId: string) {
   const R = state.runs[vehicleId]; if (!R) return { error: 'Auf diesem Fahrzeug läuft keine Messfahrt' };
@@ -258,7 +265,7 @@ export function systemStatus() {
   const vehicles: Record<string, { connected: boolean; info: any }> = {};
   for (const v of list('vehicles')) vehicles[v.id] = { connected: fivemConnected(v.id), info: state.info[v.id] ?? null };
   const any = fivemConnected(); const first = Object.values(vehicles).find((x) => x.connected);
-  return { web: 'ONLINE', database: 'ONLINE', api: 'ONLINE', websocket: 'ONLINE', fivem: any ? 'CONNECTED' : 'NOT CONNECTED', data_source: any ? 'FIVEM (Position real, Messwerte simuliert)' : 'WARTET AUF FIVEM', fivem_info: first?.info ?? null, vehicles, scenario: getSetting('active_scenario', 'sc-chlor') };
+  return { web: 'ONLINE', database: 'ONLINE', api: 'ONLINE', websocket: 'ONLINE', fivem: any ? 'CONNECTED' : 'NOT CONNECTED', data_source: any ? 'FIVEM (Position real, Messwerte simuliert)' : 'WARTET AUF FIVEM', fivem_info: first?.info ?? null, vehicles, incident: activeIncident()?.id ?? null };
 }
 
 // ---- Haupttick

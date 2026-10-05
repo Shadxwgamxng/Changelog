@@ -3,7 +3,7 @@ import { substances as subs1 } from './data/substances.js';
 import { substances2 } from './data/substances2.js';
 import { deriveTraits, buildResponse, radResponse, bioResponse } from './data/derive.js';
 import { radionuclides, bioAgents } from './data/nuclides.js';
-import { sources, devices, methods, tubes, vehicles, scenarios } from './data/misc.js';
+import { sources, devices, methods, tubes, vehicles } from './data/misc.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { offsetToLL } from './geo.js';
@@ -44,7 +44,6 @@ export function syncReference() {
     for (const d of devices) insert('measurement_devices', d, true);
     for (const m of methods) insert('measurement_methods', m, true);
     for (const t of tubes) insert('test_tubes', t, true);
-    for (const sc of scenarios) insert('scenarios', sc, true);
   });
   tx();
   setSetting('ref_version', REF_VERSION);
@@ -64,7 +63,6 @@ export function seedIfEmpty() {
   syncReference();
   const tx = db.transaction(() => {
     for (const v of vehicles) insert('vehicles', { ...v, ...offsetToLL(0, 0) }); // Start am Einsatzzentrum; Position kommt ab dann aus GTA
-    setSetting('active_scenario', 'sc-chlor'); setSetting('source_offset', { x: 160, y: 90 });
     setSetting('mgmg_channels', ['O2', 'CO', 'H2S', 'LEL', 'CH4']); setSetting('fivem_origin', { x: 0, y: 0, scale: 1 });
   });
   tx();

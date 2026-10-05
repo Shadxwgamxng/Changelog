@@ -11,4 +11,4 @@ server_script 'server.lua'
 client_script 'client.lua'
 
 ui_page 'web/index.html'
-files { 'web/index.html' }
+files { 'web/index.html', 'web/monitor.png' }

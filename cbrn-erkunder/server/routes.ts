@@ -1,16 +1,17 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { db, get, list, insert, update, remove, audit, now, getSetting, setSetting, TABLES, columns } from './db.js';
-import { state, emit, fivemConnected, systemStatus, weatherNow, ingestFivem, spectrumAt, currentSnapshotAt, completeLab, mgmgChannels, routeLL, levelText, startRun, stopRun, runInfo } from './sim.js';
+import { state, emit, fivemConnected, systemStatus, weatherNow, ingestFivem, spectrumAt, currentSnapshotAt, completeLab, mgmgChannels, activeIncident, routeLL, levelText, startRun, stopRun, runInfo } from './sim.js';
 import { analyze } from './analysis.js';
 import { ORIGIN_LABEL } from './data/derive.js';
 import { SECTORS, sectorPolygon, llToOffset, compass, CENTER, MODE } from './geo.js';
 import { config } from './config.js';
 import { buildReport, reportCsv, reportPdf } from './report.js';
 import { validateImport } from './import.js';
+import { createIncident, endIncident, publicIncident } from './incident.js';
 import { authUser, createSession, crewOf, endSession, getSession, touch, purgeSessions } from './auth.js';
 
 const LEVEL: Record<string, number> = { erkunder: 1, truppfuehrer: 2, messleitung: 3, admin: 4 };
-const ADMIN_TABLES = ['substances', 'radionuclides', 'biological_agents', 'measurement_devices', 'measurement_methods', 'sources', 'scenarios', 'test_tubes', 'vehicles'];
+const ADMIN_TABLES = ['substances', 'radionuclides', 'biological_agents', 'measurement_devices', 'measurement_methods', 'sources', 'test_tubes', 'vehicles'];
 const FUNKTIONEN = ['Fahrzeugführer', 'Truppführer', 'Messtrupp', 'Melder', 'Messleitung (MLK)', 'Einsatzleiter'];
 const PUBLIC = [/^\/api\/meta$/, /^\/api\/auth\/(vehicles|login)$/, /^\/api\/adapter\//];
 
@@ -55,11 +56,6 @@ export function registerRoutes(app: FastifyInstance) {
 
   // ---------- System
   app.get('/api/system/status', async () => ({ ...systemStatus(), drive: state.drive, fivem_origin: getSetting('fivem_origin'), gta_offset: getSetting('gta_offset', { dx: 0, dy: 0 }), mgmg_channels: mgmgChannels(), now: now(), uptime_s: Math.round(process.uptime()) }));
-  app.post('/api/system/scenario', async (req) => {
-    const u = need(req, 3); const b = req.body as any; const sc = get('scenarios', b.id); if (!sc) throw nf('Szenario');
-    setSetting('active_scenario', sc.id); if (b.source_offset) setSetting('source_offset', b.source_offset);
-    audit(u.id, 'activate', 'scenario', sc.id); emit('system.status', systemStatus()); return systemStatus();
-  });
   app.post('/api/system/config', async (req) => {
     const u = need(req, 4); const b = req.body as any;
     if (b.mgmg_channels) setSetting('mgmg_channels', b.mgmg_channels);
@@ -110,8 +106,11 @@ export function registerRoutes(app: FastifyInstance) {
   app.get('/api/crew', async (req) => crewOf(q(req).vehicle));
   app.get('/api/live', async () => ({ vehicles: state.live, weather: weatherNow(), status: systemStatus() }));
   app.get('/api/live/spectrum', async (req) => { const v = get('vehicles', q(req).vehicle ?? user(req).vehicle_id); if (!v) throw nf('Fahrzeug'); const { x, y } = llToOffset(v.lat, v.lon); return { ...spectrumAt(x, y), label: 'SIMULIERTE AUSWERTUNG', data_source: 'SIMULATED' }; });
-  app.get('/api/scenarios', async () => list('scenarios'));
-  app.get('/api/scenario/active', async () => { const id = getSetting('active_scenario'); const sc = get('scenarios', id); return { ...sc, source_offset: getSetting('source_offset') }; });
+  // ---------- Einsatz
+  app.get('/api/incident', async () => publicIncident(activeIncident()));
+  app.get('/api/incidents', async () => list('incidents', '', [], 'ORDER BY created_at DESC').map(publicIncident));
+  app.post('/api/incidents', async (req, rep) => { const u = need(req); const r = createIncident(u.id, req.body ?? {}); if ((r as any).error) throw Object.assign(new Error((r as any).error), { statusCode: 400 }); rep.code(201); return r; });
+  app.post('/api/incidents/:id/end', async (req) => { const u = need(req); const r = endIncident(u.id, (req.params as any).id); if ((r as any).error) throw Object.assign(new Error((r as any).error), { statusCode: 409 }); return r; });
   app.get('/api/track', async (req) => {
     const p = q(req); const vid = p.vehicle ?? user(req).vehicle_id; const run = p.run ?? state.runs[vid]?.id;
     const rows = (run ? db.prepare("SELECT lat,lon,ts FROM measurements WHERE run_id = ? ORDER BY seq DESC LIMIT 1500").all(run) : db.prepare("SELECT lat,lon,ts FROM measurements WHERE vehicle_id = ? ORDER BY seq DESC LIMIT 400").all(vid)) as any[];
@@ -121,7 +120,7 @@ export function registerRoutes(app: FastifyInstance) {
   // ---------- Messfahrten
   app.get('/api/runs', async () => list('runs', '', [], 'ORDER BY started_at DESC LIMIT 100').map((r: any) => (state.runs[r.vehicle_id]?.id === r.id ? { ...r, distance_m: Math.round(state.runs[r.vehicle_id].dist), active: true } : r)));
   app.get('/api/runs/active', async (req) => ({ run: runInfo(user(req).vehicle_id) }));
-  app.post('/api/runs/start', async (req, rep) => { const u = need(req, 1); const r = startRun(u.id, u.vehicle_id, (req.body as any)?.name); if ((r as any).error) throw Object.assign(new Error((r as any).error), { statusCode: 409 }); rep.code(201); return r; });
+  app.post('/api/runs/start', async (req, rep) => { const u = need(req, 1); const b = (req.body ?? {}) as any; const r = startRun(u.id, u.vehicle_id, b.name, b.lat != null ? { lat: Number(b.lat), lon: Number(b.lon) } : undefined); if ((r as any).error) throw Object.assign(new Error((r as any).error), { statusCode: 409 }); rep.code(201); return r; });
   app.post('/api/runs/stop', async (req) => { const u = need(req, 1); const r = stopRun(u.id, u.vehicle_id); if ((r as any).error) throw Object.assign(new Error((r as any).error), { statusCode: 409 }); return r; });
 
   // ---------- Probenanalyse (Entscheidungshilfe)
@@ -196,7 +195,7 @@ export function registerRoutes(app: FastifyInstance) {
     const readings = { PID: `${snap.r.pid.value} ppm`, Dosisleistung: `${snap.r.dose.value} µSv/h`, IMS: snap.r.ims.result, pH: b.ph ?? 'NICHT GEMESSEN', ...(b.readings ?? {}) };
     const row = { id, ts: now(), lat: v.lat, lon: v.lon, kind, description: b.description ?? '', color: b.color ?? null, consistency: b.consistency ?? null, odor: b.odor ?? null, turbidity: b.turbidity ?? null,
       readings, weather: wx, location: b.location ?? null, taken_by: b.taken_by ?? u.id, mission_id: mission?.id ?? b.mission_id ?? null, vehicle_id: v.id, transport_status: 'ENTNOMMEN', lab_status: 'AUSSTEHEND',
-      onsite_assessment: snap.r.ims.level ? levelText(snap.r.ims.level).toUpperCase() : 'UNBEKANNT', lab_result: null, truth_ref: snap.truth ?? (kind === 'BIOLOGISCH' && getSetting('active_scenario') === 'sc-bio' ? { type: 'biological', id: 'b-anthracis' } : null), updated_at: now() };
+      onsite_assessment: snap.r.ims.level ? levelText(snap.r.ims.level).toUpperCase() : 'UNBEKANNT', lab_result: null, truth_ref: snap.truth ?? (kind === 'BIOLOGISCH' && activeIncident()?.ref_type === 'biological' ? { type: 'biological', id: activeIncident().ref_id } : null), updated_at: now() };
     insert('samples', row); db.prepare('INSERT INTO sample_events(sample_id,ts,status,note,by_user) VALUES(?,?,?,?,?)').run(id, now(), 'ENTNOMMEN', null, u.id);
     audit(u.id, 'create', 'sample', id); emit('sample.created', sampleFull(id)); rep.code(201); return sampleFull(id);
   });

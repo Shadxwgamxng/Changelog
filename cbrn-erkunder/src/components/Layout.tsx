@@ -37,7 +37,7 @@ function Search() {
 }
 
 export default function Layout() {
-  const { status, meta, session, logout, ownVehicle, toasts, dismissToast, wsUp, live, own } = useLive();
+  const { status, meta, session, logout, ownVehicle, toasts, dismissToast, wsUp, live, own, incident } = useLive();
   const nav = useNavigate(); const [clock, setClock] = useState(new Date()); const v = ownVehicle;
   const [collapsed, setCollapsed] = useState(() => { try { return localStorage.getItem('cbrn.collapsed') === '1'; } catch { return false; } });
   useEffect(() => { document.documentElement.classList.toggle('is-collapsed', collapsed); try { localStorage.setItem('cbrn.collapsed', collapsed ? '1' : '0'); } catch { /* ignore */ } }, [collapsed]);
@@ -47,18 +47,19 @@ export default function Layout() {
     <div className="shell">
       <header className="topbar no-print">
         <button className="icon-btn" onClick={() => setCollapsed((c) => !c)} title="Navigation ein-/ausklappen"><PanelLeft size={18} /></button>
-        <button className="flex items-center gap-2.5" onClick={() => nav('/')}><Logo size={26} /><span className="font-semibold text-[14px] tracking-tight">CBRN Erkunder</span></button>
+        <button className="flex items-center gap-2.5" onClick={() => nav('/')}><Logo size={26} /><span className="font-semibold text-[14px] tracking-tight whitespace-nowrap">CBRN Erkunder</span></button>
         <div className="flex items-center gap-1.5 ml-2">
           <Badge color="#58a6ff">{session?.vehicle_name ?? v?.name}</Badge>
           <Badge color={fivem ? '#3fb950' : '#e5534b'}>{fivem ? 'FIVEM VERBUNDEN' : 'FIVEM GETRENNT'}</Badge>
           <Badge color="#f0500a">SIMULATION</Badge>
+          {incident && <button title="Einsatz beenden" onClick={async () => { if (confirm(`Einsatz ${incident.id} „${incident.name}“ beenden? Laufende Messfahrten werden beendet.`)) await api(`/incidents/${incident.id}/end`, { method: 'POST', body: {} }); }}><span className="inline-block max-w-[220px] truncate align-middle"><Badge color="#d29922">{incident.id} · {incident.name} ✕</Badge></span></button>}
           {run && <Badge color="#e5534b" solid>● MESSFAHRT</Badge>}
           {fivem && gt && <Badge color="#58a6ff">SPIELZEIT {gt}</Badge>}
         </div>
         <div className="flex-1" />
         <Search />
         <div className="flex items-center gap-2 pl-3 border-l border-line">
-          <div className="text-right leading-tight"><div className="text-[12.5px] font-medium">{session?.name}</div><div className="text-[11px] text-dim">{session?.funktion}</div></div>
+          <div className="text-right leading-tight whitespace-nowrap"><div className="text-[12.5px] font-medium">{session?.name}</div><div className="text-[11px] text-dim">{session?.funktion}</div></div>
           <button className="icon-btn" title="Abmelden / Fahrzeug wechseln" onClick={() => logout()}><LogOut size={16} /></button>
         </div>
         <div className="font-mono text-[12.5px] text-dim w-[66px] text-right">{clock.toLocaleTimeString('de-DE')}</div>

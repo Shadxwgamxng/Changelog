@@ -19,7 +19,7 @@ const statusColor = ['match', ['get', 'status'], 'ALARM', '#e5534b', 'HOCH', '#e
 export function MapView({ layers, onSelect, follow = true, grid = true, showVehicleLabels = true }: { layers: Layers; onSelect?: (s: { type: string; id: string }) => void; follow?: boolean; grid?: boolean; showVehicleLabels?: boolean }) {
   const el = useRef<HTMLDivElement>(null); const mapRef = useRef<maplibregl.Map | null>(null); const ready = useRef(false);
   const marker = useRef<maplibregl.Marker | null>(null); const markerEl = useRef<HTMLDivElement | null>(null);
-  const { meta, vehicles, weather, own } = useLive();
+  const { meta, vehicles, weather, own, incident } = useLive(); const incMk = useRef<maplibregl.Marker | null>(null);
   const meas = useApi<any[]>('/measurements?limit=500', ['measurement.created', 'poll']);
   const samples = useApi<any[]>('/samples', ['sample.created', 'sample.updated']);
   const alarms = useApi<any[]>('/alarms', ['alarm.created']);
@@ -66,7 +66,7 @@ export function MapView({ layers, onSelect, follow = true, grid = true, showVehi
       for (const l of ['points', 'samples', 'others']) { map.on('mouseenter', l, () => (map.getCanvas().style.cursor = 'pointer')); map.on('mouseleave', l, () => (map.getCanvas().style.cursor = '')); }
       ready.current = true; mapRef.current!.fire('cbrn-ready' as any);
     });
-    return () => { map.remove(); mapRef.current = null; ready.current = false; };
+    return () => { map.remove(); mapRef.current = null; ready.current = false; incMk.current = null; marker.current = null; };
   }, [!!meta]); // eslint-disable-line
 
   // Datenupdate
@@ -84,6 +84,10 @@ export function MapView({ layers, onSelect, follow = true, grid = true, showVehi
     set('sectors', fc((meta?.sectors ?? []).map((s: any) => ({ type: 'Feature', properties: { name: s.name, active: act.has(s.key) }, geometry: { type: 'Polygon', coordinates: [s.polygon] } }))));
     set('areas', fc((alarms.data ?? []).filter((a) => a.status === 'OFFEN' && ['CHEMISCH', 'RADIOLOGISCH', 'NUKLEAR', 'BIOLOGISCH', 'UNBEKANNT'].includes(a.category)).map((a) => ({ type: 'Feature', properties: { color: (CAT[a.category[0]] ?? CAT.U).color }, geometry: circlePoly(a.lon, a.lat, 90) }))));
     set('others', fc(vehicles.filter((v) => v.id !== own && v.link === 'ONLINE').map((v) => ({ type: 'Feature', properties: { id: v.id, color: '#3fb950' }, geometry: { type: 'Point', coordinates: [v.lon, v.lat] } }))));
+    if (incident?.lat != null) {
+      if (!incMk.current) { const d = document.createElement('div'); d.title = 'Einsatzstelle'; d.innerHTML = `<svg width="26" height="26" viewBox="-13 -13 26 26"><path d="M0,-11 L11,9 L-11,9Z" fill="#d29922" stroke="#0b0b0b" stroke-width="1.5"/><text x="0" y="6" text-anchor="middle" font-size="12" font-weight="700" fill="#0b0b0b">!</text></svg>`; incMk.current = new maplibregl.Marker({ element: d }).setLngLat([incident.lon, incident.lat]).addTo(map); }
+      else incMk.current.setLngLat([incident.lon, incident.lat]);
+    } else if (incMk.current) { incMk.current.remove(); incMk.current = null; }
     const v = vehicles.find((x) => x.id === own);
     if (v) {
       if (!marker.current) {

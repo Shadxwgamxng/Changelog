@@ -52,11 +52,11 @@ function Admin() {
       <div className="col-span-9"><textarea className="inp w-full h-[380px] font-mono text-[11px]" value={txt} onChange={(e) => setTxt(e.target.value)} spellCheck={false} /><div className="flex gap-2 mt-2 items-center"><Btn kind="primary" onClick={save} disabled={!txt}>Speichern</Btn><Btn kind="danger" onClick={del} disabled={!sel}>Löschen</Btn><span className="text-dim">{msg}</span></div></div></div></Panel>);
 }
 
-function Scenarios() {
-  const sc = useApi<any[]>('/scenarios'); const { status, can } = useLive(); const act = useApi<any>('/scenario/active', ['system.status'], [status?.scenario]);
-  return (<Panel title="Simulationsszenarien (reale Stoff-/Nuklidreferenzen, simulierte Messereignisse)" body="!p-0"><table className="t"><thead><tr><th>Name</th><th>Kat.</th><th>Referenz</th><th>Gebiet</th><th>Geräte</th><th>Wetter</th><th></th></tr></thead><tbody>
-    {(sc.data ?? []).map((s) => <tr key={s.id}><td><b>{s.name}</b></td><td>{s.category}</td><td className="font-mono">{s.ref_type}:{s.ref_id}</td><td>{s.radius_m} m</td><td>{s.devices.join(', ')}</td><td>{s.weather}</td><td>{act.data?.id === s.id ? <Badge color="#3fb950">AKTIV</Badge> : <Btn disabled={!can(3)} onClick={() => api('/system/scenario', { method: 'POST', body: { id: s.id } })}>Aktivieren</Btn>}</td></tr>)}</tbody></table>
-    <div className="p-2 text-[11px] text-dim">Neue Szenarien: Administration → Szenarien. Das Szenario „Verdächtige biologische Probe“ erzeugt keine Gerätemesswerte; Proben vom Typ BIOLOGISCH liefern ein simuliertes Laborergebnis.</div></Panel>);
+function Incidents() {
+  const inc = useApi<any[]>('/incidents', ['incident.changed']);
+  return (<Panel title="Einsätze" body="!p-0"><table className="t"><thead><tr><th>ID</th><th>Stichwort</th><th>Ort</th><th>Art</th><th>Menge</th><th>Stoff (Simulation)</th><th>Status</th><th>Angelegt von</th></tr></thead><tbody>
+    {(inc.data ?? []).map((e) => <tr key={e.id}><td className="font-mono">{e.id}</td><td><b>{e.name}</b></td><td>{e.location_text ?? NA}</td><td>{e.category_text}</td><td>{e.amount}</td><td>{e.ref_hidden ? <Badge>VERDECKT</Badge> : e.ref_name}</td><td><Badge color={e.status === 'AKTIV' ? '#3fb950' : '#817d78'}>{e.status}</Badge></td><td className="text-dim">{e.created_by}</td></tr>)}</tbody></table>
+    <div className="p-2 text-[11px] text-dim">Der Wahrheitsstoff eines laufenden Einsatzes bleibt verdeckt (außer die Lage meldet ihn als bekannt) und wird nach Einsatzende angezeigt. Neuer Einsatz: Kopfzeile → Einsatz beenden.</div></Panel>);
 }
 
 function Users() {
@@ -79,7 +79,7 @@ function Config() {
 
 export default function System() {
   const [tab, setTab] = useState('status');
-  return (<Page title="System" sub="Status, Quellen, Import, Administration, Szenarien, Benutzer"><Tabs tabs={[['status', 'Status'], ['quellen', 'Quellen'], ['import', 'Import'], ['admin', 'Administration'], ['szenarien', 'Szenarien'], ['benutzer', 'Benutzer'], ['config', 'Konfiguration']]} value={tab} onChange={setTab} />
-    {tab === 'status' && <Status />}{tab === 'quellen' && <Sources />}{tab === 'import' && <Importer />}{tab === 'admin' && <Admin />}{tab === 'szenarien' && <Scenarios />}{tab === 'benutzer' && <Users />}{tab === 'config' && <Config />}</Page>);
+  return (<Page title="System" sub="Status, Quellen, Import, Administration, Einsätze, Anmeldungen"><Tabs tabs={[['status', 'Status'], ['quellen', 'Quellen'], ['import', 'Import'], ['admin', 'Administration'], ['einsaetze', 'Einsätze'], ['benutzer', 'Benutzer'], ['config', 'Konfiguration']]} value={tab} onChange={setTab} />
+    {tab === 'status' && <Status />}{tab === 'quellen' && <Sources />}{tab === 'import' && <Importer />}{tab === 'admin' && <Admin />}{tab === 'einsaetze' && <Incidents />}{tab === 'benutzer' && <Users />}{tab === 'config' && <Config />}</Page>);
 }
 export { NA, QualityBadge };

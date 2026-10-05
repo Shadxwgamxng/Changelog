@@ -8,7 +8,7 @@ import { WeatherCopy } from '../components/WeatherCopy';
 import { num, time, CAT, STATUS_COLOR, fmtPos } from '../lib/format';
 
 export default function Dashboard() {
-  const { status, live, mpCount, hist, weather, meta, own, ownVehicle } = useLive();
+  const { status, live, mpCount, hist, weather, meta, own, ownVehicle, incident } = useLive();
   const v = ownVehicle; const r = live[own];
   const missions = useApi<any[]>('/missions', ['mission.created', 'mission.updated']);
   const samples = useApi<any[]>('/samples', ['sample.created', 'sample.updated']);
@@ -36,6 +36,12 @@ export default function Dashboard() {
           <MapView layers={{ ...DEFAULT_LAYERS, weather: true }} />
         </Panel>
         <div className="col-span-4 flex flex-col gap-3">
+          <Panel title="Einsatz" right={incident && <Badge color="#3fb950">AKTIV</Badge>}>
+            {incident ? (<><div className="text-[14px] font-semibold">{incident.id} · {incident.name}</div>
+              <div className="text-[12px] text-dim">{incident.location_text ?? 'Ort nicht angegeben'} · {incident.category_text} · Menge {incident.amount}</div>
+              {incident.report && <div className="text-[12.5px] mt-2">{incident.report}</div>}
+              <div className="text-[12px] mt-2">Stoff: {incident.ref_hidden ? <Badge>UNBEKANNT / VERDECKT</Badge> : <b>{incident.ref_name}</b>}</div></>) : <div className="text-dim">Kein aktiver Einsatz</div>}
+          </Panel>
           <Panel title="CBRN-Lage">
             {[['C', 'CHEMISCH', L.CHEMISCH], ['R', 'RADIOLOGISCH', L.RADIOLOGISCH], ['B', 'BIOLOGISCH', L.BIOLOGISCH], ['N', 'NUKLEAR', L.NUKLEAR], ['U', 'UNBEKANNT', L.UNBEKANNT]].map(([k, l, n]) => (
               <div key={k as string} className="flex items-center justify-between py-1 border-b border-line/50 last:border-0">

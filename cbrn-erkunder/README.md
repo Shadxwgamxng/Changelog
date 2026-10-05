@@ -15,7 +15,7 @@ npm run dev        # API :3001 + Web :5173 (http://localhost:5173)
 npm run build && npm run start   # alles auf http://localhost:3001
 ```
 
-Die SQLite-Datenbank (`data/cbrn.db`) wird beim ersten Start angelegt und befüllt (`npm run db:reset` setzt zurück). Rollen wechselt man oben rechts (Erkunder / Truppführer / Messleitung / Administrator).
+Die SQLite-Datenbank (`data/cbrn.db`) wird beim ersten Start angelegt und befüllt (`npm run db:reset` setzt zurück).
 
 ## Optik
 
@@ -65,7 +65,7 @@ WebSocket-Events: `vehicle.position`, `vehicle.status`, `measurement.created|upd
 
 1. Backend starten, `FIVEM_TOKEN` setzen.
 2. `fivem-adapter/` als Ressource einbinden, `config.lua` anpassen (Fahrzeugmodelle, API-URL, Token).
-3. `Config.WebUrl` auf die vom Spieler erreichbare Adresse der Web-App setzen; `/cbrn` bzw. Taste F7 öffnet die Web-App als NUI-Fenster (ESC schließt). Die Web-App läuft auf dem Server-Rechner (`start.bat`), die Ressource sendet nur Position, Kurs, Speed und GTA-Wetter. Wind-Richtung ggf. über `Config.WindVectorIsTravelDirection` anpassen.
+3. `Config.WebUrl` auf die vom Spieler erreichbare Adresse der Web-App setzen. In `Config.Models` die Spawnnamen der Fahrzeuge eintragen, in denen der **Computer des CBRN-Erkunders** verfügbar ist. Er lässt sich nur auf den **Beifahrerplätzen** öffnen (nicht vom Fahrer): Hinweis „Drücke E um den Computer des CBRN-Erkunders zu öffnen“, Taste `Config.Control` (Standard E). Es gibt keinen Befehl und keine Tastenbelegung. Die Oberfläche erscheint im Monitor-Rahmen (`web/monitor.png`); ESC schließt. Die Telemetrie (Position, Kurs, Speed, GTA-Wetter) startet, sobald am Computer die Anmeldung erfolgt ist.
 4. Sobald Telemetrie eintrifft, zeigt die Kopfzeile **FIVEM VERBUNDEN**; 10 s ohne Telemetrie → **FIVEM GETRENNT**. Spielkoordinaten werden direkt übernommen.
 
 ## GESTIS-Abgleich
@@ -84,5 +84,10 @@ WebSocket-Events: `vehicle.position`, `vehicle.status`, `measurement.created|upd
 
 Beim Öffnen der Seite wählt man eines von zwei Fahrzeugen (**Florian Falkenwalde 11-71-01** / **Florian Falkenwalde 01-71-01**), gibt Name und Funktion ein und hat danach vollen Zugriff. Messfahrten, Track, Spektrum und Proben gehören zum angemeldeten Fahrzeug.
 
-FiveM: Fahrzeug-IDs sind `FFW-11-71-01` und `FFW-01-71-01`. Im NUI sendet die Web-App nach der Anmeldung `cbrn-vehicle` an den Adapter; die Telemetrie wird dann diesem Fahrzeug zugeordnet (Standard: `Config.Vehicle`). Simulator: `node tools/fivem-sim.mjs http://localhost:3001 dev-token FFW-01-71-01`.
+FiveM: Fahrzeug-IDs sind `FFW-11-71-01` und `FFW-01-71-01`. Die Web-App meldet das bei der Anmeldung per `cbrn-vehicle` an den Adapter; die Telemetrie wird diesem Fahrzeug zugeordnet. Simulator: `node tools/fivem-sim.mjs http://localhost:3001 dev-token FFW-01-71-01`.
 Hinweis: Beim ersten Start mit dieser Version werden alte Betriebsdaten (CBRN-0x) verworfen.
+
+## Einsatz & Messfahrt
+
+- **Einsatz anlegen (Pflicht):** Nach der Anmeldung muss ein Einsatz mit Grunddaten angelegt werden (Stichwort, Ort, Lage, Gefahrenart C/R/B/U, Menge, Einsatzstelle auf der Karte, optional Stoff vorgeben). Daraus rechnet die Simulation die Lage (Ausbreitung nach Wind, Geräteanzeigen, Probenergebnisse). Der Wahrheitsstoff bleibt verdeckt, außer die Lage meldet ihn als bekannt; nach Einsatzende steht er unter System → Einsätze. Beenden: Einsatz-Schaltfläche in der Kopfzeile.
+- **Messfahrt starten:** Der eigene Standort wird auf der Karte markiert. Mit FiveM kommen danach Position, Kurs, Speed und Wetter laufend aus dem Spiel (bei großer Abweichung erscheint ein Hinweis); ohne FiveM gilt der markierte Punkt als Fahrzeugposition.

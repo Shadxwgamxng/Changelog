@@ -7,11 +7,10 @@ import { useApi, useLive } from '../store';
 import { CAT, STATUS_COLOR, time, num } from '../lib/format';
 
 export default function Mlk() {
-  const { vehicles, can, status } = useLive(); const [live, setLive] = useState<Record<string, any>>({});
+  const { vehicles, can, incident } = useLive(); const [live, setLive] = useState<Record<string, any>>({});
   useEffect(() => { const f = () => api('/live').then((d) => setLive(d.vehicles)).catch(() => {}); f(); const t = setInterval(f, 3000); return () => clearInterval(t); }, []);
   const missions = useApi<any[]>('/missions', ['mission.created', 'mission.updated']); const alarms = useApi<any[]>('/alarms', ['alarm.created']); const lage = useApi<any>('/situation', ['alarm.created']);
   const samples = useApi<any[]>('/samples', ['sample.created', 'sample.updated']); const mp = useApi<any[]>('/measurements?anomalies=1&limit=10', ['measurement.created']);
-  const scen = useApi<any[]>('/scenarios'); const active = useApi<any>('/scenario/active', ['system.status'], [status?.scenario]);
   const act = (missions.data ?? []).filter((m) => ['ÜBERMITTELT', 'ANGENOMMEN', 'IN BEARBEITUNG'].includes(m.status)); const L = lage.data ?? {};
   const dis = (st: string) => (st === 'OFFLINE' ? 'OFFLINE' : st);
   return (
@@ -29,10 +28,10 @@ export default function Mlk() {
             {[['C', 'CHEMISCH', L.CHEMISCH], ['R', 'RADIOLOGISCH', L.RADIOLOGISCH], ['B', 'BIOLOGISCH', L.BIOLOGISCH], ['N', 'NUKLEAR', L.NUKLEAR], ['U', 'UNBEKANNT', L.UNBEKANNT]].map(([k, l, n]) => (
               <div key={k as string} className="flex items-center justify-between py-0.5"><span className="flex items-center gap-2"><i className="w-3 h-3 rounded-full inline-block" style={{ background: n ? CAT[k as string].color : '#272727' }} />{l}</span><span className="font-mono">{n ?? 0}</span></div>))}
           </Panel>
-          <Panel title="Szenario (Simulation)">
-            <div className="text-[12px] mb-1">Aktiv: <b>{active.data?.name}</b> <Badge color="#f0500a">SIMULIERT</Badge></div>
-            <Select className="w-full" value={status?.scenario ?? ''} onChange={(id) => api('/system/scenario', { method: 'POST', body: { id } })} options={(scen.data ?? []).map((s) => [s.id, `${s.name} (${s.category})`] as [string, string])} />
-            {!can(3) && <div className="text-dim text-[11px] mt-1">Umschalten: Messleitung/Administrator</div>}
+          <Panel title="Einsatz">
+            {incident ? (<><div className="text-[13px] font-medium">{incident.id} · {incident.name}</div><div className="text-[12px] text-dim">{incident.location_text ?? 'Ort nicht angegeben'} · {incident.category_text} · Menge {incident.amount}</div>
+              {incident.report && <div className="text-[12px] mt-1">{incident.report}</div>}
+              <div className="text-[12px] mt-1">Stoff: {incident.ref_hidden ? <Badge>VERDECKT (Simulation)</Badge> : <b>{incident.ref_name}</b>}</div></>) : <div className="text-dim">Kein aktiver Einsatz</div>}
           </Panel>
         </div>
         <Panel title="Aktive Aufträge" className="col-span-8" body="!p-0"><MissionTable missions={act} reload={missions.reload} /></Panel>

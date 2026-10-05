@@ -1,15 +1,26 @@
--- Sendet Position/Geschwindigkeit/Heading und GTA-Wetter an den Server-Teil.
+-- CBRN-Erkunder: Bordcomputer im Fahrzeug (nur Beifahrerplätze) + Telemetrie an den Server-Teil.
 -- Es werden KEINE Messwerte erzeugt – die bleiben Simulation des Backends.
 local open = false
+local currentVehicle = nil -- Fahrzeug-ID aus der Anmeldung in der Web-App (z. B. FFW-11-71-01)
 local WEATHER = { 'EXTRASUNNY', 'CLEAR', 'CLOUDS', 'SMOG', 'FOGGY', 'OVERCAST', 'RAIN', 'THUNDER', 'CLEARING', 'NEUTRAL', 'SNOW', 'BLIZZARD', 'SNOWLIGHT', 'XMAS', 'HALLOWEEN' }
 local WEATHER_HASH = {}
 for _, w in ipairs(WEATHER) do WEATHER_HASH[GetHashKey(w)] = w end
 
+AddTextEntry('CBRN_PC_PROMPT', Config.PromptText)
+
 local function modelAllowed(veh)
-  if #Config.Models == 0 then return true end
   local m = GetEntityModel(veh)
   for _, name in ipairs(Config.Models) do if m == GetHashKey(name) then return true end end
   return false
+end
+
+-- Fahrzeug, in dem ich auf einem BEIFAHRERPLATZ sitze und das einem konfigurierten Modell entspricht (sonst 0)
+local function passengerVehicle()
+  local ped = PlayerPedId()
+  local veh = GetVehiclePedIsIn(ped, false)
+  if veh == 0 or not modelAllowed(veh) then return 0 end
+  if GetPedInVehicleSeat(veh, -1) == ped then return 0 end -- Fahrer: kein Zugriff
+  return veh
 end
 
 local function windFrom()
@@ -24,23 +35,22 @@ local function weatherPayload()
   return { type = w, wind_speed = GetWindSpeed(), wind_from = windFrom(), hour = GetClockHours(), minute = GetClockMinutes() }
 end
 
+-- Telemetrie: erst nach Anmeldung am Computer (currentVehicle gesetzt) und nur aus einem konfigurierten Fahrzeug
 CreateThread(function()
   local n = 0
   while true do
     n = n + 1
-    local ped = PlayerPedId()
-    local veh = GetVehiclePedIsIn(ped, false)
-    local data = {}
-    if veh ~= 0 and modelAllowed(veh) then
+    local veh = GetVehiclePedIsIn(PlayerPedId(), false)
+    if currentVehicle and veh ~= 0 and modelAllowed(veh) then
+      local data = { vehicle = currentVehicle }
       local c = GetEntityCoords(veh)
       data.x, data.y = c.x, c.y
       data.speed_kmh = GetEntitySpeed(veh) * 3.6
       data.heading = GetEntityHeading(veh)
       data.in_vehicle = true
+      if Config.SendWeather and (n % 3 == 1) then data.weather = weatherPayload() end
+      TriggerServerEvent('cbrn:telemetry', data)
     end
-    if Config.SendWeather and (n % 3 == 1) then data.weather = weatherPayload() end
-    data.vehicle = currentVehicle
-    if data.x or data.weather then TriggerServerEvent('cbrn:telemetry', data) end
     Wait(Config.IntervalMs)
   end
 end)
@@ -51,9 +61,22 @@ local function setOpen(state)
   SendNUIMessage({ type = open and 'open' or 'close', url = Config.WebUrl })
 end
 
-RegisterCommand(Config.Command, function() setOpen(not open) end, false)
-RegisterKeyMapping(Config.Command, 'CBRN-Erkunder öffnen/schließen', 'keyboard', Config.Key)
-local currentVehicle = nil
+-- Hinweis + Öffnen (nur Beifahrer); geöffnet wird mit Config.Control (E)
+CreateThread(function()
+  while true do
+    if not open and passengerVehicle() ~= 0 then
+      BeginTextCommandDisplayHelp('CBRN_PC_PROMPT')
+      EndTextCommandDisplayHelp(0, false, false, -1)
+      if IsControlJustPressed(0, Config.Control) then setOpen(true) end
+      Wait(0)
+    else
+      Wait(open and 400 or 500)
+      -- Computer schließt sich, wenn man aussteigt oder auf den Fahrersitz wechselt
+      if open and passengerVehicle() == 0 then setOpen(false) end
+    end
+  end
+end)
+
 RegisterNUICallback('setVehicle', function(d, cb) currentVehicle = d and d.vehicle or nil; cb('ok') end)
 RegisterNUICallback('close', function(_, cb) setOpen(false); cb('ok') end)
 AddEventHandler('onResourceStop', function(res) if res == GetCurrentResourceName() and open then SetNuiFocus(false, false) end end)

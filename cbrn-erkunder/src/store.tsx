@@ -6,7 +6,7 @@ export interface Session { vehicle_id: string; vehicle_name: string; name: strin
 interface Ctx {
   meta: any; status: any; vehicles: any[]; live: Record<string, any>; weather: any; trackKm: number; mpCount: number;
   wsUp: boolean; rev: Record<string, number>; hist: HistPoint[]; session: Session | null; own: string; ownVehicle: any;
-  login: (vehicle_id: string, name: string, funktion: string) => Promise<void>; logout: () => Promise<void>;
+  incident: any | null; incidentLoaded: boolean; login: (vehicle_id: string, name: string, funktion: string) => Promise<void>; logout: () => Promise<void>;
   /** Nach der Anmeldung voller Zugriff. */ can: (lvl?: number) => boolean; toasts: any[]; dismissToast: (i: number) => void; ready: boolean;
 }
 const C = createContext<Ctx>(null as any);
@@ -31,7 +31,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
   const [vehicles, setVehicles] = useState<any[]>([]); const [live, setLive] = useState<Record<string, any>>({});
   const [weather, setWeather] = useState<any>(null);
   const [wsUp, setWsUp] = useState(false); const [rev, setRev] = useState<Record<string, number>>({}); const [hist, setHist] = useState<HistPoint[]>([]);
-  const [session, setSession] = useState<Session | null>(null); const [ready, setReady] = useState(false); const [toasts, setToasts] = useState<any[]>([]);
+  const [incident, setIncident] = useState<any | null>(null); const [incidentLoaded, setIncidentLoaded] = useState(false); const [session, setSession] = useState<Session | null>(null); const [ready, setReady] = useState(false); const [toasts, setToasts] = useState<any[]>([]);
   const own = session?.vehicle_id ?? '';
   const ownRef = useRef(own); ownRef.current = own;
 
@@ -45,14 +45,14 @@ export function LiveProvider({ children }: { children: ReactNode }) {
   useEffect(() => { const f = () => { setToken(null); setSession(null); }; window.addEventListener('cbrn-auth-lost', f); return () => window.removeEventListener('cbrn-auth-lost', f); }, []);
 
   const applyLive = useCallback((d: any) => { setLive((p) => ({ ...p, ...d.vehicles })); setWeather(d.weather); setStatus((s: any) => ({ ...s, ...d.status })); }, []);
-  const loadAll = useCallback(() => { api('/system/status').then(setStatus).catch(() => {}); api('/vehicles').then(setVehicles).catch(() => {}); api('/live').then(applyLive).catch(() => {}); }, [applyLive]);
+  const loadAll = useCallback(() => { api('/system/status').then(setStatus).catch(() => {}); api('/vehicles').then(setVehicles).catch(() => {}); api('/live').then(applyLive).catch(() => {}); api('/incident').then((i) => { setIncident(i ?? null); setIncidentLoaded(true); }).catch(() => setIncidentLoaded(true)); }, [applyLive]);
   useEffect(() => { if (session) { setHist([]); loadAll(); } }, [session, loadAll]);
 
   // Heartbeat: hält die Besatzungsliste aktuell
   useEffect(() => { if (!session) return; const t = setInterval(() => { api('/auth/me').catch(() => {}); }, 30000); return () => clearInterval(t); }, [session]);
 
   // In FiveM-NUI eingebettet: dem Spiel mitteilen, welches Fahrzeug übernommen werden soll
-  useEffect(() => { if (session && window.parent !== window) window.parent.postMessage({ type: 'cbrn-vehicle', vehicle: session.vehicle_id }, '*'); }, [session]);
+  useEffect(() => { if (window.parent !== window) window.parent.postMessage({ type: 'cbrn-vehicle', vehicle: session?.vehicle_id ?? null }, '*'); }, [session]);
 
   const wsRef = useRef<WebSocket | null>(null);
   useEffect(() => {
@@ -75,6 +75,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
             break;
           }
           case 'vehicle.position': case 'vehicle.status': setVehicles((vs) => vs.map((v) => (v.id === e.payload.id ? e.payload : v))); break;
+          case 'incident.changed': setIncident(e.payload ?? null); setRev((r) => ({ ...r, [e.type]: (r[e.type] ?? 0) + 1 })); break;
           case 'weather.updated': setWeather(e.payload); break;
           case 'alarm.created': setToasts((t) => [...t.slice(-3), e.payload]); setTimeout(() => setToasts((t) => t.slice(1)), 9000); setRev((r) => ({ ...r, [e.type]: (r[e.type] ?? 0) + 1 })); break;
           default: setRev((r) => ({ ...r, [e.type]: (r[e.type] ?? 0) + 1 }));
@@ -86,7 +87,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
   }, [session]);
   // Fallback ohne WebSocket (z. B. NUI ohne WS-Zugriff): Polling
   useEffect(() => {
-    if (wsUp || !session) return; const t = setInterval(() => { api('/live').then(applyLive).catch(() => {}); api('/vehicles').then(setVehicles).catch(() => {}); setRev((r) => ({ ...r, poll: (r.poll ?? 0) + 1, 'measurement.created': (r['measurement.created'] ?? 0) + 1 })); }, 3000);
+    if (wsUp || !session) return; const t = setInterval(() => { api('/live').then(applyLive).catch(() => {}); api('/vehicles').then(setVehicles).catch(() => {}); api('/incident').then((i) => { setIncident(i ?? null); setIncidentLoaded(true); }).catch(() => setIncidentLoaded(true)); setRev((r) => ({ ...r, poll: (r.poll ?? 0) + 1, 'measurement.created': (r['measurement.created'] ?? 0) + 1 })); }, 3000);
     return () => clearInterval(t);
   }, [wsUp, session, applyLive]);
 
@@ -94,13 +95,13 @@ export function LiveProvider({ children }: { children: ReactNode }) {
     const r = await api('/auth/login', { method: 'POST', body: { vehicle_id, name, funktion } });
     setToken(r.token); setSession(r.session);
   }, []);
-  const logout = useCallback(async () => { try { await api('/auth/logout', { method: 'POST' }); } catch { /* ignore */ } setToken(null); setSession(null); setLive({}); setHist([]); }, []);
+  const logout = useCallback(async () => { try { await api('/auth/logout', { method: 'POST' }); } catch { /* ignore */ } setToken(null); setSession(null); setLive({}); setHist([]); setIncident(null); setIncidentLoaded(false); }, []);
 
   const ownLive = live[own];
   const ownVehicle = vehicles.find((v) => v.id === own);
   const ownConnected = !!status?.vehicles?.[own]?.connected;
   const value: Ctx = {
-    meta, vehicles, live, weather, wsUp, rev, hist, session, own, ownVehicle, login, logout, ready,
+    meta, vehicles, live, weather, incident, incidentLoaded, wsUp, rev, hist, session, own, ownVehicle, login, logout, ready,
     status: status && { ...status, websocket: wsUp ? 'ONLINE' : 'OFFLINE', fivem: ownConnected ? 'CONNECTED' : 'NOT CONNECTED', fivem_info: status.vehicles?.[own]?.info ?? null, fivem_any: status.fivem },
     trackKm: ownLive?.track_km ?? 0, mpCount: ownLive?.mp_count ?? 0, can: () => true, toasts, dismissToast: (i) => setToasts((t) => t.filter((_, k) => k !== i)),
   } as Ctx;
