@@ -56,7 +56,7 @@ export function resolveVehicleId(x: number, y: number): string | null {
   return crewed.length === 1 ? crewed[0].id : null;
 }
 
-export interface NewSample { source: string; type: string; description: string; by: string; license: string; pos: { x: number; y: number; z: number }; vehicleId: string; model: string | null; offset: { x: number; y: number; z: number } | null; vehicleNetId?: number | null }
+export interface NewSample { source: string; type: string; description: string; by: string; license: string; pos: { x: number; y: number; z: number }; vehicleId: string | null; model: string | null; offset: { x: number; y: number; z: number } | null; vehicleNetId?: number | null }
 export function createSample(n: NewSample) {
   if (!SAMPLE_TYPES[n.type]) throw err('Ungültige Probenart');
   const source = String(n.source ?? '').trim(); if (source.length < 2 || source.length > 120) throw err('Bitte die Herkunft der Probe angeben (2–120 Zeichen)');
@@ -66,7 +66,7 @@ export function createSample(n: NewSample) {
   insert('samples', { id, ts: now(), lat: ll.lat, lon: ll.lon, kind: SAMPLE_TYPES[n.type].toUpperCase(), sample_type: n.type, description, source_description: source, label: null, info: null,
     collected_by: n.by, collected_license: n.license, taken_by: n.by, collection_pos: n.pos, collection_offset: n.offset, collection_model: n.model, vehicle_id: n.vehicleId, incident_id: inc?.id ?? null,
     status: 'COLLECTED', transport_status: 'ENTNOMMEN', lab_status: 'AUSSTEHEND', container: SC.containerType, truth_ref: truth ? { type: truth.type, id: truth.id, category: truth.category } : null, truth_ratio: truth?.ratio ?? 0, updated_at: now() });
-  logEvent(id, 'ENTNOMMEN', `${SAMPLE_TYPES[n.type]} · Fahrzeug ${n.vehicleId}${inc ? ' · Einsatz ' + inc.id : ' · ohne Einsatz'}`, n.by);
+  logEvent(id, 'ENTNOMMEN', `${SAMPLE_TYPES[n.type]}${n.vehicleId ? ' · Fahrzeug ' + n.vehicleId : ''}${inc ? ' · Einsatz ' + inc.id : ' · ohne Einsatz'}`, n.by);
   logEvent(id, 'HERKUNFT EINGETRAGEN', source, n.by);
   audit(n.by, 'create', 'sample', id, { vehicle: n.vehicleId, incident: inc?.id ?? null });
   emit('sample.created', publicSample(id)); return publicSample(id)!;
@@ -83,9 +83,10 @@ export function labelSample(id: string, label: string, info: string, by: string)
 }
 
 /** Einlagerung im Fahrzeug-Probenlager (nur beschriftete Proben, Kapazität beachten). */
-export function storeSample(id: string, by: string) {
+export function storeSample(id: string, by: string, vehicleId?: string | null) {
   const s = get('samples', id); if (!s) throw err('Probe nicht gefunden', 404);
   if (s.status !== 'TRANSPORT') throw err(s.status === 'COLLECTED' ? 'Die Probe muss zuerst beschriftet werden' : 'Die Probe ist bereits eingelagert');
+  if (!s.vehicle_id) { if (!vehicleId) throw err('Kein angemeldetes CBRN-Fahrzeug erkannt – bitte am Bordcomputer anmelden.'); update('samples', id, { vehicle_id: vehicleId }); s.vehicle_id = vehicleId; }
   if (storedCount(s.vehicle_id) >= SC.maxSamples) throw err('PROBENLAGER VOLL – Es können keine weiteren Proben eingelagert werden.', 409);
   update('samples', id, { status: 'STORED', transport_status: 'EINGELAGERT', stored_at: now(), updated_at: now() });
   logEvent(id, 'EINGELAGERT', `Probenlager ${s.vehicle_id}`, by); audit(by, 'store', 'sample', id);

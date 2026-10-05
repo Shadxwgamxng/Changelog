@@ -29,15 +29,20 @@ local function refreshHud(force)
 end
 CBRN.refreshHud = refreshHud
 
+local function blocked()
+  local ped = PlayerPedId()
+  return IsPedInAnyVehicle(ped, false) or IsEntityDead(ped) or IsPedRagdoll(ped) or IsPedCuffed(ped) or IsPedFalling(ped) or IsPauseMenuActive()
+end
+
 -- ---- Zustand beobachten (nur aktiv, solange Set oder Probe vorhanden – spart Leistung)
 CreateThread(function()
   while true do
     if S.kit or S.phase == 'carrying' then
       local veh = CBRN.nearestVehicle(12.0)
-      S.veh = veh; S.atSample, S.atStorage = false, false
+      S.veh = veh; S.atStorage = false
+      S.atSample = not blocked() -- Probe darf überall entnommen werden (zu Fuß), nur nicht im Fahrzeug
       if veh then
-        local ds, dt = CBRN.distanceTo(veh, 'sample'), CBRN.distanceTo(veh, 'storage')
-        S.atSample = ds ~= nil and ds <= Config.Sample.InteractDistance
+        local dt = CBRN.distanceTo(veh, 'storage')
         S.atStorage = dt ~= nil and dt <= Config.SampleReturnDistance
       end
       refreshHud(false)
@@ -48,11 +53,6 @@ CreateThread(function()
     end
   end
 end)
-
-local function blocked()
-  local ped = PlayerPedId()
-  return IsPedInAnyVehicle(ped, false) or IsEntityDead(ped) or IsPedRagdoll(ped) or IsPedCuffed(ped) or IsPedFalling(ped) or IsPauseMenuActive()
-end
 
 local function playAnim(a)
   local ped = PlayerPedId()
@@ -80,6 +80,7 @@ end
 local function collectionLoop(duration)
   S.phase = 'collecting'; S.cancel = false
   local ped = PlayerPedId()
+  local startPos = GetEntityCoords(ped)
   playAnim(Config.Sample.Anim)
   local t0 = GetGameTimer()
   while true do
@@ -87,10 +88,10 @@ local function collectionLoop(duration)
     if el >= duration then break end
     local pct = math.floor(el / duration * 100)
     hud({ mode = 'progress', title = 'PROBENENTNAHME', text = 'Probe wird entnommen …', pct = pct, cancelKey = KEY_CANCEL })
-    local veh, abort = S.veh, nil
+    local abort
     if S.cancel then abort = 'Probenentnahme abgebrochen.'
     elseif IsEntityDead(ped) or IsPedInAnyVehicle(ped, false) then abort = 'Probenentnahme unterbrochen.'
-    elseif not veh or (CBRN.distanceTo(veh, 'sample') or 99) > Config.Sample.InteractDistance + 0.75 then abort = 'Du hast dich vom Entnahmepunkt entfernt.' end
+    elseif #(GetEntityCoords(ped) - startPos) > 1.5 then abort = 'Du hast dich von der Entnahmestelle entfernt.' end
     if abort then
       stopAnim(); TriggerServerEvent('cbrn:sample:cancelCollection'); S.phase = 'idle'; S.busy = false; refreshHud(true); notify('error', abort); return false
     end
@@ -114,9 +115,9 @@ end
 
 function CBRN.startCollection(confirmed)
   if S.busy then return end
-  if not S.veh or not S.atSample then return notify('error', 'Du befindest dich nicht an einem Probenentnahmepunkt.') end
+  if blocked() then return notify('error', 'Hier kann gerade keine Probe entnommen werden.') end
   S.busy = true
-  TriggerServerEvent('cbrn:sample:startCollection', VehToNet(S.veh), confirmed == true, CBRN.session and CBRN.session.name or nil)
+  TriggerServerEvent('cbrn:sample:startCollection', confirmed == true, CBRN.session and CBRN.session.name or nil)
 end
 
 function CBRN.returnSample()
@@ -144,7 +145,6 @@ lib.addKeybind({ name = 'cbrn_sample_use', description = 'CBRN: Probe entnehmen 
     if S.busy or blocked() then return end
     if S.phase == 'carrying' then return CreateThread(CBRN.returnSample) end -- eigener Thread: enthält Wartezeiten/Animation
     if S.kit and S.phase == 'idle' then
-      if not S.atSample then return notify('inform', 'Stelle dich an den Probenentnahmepunkt am Fahrzeug.') end
       CBRN.startCollection(false)
     end
   end })
@@ -152,7 +152,10 @@ lib.addKeybind({ name = 'cbrn_sample_cancel', description = 'CBRN: Probenentnahm
   onPressed = function()
     if S.phase == 'collecting' then S.cancel = true
     elseif S.phase == 'carrying' then notify('inform', 'Eine entnommene Probe kann nicht abgebrochen werden – lege sie am Fahrzeug ab.')
-    elseif S.kit and not S.busy then TriggerServerEvent('cbrn:sample:returnKit') end
+    elseif S.kit and not S.busy then
+      if S.veh and (CBRN.distanceTo(S.veh, 'sample') or 99) <= Config.Sample.InteractDistance then TriggerServerEvent('cbrn:sample:returnKit', VehToNet(S.veh))
+      else notify('inform', 'Das Probenentnahmeset kann nur am Fahrzeug zurückgegeben werden.') end
+    end
   end })
 
 -- ---- Antworten des Servers

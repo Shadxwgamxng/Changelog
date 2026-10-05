@@ -63,7 +63,7 @@ CreateThread(function()
       onSelect = function(data) CBRN.takeKit(data.entity) end },
     { name = 'cbrn_sample_kit_return', icon = 'fa-solid fa-rotate-left', label = 'Probenentnahmeset zurückgeben', distance = Config.Sample.TargetDistance,
       canInteract = function(entity) return S.kit and S.phase == 'idle' and not S.busy and CBRN.Points[modelOf(entity)] ~= nil and (CBRN.distanceTo(entity, 'sample') or 99) <= Config.Sample.InteractDistance end,
-      onSelect = function() TriggerServerEvent('cbrn:sample:returnKit') end },
+      onSelect = function(data) TriggerServerEvent('cbrn:sample:returnKit', VehToNet(data.entity)) end },
   })
 end)
 

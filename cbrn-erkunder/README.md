@@ -41,7 +41,7 @@ Der Server-Teil ist ein Node-Skript (Standard-Node der FiveM-Laufzeit genügt, Z
 
 ## Probenentnahme-System
 
-Ablauf: **Fahrzeug → Probenentnahmeset nehmen → J am Punkt → Entnahme (Animation, Fortschritt) → Herkunft/Art/Beschreibung → Proben-ID → beschriften → am Punkt ablegen (Status EINGELAGERT) → CBRN-Computer „Proben“ → Analyse starten → Ergebnis, Historie, Stoffdaten.**
+Ablauf: **Am Fahrzeug (Offset-Punkt) Probenentnahmeset nehmen → zum gewünschten Ort gehen → J = Probe dort entnehmen (Animation, Fortschritt) → Herkunft/Art/Beschreibung → Proben-ID → beschriften → Probe zurück zum Fahrzeug bringen und am Punkt abgeben (Status EINGELAGERT) → CBRN-Computer „Proben“ → Analyse starten → Ergebnis, Historie, Stoffdaten.**
 
 **Voraussetzungen:** `ox_lib` (Pflicht), OneSync (Server-Prüfung der Entfernungen). Optional: `ox_target` (sonst Fallback: TextUI + E), `ox_inventory` (Items `sample_collection_kit`, `sample_container` – Einträge in `ox_inventory_items.lua`; ohne Inventar verwaltet das Skript das Set intern).
 
@@ -50,7 +50,7 @@ Ablauf: **Fahrzeug → Probenentnahmeset nehmen → J am Punkt → Entnahme (Ani
 2. Fahrzeugmodell in `Config.Models` eintragen (Standard: `ELWBlaichach`; Computer) und den Entnahmepunkt ermitteln: **`/offset`** im oder neben dem Fahrzeug. Pfeil ↑/↓ = Y (vorne/hinten), ←/→ = X (rechts/links), Bild ↑/↓ = Z, SHIFT = 0.10, STRG = 0.01, ENTER = speichern, Rücktaste = abbrechen. Nach ENTER erscheint die fertige Zeile (`Config.SamplePoints = { [`modell`] = vector3(...) }`), sie liegt in der Zwischenablage und wird in der Server-Konsole ausgegeben. Optional wird ein getrennter Ablagepunkt abgefragt (`{ sample = ..., storage = ... }`).
 3. Zeile in `sample_config.lua` unter `Config.SamplePoints` eintragen, Ressource neu starten. Die Punkte sind immer lokale Fahrzeug-Offsets (keine Weltkoordinaten) und bleiben beim Fahren, Drehen und Neuspawnen korrekt.
 
-**Bedienung:** Set nehmen (ox_target-Option bzw. E), `J` am Punkt = Probe entnehmen, Rücktaste = Entnahme abbrechen bzw. Set zurückgeben (ESC öffnet das Pause-Menü und kann nicht belegt werden). Entnommene Proben gehen nicht verloren (auch nicht bei Reconnect): Status TRANSPORT bleibt in der Datenbank, nach dem Verbinden wird die Probe wieder getragen. Ablage nur am Punkt (`Config.SampleReturnDistance`), Lager voll bei `Config.MaxSamples` je Fahrzeug.
+**Bedienung:** Set am Fahrzeugpunkt nehmen (ox_target-Option bzw. E), danach überall zu Fuß `J` = Probe entnehmen (kein Fahrzeug nötig; Probe wird mit der Position des Entnahmeorts auf der Karte gespeichert), am Fahrzeugpunkt `J` = Probe abgeben, Rücktaste = Entnahme abbrechen bzw. Set am Fahrzeug zurückgeben (ESC öffnet das Pause-Menü und kann nicht belegt werden). Entnommene Proben gehen nicht verloren (auch nicht bei Reconnect): Status TRANSPORT bleibt in der Datenbank, nach dem Verbinden wird die Probe wieder getragen. Ablage nur am Punkt (`Config.SampleReturnDistance`), Lager voll bei `Config.MaxSamples` je Fahrzeug.
 
 **Architektur (Dateien)**
 - `sample_config.lua` – Konfiguration (shared) · `server/bridge.lua` – Lua-Export von Config/Rechten an den JS-Server

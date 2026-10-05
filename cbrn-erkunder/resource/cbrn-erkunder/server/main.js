@@ -5342,7 +5342,7 @@ function createSample(n) {
     truth_ratio: (truth == null ? void 0 : truth.ratio) ?? 0,
     updated_at: now()
   });
-  logEvent(id, "ENTNOMMEN", `${SAMPLE_TYPES[n.type]} \xB7 Fahrzeug ${n.vehicleId}${inc ? " \xB7 Einsatz " + inc.id : " \xB7 ohne Einsatz"}`, n.by);
+  logEvent(id, "ENTNOMMEN", `${SAMPLE_TYPES[n.type]}${n.vehicleId ? " \xB7 Fahrzeug " + n.vehicleId : ""}${inc ? " \xB7 Einsatz " + inc.id : " \xB7 ohne Einsatz"}`, n.by);
   logEvent(id, "HERKUNFT EINGETRAGEN", source2, n.by);
   audit(n.by, "create", "sample", id, { vehicle: n.vehicleId, incident: (inc == null ? void 0 : inc.id) ?? null });
   emit2("sample.created", publicSample(id));
@@ -5361,10 +5361,15 @@ function labelSample(id, label, info, by) {
   emit2("sample.updated", publicSample(id));
   return publicSample(id);
 }
-function storeSample(id, by) {
+function storeSample(id, by, vehicleId) {
   const s = get("samples", id);
   if (!s) throw err("Probe nicht gefunden", 404);
   if (s.status !== "TRANSPORT") throw err(s.status === "COLLECTED" ? "Die Probe muss zuerst beschriftet werden" : "Die Probe ist bereits eingelagert");
+  if (!s.vehicle_id) {
+    if (!vehicleId) throw err("Kein angemeldetes CBRN-Fahrzeug erkannt \u2013 bitte am Bordcomputer anmelden.");
+    update("samples", id, { vehicle_id: vehicleId });
+    s.vehicle_id = vehicleId;
+  }
   if (storedCount(s.vehicle_id) >= SC.maxSamples) throw err("PROBENLAGER VOLL \u2013 Es k\xF6nnen keine weiteren Proben eingelagert werden.", 409);
   update("samples", id, { status: "STORED", transport_status: "EINGELAGERT", stored_at: now(), updated_at: now() });
   logEvent(id, "EINGELAGERT", `Probenlager ${s.vehicle_id}`, by);
@@ -6257,28 +6262,30 @@ function registerSampleEvents() {
     if (inv()) {
       if (!ox().AddItem(src, c.kitItem, 1)) return fail(src, "kit", "Dein Inventar ist voll.");
     } else p.kit = true;
+    p.kitVeh = { vehicleId: resolveVehicleId(chk.world.x, chk.world.y), model: String(chk.model), off: chk.off };
     res(src, "kit", true, { kit: true, msg: "Du hast ein Probenentnahmeset genommen." });
   });
-  onNet("cbrn:sample:returnKit", () => {
+  onNet("cbrn:sample:returnKit", (netId) => {
     const src = source, p = pl(src), c = getCfg();
+    const chk = checkPoint(src, netId, "sample", c.interactDistance);
+    if (typeof chk === "string") return fail(src, "kit", "Das Probenentnahmeset kann nur am Fahrzeug zur\xFCckgegeben werden.");
     if (carryingOf(p) || p.active) return fail(src, "kit", "Lege zuerst die entnommene Probe ab.");
     if (inv()) ox().RemoveItem(src, c.kitItem, 1);
     p.kit = false;
+    delete p.kitVeh;
     res(src, "kit", true, { kit: false, msg: "Probenentnahmeset zur\xFCckgegeben." });
   });
-  onNet("cbrn:sample:startCollection", (netId, confirmedNoIncident, byName) => {
+  onNet("cbrn:sample:startCollection", (confirmedNoIncident, byName) => {
     const src = source, p = pl(src), c = getCfg();
     if (!jobOk(src)) return fail(src, "start", "Du hast keine Berechtigung f\xFCr die Probenentnahme.");
-    if (!hasKit(src, p)) return fail(src, "start", "Du hast kein Probenentnahmeset.");
+    if (!hasKit(src, p)) return fail(src, "start", "Du hast kein Probenentnahmeset \u2013 nimm es am Fahrzeug.");
     if (p.active) return fail(src, "start", "Es l\xE4uft bereits eine Probenentnahme.");
-    if (carryingOf(p)) return fail(src, "start", "Du tr\xE4gst bereits eine Probe \u2013 lege sie zuerst am Fahrzeug ab.");
+    if (carryingOf(p)) return fail(src, "start", "Du tr\xE4gst bereits eine Probe \u2013 bringe sie zum Fahrzeug und gib sie dort ab.");
     if (GetVehiclePedIsIn(GetPlayerPed(src), false) !== 0) return fail(src, "start", "Steige zuerst aus dem Fahrzeug aus.");
-    const chk = checkPoint(src, netId, "sample", c.interactDistance);
-    if (typeof chk === "string") return fail(src, "start", chk);
     const noInc = !activeIncident();
     if (noInc && !c.allowWithoutIncident) return fail(src, "start", "Keine aktive Einsatznummer \u2013 bitte zuerst am Bordcomputer einen Einsatz anlegen.");
     if (noInc && !confirmedNoIncident) return res(src, "start", true, { needConfirm: true });
-    p.active = { token: (0, import_node_crypto2.randomBytes)(12).toString("hex"), start: Date.now(), net: Number(netId), dur: c.collectionDuration, noIncident: noInc, by: safeName(src, byName) };
+    p.active = { token: (0, import_node_crypto2.randomBytes)(12).toString("hex"), start: Date.now(), pos: posOf(src), dur: c.collectionDuration, noIncident: noInc, by: safeName(src, byName) };
     res(src, "start", true, { token: p.active.token, duration: c.collectionDuration });
   });
   onNet("cbrn:sample:cancelCollection", () => {
@@ -6286,6 +6293,7 @@ function registerSampleEvents() {
     if (p) delete p.active;
   });
   onNet("cbrn:sample:create", (token, sourceText, type, description) => {
+    var _a, _b, _c;
     const src = source, p = pl(src), c = getCfg(), a = p.active;
     if (!a || a.token !== token) return fail(src, "create", "Keine laufende Probenentnahme.");
     if (Date.now() - a.start < a.dur * 0.85) {
@@ -6296,21 +6304,19 @@ function registerSampleEvents() {
       delete p.active;
       return fail(src, "create", "Die Probenentnahme ist abgelaufen.");
     }
-    const chk = checkPoint(src, a.net, "sample", c.interactDistance + 1);
-    if (typeof chk === "string") {
+    const where = posOf(src);
+    if (dist(where, a.pos) > 3) {
       delete p.active;
-      return fail(src, "create", chk);
+      return fail(src, "create", "Du hast dich w\xE4hrend der Entnahme von der Entnahmestelle entfernt.");
     }
     if (!SAMPLE_TYPES[type]) return fail(src, "create", "Ung\xFCltige Probenart.");
-    const where = posOf(src);
-    const vehicleId = resolveVehicleId(where.x, where.y);
-    if (!vehicleId) {
+    if (!hasKit(src, p)) {
       delete p.active;
-      return fail(src, "create", "Kein angemeldetes CBRN-Fahrzeug in der N\xE4he \u2013 bitte am Bordcomputer anmelden.");
+      return fail(src, "create", "Du hast kein Probenentnahmeset mehr.");
     }
     let sample;
     try {
-      sample = createSample({ source: sourceText, type, description, by: a.by, license: p.license, pos: where, vehicleId, model: String(chk.model), offset: chk.off, vehicleNetId: a.net });
+      sample = createSample({ source: sourceText, type, description, by: a.by, license: p.license, pos: a.pos, vehicleId: ((_a = p.kitVeh) == null ? void 0 : _a.vehicleId) ?? null, model: ((_b = p.kitVeh) == null ? void 0 : _b.model) ?? null, offset: ((_c = p.kitVeh) == null ? void 0 : _c.off) ?? null });
     } catch (e) {
       return fail(src, "create", e.message);
     }
@@ -6339,12 +6345,10 @@ function registerSampleEvents() {
     if (cur.status !== "TRANSPORT") return fail(src, "return", "Die Probe muss zuerst beschriftet werden.");
     const chk = checkPoint(src, netId, "storage", c.returnDistance);
     if (typeof chk === "string") return fail(src, "return", chk);
-    const w = posOf(src);
     const rv = resolveVehicleId(chk.world.x, chk.world.y);
-    if (rv && rv !== cur.vehicle_id) return fail(src, "return", "Diese Probe geh\xF6rt zu einem anderen CBRN-Fahrzeug.");
+    if (rv && cur.vehicle_id && rv !== cur.vehicle_id) return fail(src, "return", "Diese Probe geh\xF6rt zu einem anderen CBRN-Fahrzeug.");
     try {
-      const s = storeSample(cur.id, cur.collected_by);
-      void w;
+      const s = storeSample(cur.id, cur.collected_by, rv);
       if (inv()) {
         try {
           ox().RemoveItem(src, c.containerItem, 1, { sample_id: s.id });
@@ -6369,7 +6373,7 @@ function registerSampleEvents() {
     var _a;
     const src = source;
     const p = pl(src);
-    res(src, "debug", true, { state: { kit: hasKit(src, p), active: p.active ? { net: p.active.net, dur: p.active.dur } : null, carrying: ((_a = carryingOf(p)) == null ? void 0 : _a.id) ?? null, inventory: inv(), points: [...getCfg().points.keys()], requireJob: !!getCfg().requireJob } });
+    res(src, "debug", true, { state: { kit: hasKit(src, p), active: p.active ? { dur: p.active.dur } : null, carrying: ((_a = carryingOf(p)) == null ? void 0 : _a.id) ?? null, inventory: inv(), points: [...getCfg().points.keys()], requireJob: !!getCfg().requireJob } });
   });
   on("playerDropped", () => {
     players.delete(source);

@@ -48,15 +48,15 @@
     if (d.mode === 'kit') {
       h = `<div class="t">Probenentnahme</div><div>Probenentnahmeset</div>` +
         (d.atPoint ? `<div class="row"><span class="key act">${esc(d.key)}</span><span>Drücke „${esc(d.key)}“, um hier eine Probe zu entnehmen</span></div>`
-                   : `<div class="row dim"><span class="key">${esc(d.key)}</span><span>Gehe zum Probenentnahmepunkt am Fahrzeug</span></div>`) +
-        `<div class="row"><span class="key">${esc(d.cancelKey === 'BACK' ? '⌫' : d.cancelKey)}</span><span class="sub">Set zurückgeben</span></div>`;
+                   : `<div class="row dim"><span class="key">${esc(d.key)}</span><span>Steige aus, um eine Probe zu entnehmen</span></div>`) +
+        `<div class="row"><span class="key">${esc(d.cancelKey === 'BACK' ? '⌫' : d.cancelKey)}</span><span class="sub">Set am Fahrzeug zurückgeben</span></div>`;
     } else if (d.mode === 'progress') {
       h = `<div class="t">${esc(d.title)}</div><div>${esc(d.text)}</div><div class="bar"><i style="width:${Math.max(0, Math.min(100, d.pct || 0))}%"></i></div><div class="pct">${Math.round(d.pct || 0)} %</div>` +
         (d.cancelKey ? `<div class="row"><span class="key">${esc(d.cancelKey === 'BACK' ? '⌫' : d.cancelKey)}</span><span class="sub">Abbrechen</span></div>` : '');
     } else if (d.mode === 'taken') {
       h = `<div class="t">Probe entnommen</div><div class="mono">${esc(d.id)}</div>${d.label ? `<div class="sub">${esc(d.label)}</div>` : '<div class="sub">noch nicht beschriftet</div>'}` +
-        (d.atPoint ? `<div class="row"><span class="key act">${esc(d.key)}</span><span>Probe hier ablegen</span></div>`
-                   : `<div class="row dim"><span class="key">${esc(d.key)}</span><span>Zum Ablagepunkt am Fahrzeug gehen, um die Probe abzulegen</span></div>`);
+        (d.atPoint ? `<div class="row"><span class="key act">${esc(d.key)}</span><span>Probe hier abgeben</span></div>`
+                   : `<div class="row dim"><span class="key">${esc(d.key)}</span><span>Bringe die Probe zum Fahrzeug und gib sie dort ab</span></div>`);
     } else if (d.mode === 'offset') {
       const f = (v) => (Number(v) >= 0 ? ' ' : '') + Number(v).toFixed(3);
       h = `<div class="t">${esc(d.title || 'CBRN Offset Finder')}</div>` +

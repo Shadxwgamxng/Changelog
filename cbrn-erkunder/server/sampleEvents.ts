@@ -7,7 +7,7 @@ import { randomBytes } from 'node:crypto';
 
 type Pt = { x: number; y: number; z: number };
 interface Cfg { requireJob?: boolean; points: Map<number, { sample: Pt; storage: Pt }>; interactDistance: number; returnDistance: number; collectionDuration: number; maxSamples: number; allowWithoutIncident: boolean; useInventory: boolean; kitItem: string; containerItem: string; containerType: string; analysisDurations: Record<string, number> }
-interface P { kit: boolean; license: string; active?: { token: string; start: number; net: number; dur: number; noIncident: boolean; by: string } }
+interface P { kit: boolean; license: string; kitVeh?: { vehicleId: string | null; model: string; off: Pt }; active?: { token: string; start: number; pos: Pt; dur: number; noIncident: boolean; by: string } }
 
 const DEFAULT: Cfg & { requireJob?: boolean } = { points: new Map(), interactDistance: 2.0, returnDistance: 1.5, collectionDuration: 5000, maxSamples: 20, allowWithoutIncident: true, useInventory: true, kitItem: 'sample_collection_kit', containerItem: 'sample_container', containerType: 'UNIVERSAL SAMPLE CONTAINER', analysisDurations: {} };
 let cfg: Cfg | null = null;
@@ -70,28 +70,30 @@ export function registerSampleEvents() {
     const chk = checkPoint(src, netId, 'sample', c.interactDistance); if (typeof chk === 'string') return fail(src, 'kit', chk);
     if (hasKit(src, p)) return fail(src, 'kit', 'Du hast bereits ein Probenentnahmeset.');
     if (inv()) { if (!ox().AddItem(src, c.kitItem, 1)) return fail(src, 'kit', 'Dein Inventar ist voll.'); } else p.kit = true;
+    p.kitVeh = { vehicleId: resolveVehicleId(chk.world.x, chk.world.y), model: String(chk.model), off: chk.off }; // das Set gehört zu diesem Fahrzeug
     res(src, 'kit', true, { kit: true, msg: 'Du hast ein Probenentnahmeset genommen.' });
   });
 
-  onNet('cbrn:sample:returnKit', () => {
+  onNet('cbrn:sample:returnKit', (netId: number) => {
     const src = source, p = pl(src), c = getCfg();
+    const chk = checkPoint(src, netId, 'sample', c.interactDistance); if (typeof chk === 'string') return fail(src, 'kit', 'Das Probenentnahmeset kann nur am Fahrzeug zurückgegeben werden.');
     if (carryingOf(p) || p.active) return fail(src, 'kit', 'Lege zuerst die entnommene Probe ab.');
-    if (inv()) ox().RemoveItem(src, c.kitItem, 1); p.kit = false;
+    if (inv()) ox().RemoveItem(src, c.kitItem, 1); p.kit = false; delete p.kitVeh;
     res(src, 'kit', true, { kit: false, msg: 'Probenentnahmeset zurückgegeben.' });
   });
 
-  onNet('cbrn:sample:startCollection', (netId: number, confirmedNoIncident: boolean, byName?: string) => {
+  // Die Probe wird dort entnommen, wo der Spieler steht (nicht am Fahrzeug) – das Set muss er vorher am Fahrzeug genommen haben.
+  onNet('cbrn:sample:startCollection', (confirmedNoIncident: boolean, byName?: string) => {
     const src = source, p = pl(src), c = getCfg();
     if (!jobOk(src)) return fail(src, 'start', 'Du hast keine Berechtigung für die Probenentnahme.');
-    if (!hasKit(src, p)) return fail(src, 'start', 'Du hast kein Probenentnahmeset.');
+    if (!hasKit(src, p)) return fail(src, 'start', 'Du hast kein Probenentnahmeset – nimm es am Fahrzeug.');
     if (p.active) return fail(src, 'start', 'Es läuft bereits eine Probenentnahme.');
-    if (carryingOf(p)) return fail(src, 'start', 'Du trägst bereits eine Probe – lege sie zuerst am Fahrzeug ab.');
+    if (carryingOf(p)) return fail(src, 'start', 'Du trägst bereits eine Probe – bringe sie zum Fahrzeug und gib sie dort ab.');
     if (GetVehiclePedIsIn(GetPlayerPed(src), false) !== 0) return fail(src, 'start', 'Steige zuerst aus dem Fahrzeug aus.');
-    const chk = checkPoint(src, netId, 'sample', c.interactDistance); if (typeof chk === 'string') return fail(src, 'start', chk);
     const noInc = !activeIncident();
     if (noInc && !c.allowWithoutIncident) return fail(src, 'start', 'Keine aktive Einsatznummer – bitte zuerst am Bordcomputer einen Einsatz anlegen.');
     if (noInc && !confirmedNoIncident) return res(src, 'start', true, { needConfirm: true });
-    p.active = { token: randomBytes(12).toString('hex'), start: Date.now(), net: Number(netId), dur: c.collectionDuration, noIncident: noInc, by: safeName(src, byName) };
+    p.active = { token: randomBytes(12).toString('hex'), start: Date.now(), pos: posOf(src), dur: c.collectionDuration, noIncident: noInc, by: safeName(src, byName) };
     res(src, 'start', true, { token: p.active.token, duration: c.collectionDuration });
   });
 
@@ -102,12 +104,12 @@ export function registerSampleEvents() {
     if (!a || a.token !== token) return fail(src, 'create', 'Keine laufende Probenentnahme.');
     if (Date.now() - a.start < a.dur * 0.85) { delete p.active; return fail(src, 'create', 'Die Probenentnahme war noch nicht abgeschlossen.'); }
     if (Date.now() - a.start > 10 * 60 * 1000) { delete p.active; return fail(src, 'create', 'Die Probenentnahme ist abgelaufen.'); }
-    const chk = checkPoint(src, a.net, 'sample', c.interactDistance + 1.0); if (typeof chk === 'string') { delete p.active; return fail(src, 'create', chk); }
+    const where = posOf(src);
+    if (dist(where, a.pos) > 3.0) { delete p.active; return fail(src, 'create', 'Du hast dich während der Entnahme von der Entnahmestelle entfernt.'); }
     if (!SAMPLE_TYPES[type]) return fail(src, 'create', 'Ungültige Probenart.');
-    const where = posOf(src); const vehicleId = resolveVehicleId(where.x, where.y);
-    if (!vehicleId) { delete p.active; return fail(src, 'create', 'Kein angemeldetes CBRN-Fahrzeug in der Nähe – bitte am Bordcomputer anmelden.'); }
+    if (!hasKit(src, p)) { delete p.active; return fail(src, 'create', 'Du hast kein Probenentnahmeset mehr.'); }
     let sample;
-    try { sample = createSample({ source: sourceText, type, description, by: a.by, license: p.license, pos: where, vehicleId, model: String(chk.model), offset: chk.off, vehicleNetId: a.net }); }
+    try { sample = createSample({ source: sourceText, type, description, by: a.by, license: p.license, pos: a.pos, vehicleId: p.kitVeh?.vehicleId ?? null, model: p.kitVeh?.model ?? null, offset: p.kitVeh?.off ?? null }); }
     catch (e: any) { return fail(src, 'create', e.message); }
     delete p.active;
     if (inv()) { try { ox().AddItem(src, c.containerItem, 1, { sample_id: sample.id, type: c.containerType }); } catch { /* Container ist rein optional */ } }
@@ -126,9 +128,9 @@ export function registerSampleEvents() {
     if (!cur) return fail(src, 'return', 'Du trägst keine Probe.');
     if (cur.status !== 'TRANSPORT') return fail(src, 'return', 'Die Probe muss zuerst beschriftet werden.');
     const chk = checkPoint(src, netId, 'storage', c.returnDistance); if (typeof chk === 'string') return fail(src, 'return', chk);
-    const w = posOf(src); const rv = resolveVehicleId(chk.world.x, chk.world.y);
-    if (rv && rv !== cur.vehicle_id) return fail(src, 'return', 'Diese Probe gehört zu einem anderen CBRN-Fahrzeug.');
-    try { const s = storeSample(cur.id, cur.collected_by); void w;
+    const rv = resolveVehicleId(chk.world.x, chk.world.y);
+    if (rv && cur.vehicle_id && rv !== cur.vehicle_id) return fail(src, 'return', 'Diese Probe gehört zu einem anderen CBRN-Fahrzeug.');
+    try { const s = storeSample(cur.id, cur.collected_by, rv);
       if (inv()) { try { ox().RemoveItem(src, c.containerItem, 1, { sample_id: s.id }); } catch { /* optional */ } }
       res(src, 'return', true, { sample: { id: s.id } }); }
     catch (e: any) { fail(src, 'return', e.message); }
@@ -143,7 +145,7 @@ export function registerSampleEvents() {
   // Spec-Events zum Abfragen (Computer nutzt die API; diese liefern dasselbe für Skripte/Debug)
   onNet('cbrn:sample:get', (id: string) => { const s = publicSample(String(id), false); emitNet('cbrn:sample:data', source, s); });
   onNet('cbrn:sample:getAll', () => emitNet('cbrn:sample:data', source, list('samples', "WHERE collected_license = ? ORDER BY ts DESC LIMIT 50", [pl(source).license]).map((s: any) => publicSample(s.id, false))));
-  onNet('cbrn:sample:debug', () => { const src = source; const p = pl(src); res(src, 'debug', true, { state: { kit: hasKit(src, p), active: p.active ? { net: p.active.net, dur: p.active.dur } : null, carrying: carryingOf(p)?.id ?? null, inventory: inv(), points: [...getCfg().points.keys()], requireJob: !!getCfg().requireJob } }); });
+  onNet('cbrn:sample:debug', () => { const src = source; const p = pl(src); res(src, 'debug', true, { state: { kit: hasKit(src, p), active: p.active ? { dur: p.active.dur } : null, carrying: carryingOf(p)?.id ?? null, inventory: inv(), points: [...getCfg().points.keys()], requireJob: !!getCfg().requireJob } }); });
 
   on('playerDropped', () => { players.delete(source); }); // getragene Proben bleiben in der Datenbank (Status TRANSPORT) und kommen per sync zurück
 }
