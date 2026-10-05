@@ -85,12 +85,13 @@ CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
 CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, vehicle_id TEXT, name TEXT, funktion TEXT, created_at TEXT, last_seen TEXT);
 CREATE INDEX IF NOT EXISTS ix_meas_veh ON measurements(vehicle_id);
 CREATE TABLE IF NOT EXISTS incidents (id TEXT PRIMARY KEY, name TEXT, status TEXT, created_at TEXT, created_by TEXT, ended_at TEXT, location_text TEXT, report TEXT, category TEXT, ref_type TEXT, ref_id TEXT, known INTEGER DEFAULT 0, amount TEXT, radius_m REAL, peak REAL, lat REAL, lon REAL);
+CREATE TABLE IF NOT EXISTS incident_crew (incident_id TEXT, name TEXT, funktion TEXT, vehicle_id TEXT, since TEXT, PRIMARY KEY (incident_id, name, funktion, vehicle_id));
 CREATE TABLE IF NOT EXISTS runs (id TEXT PRIMARY KEY, vehicle_id TEXT, name TEXT, started_at TEXT, ended_at TEXT, started_by TEXT, distance_m REAL DEFAULT 0, points INTEGER DEFAULT 0, max_dose REAL, max_pid REAL, source TEXT, mission_id TEXT);
 `;
 function setupSchema() {
 db.exec(SCHEMA);
 // Migration älterer Datenbanken: fehlende Spalten ergänzen
-for (const [t, c] of [['substances', 'traits'], ['substances', 'response'], ['substances', 'gestis_zvg'], ['radionuclides', 'response'], ['biological_agents', 'response'], ['measurements', 'run_id'], ['samples', 'analysis'], ['runs', 'start_lat'], ['runs', 'start_lon'], ['runs', 'incident_id'], ['measurements', 'incident_id']] as const) {
+for (const [t, c] of [['substances', 'traits'], ['substances', 'response'], ['substances', 'gestis_zvg'], ['radionuclides', 'response'], ['biological_agents', 'response'], ['measurements', 'run_id'], ['samples', 'analysis'], ['runs', 'start_lat'], ['runs', 'start_lon'], ['runs', 'incident_id'], ['measurements', 'incident_id'], ['reports', 'incident_id']] as const) {
   const cols = (db.prepare(`PRAGMA table_info(${t})`).all() as { name: string }[]).map((x) => x.name);
   if (!cols.includes(c)) db.exec(`ALTER TABLE ${t} ADD COLUMN ${c} TEXT`);
 }
@@ -105,7 +106,7 @@ const JSON_COLS: Record<string, string[]> = {
   scenarios: ['devices'],
   reports: ['data'],
 };
-export const TABLES = ['sources', 'substances', 'radionuclides', 'biological_agents', 'measurement_devices', 'measurement_methods', 'test_tubes', 'users', 'vehicles', 'crew', 'scenarios', 'missions', 'measurements', 'samples', 'weather_records', 'alarms', 'reports', 'audit_log', 'runs', 'incidents'];
+export const TABLES = ['sources', 'substances', 'radionuclides', 'biological_agents', 'measurement_devices', 'measurement_methods', 'test_tubes', 'users', 'vehicles', 'crew', 'scenarios', 'missions', 'measurements', 'samples', 'weather_records', 'alarms', 'reports', 'audit_log', 'runs', 'incidents', 'incident_crew'];
 
 const colCache = new Map<string, string[]>();
 export const columns = (t: string) => {

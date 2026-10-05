@@ -17,7 +17,7 @@ export default function Login() {
     setBusy(true); setErr('');
     try { await login(vid, name.trim(), funktion.trim()); mem('cbrn.lastVehicle', vid); mem('cbrn.lastName', name.trim()); mem('cbrn.lastFunktion', funktion.trim()); } catch (e: any) { setErr(e.message); } finally { setBusy(false); }
   };
-  const ok = vid && name.trim().length >= 2 && funktion.trim();
+  const ok = vid && name.trim().length >= 2 && (data?.funktionen ?? []).includes(funktion);
   return (
     <div className="h-full overflow-auto flex items-center justify-center p-6">
       <div className="w-full max-w-[760px]">
@@ -35,8 +35,8 @@ export default function Login() {
           </div>
           <div className="grid grid-cols-2 gap-3 mt-5">
             <div><div className="lbl mb-1">2 · Name</div><input className="inp w-full" placeholder="z. B. Max Mustermann" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && ok && submit()} autoFocus /></div>
-            <div><div className="lbl mb-1">3 · Funktion</div><input className="inp w-full" list="funktionen" placeholder="z. B. Truppführer" value={funktion} onChange={(e) => setFunktion(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && ok && submit()} />
-              <datalist id="funktionen">{(data?.funktionen ?? []).map((f) => <option key={f} value={f} />)}</datalist></div>
+            <div><div className="lbl mb-1">3 · Funktion</div><div className="flex flex-col gap-1.5">{(data?.funktionen ?? []).map((f) => (
+              <button key={f} onClick={() => setFunktion(f)} className={`text-left px-3 py-2 rounded-md border text-[13px] transition-colors ${funktion === f ? 'border-accent bg-accent/10' : 'border-line2 bg-panel2 hover:border-dim'}`}>{f}</button>))}</div></div>
           </div>
           <div className="flex items-center gap-3 mt-5"><Btn kind="primary" onClick={submit} disabled={!ok || busy}>Anmelden</Btn><span className="text-bad text-[12.5px]">{err}</span></div>
         </div>

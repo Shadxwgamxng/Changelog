@@ -12,7 +12,8 @@ import { authUser, createSession, crewOf, endSession, getSession, touch, purgeSe
 
 const LEVEL: Record<string, number> = { erkunder: 1, truppfuehrer: 2, messleitung: 3, admin: 4 };
 const ADMIN_TABLES = ['substances', 'radionuclides', 'biological_agents', 'measurement_devices', 'measurement_methods', 'sources', 'test_tubes', 'vehicles'];
-const FUNKTIONEN = ['Fahrzeugführer', 'Truppführer', 'Messtrupp', 'Melder', 'Messleitung (MLK)', 'Einsatzleiter'];
+import { ROLES, noteCrew } from './incident.js';
+const FUNKTIONEN = ROLES;
 const PUBLIC = [/^\/api\/meta$/, /^\/api\/auth\/(vehicles|login)$/];
 
 function shiftedBounds() {
@@ -47,11 +48,11 @@ export function registerRoutes(app: FastifyInstance) {
     const v = get('vehicles', String(b.vehicle_id ?? ''));
     if (!v) throw Object.assign(new Error('Bitte ein Fahrzeug auswählen'), { statusCode: 400 });
     if (name.length < 2) throw Object.assign(new Error('Bitte den Namen eingeben'), { statusCode: 400 });
-    if (!funktion) throw Object.assign(new Error('Bitte die Funktion eingeben'), { statusCode: 400 });
+    if (!FUNKTIONEN.includes(funktion)) throw Object.assign(new Error('Bitte eine Funktion aus der Liste wählen'), { statusCode: 400 });
     purgeSessions(); const token = createSession(v.id, name, funktion); audit(`${name} (${funktion})`, 'login', 'vehicle', v.id);
-    emit('crew.changed', { vehicle_id: v.id }); rep.code(201); return { token, session: { vehicle_id: v.id, vehicle_name: v.name, name, funktion } };
+    noteCrew(name, funktion, v.id); emit('crew.changed', { vehicle_id: v.id }); rep.code(201); return { token, session: { vehicle_id: v.id, vehicle_name: v.name, name, funktion } };
   });
-  app.get('/api/auth/me', async (req) => { const u = user(req); touch(u.token); return { vehicle_id: u.vehicle_id, vehicle_name: get('vehicles', u.vehicle_id)?.name, name: u.name, funktion: u.callsign }; });
+  app.get('/api/auth/me', async (req) => { const u = user(req); touch(u.token); noteCrew(u.name, u.callsign, u.vehicle_id); return { vehicle_id: u.vehicle_id, vehicle_name: get('vehicles', u.vehicle_id)?.name, name: u.name, funktion: u.callsign }; });
   app.post('/api/auth/logout', async (req) => { const u = user(req); endSession(u.token); audit(u.id, 'logout', 'vehicle', u.vehicle_id); emit('crew.changed', { vehicle_id: u.vehicle_id }); return { ok: true }; });
 
   // ---------- System
@@ -110,7 +111,7 @@ export function registerRoutes(app: FastifyInstance) {
   app.get('/api/incident', async () => publicIncident(activeIncident()));
   app.get('/api/incidents', async () => list('incidents', '', [], 'ORDER BY created_at DESC').map(publicIncident));
   app.post('/api/incidents', async (req, rep) => { const u = need(req); const r = createIncident(u.id, req.body ?? {}); if ((r as any).error) throw Object.assign(new Error((r as any).error), { statusCode: 400 }); rep.code(201); return r; });
-  app.post('/api/incidents/:id/end', async (req) => { const u = need(req); const r = endIncident(u.id, (req.params as any).id); if ((r as any).error) throw Object.assign(new Error((r as any).error), { statusCode: 409 }); return r; });
+  app.post('/api/incidents/:id/end', async (req) => { const u = need(req); const r = endIncident(u.id, (req.params as any).id, req.body); if ((r as any).error) throw Object.assign(new Error((r as any).error), { statusCode: 409 }); return r; });
   app.get('/api/track', async (req) => {
     const p = q(req); const vid = p.vehicle ?? user(req).vehicle_id; const run = p.run ?? state.runs[vid]?.id;
     const rows = (run ? db.prepare("SELECT lat,lon,ts FROM measurements WHERE run_id = ? ORDER BY seq DESC LIMIT 1500").all(run) : db.prepare("SELECT lat,lon,ts FROM measurements WHERE vehicle_id = ? ORDER BY seq DESC LIMIT 400").all(vid)) as any[];
@@ -229,7 +230,7 @@ export function registerRoutes(app: FastifyInstance) {
   });
 
   // ---------- Berichte
-  app.get('/api/reports', async () => list('reports', '', [], 'ORDER BY created_at DESC').map((r: any) => ({ id: r.id, mission_id: r.mission_id, created_at: r.created_at, created_by: r.created_by })));
+  app.get('/api/reports', async () => list('reports', '', [], 'ORDER BY created_at DESC').map((r: any) => ({ id: r.id, mission_id: r.mission_id, created_at: r.created_at, created_by: r.created_by, kind: r.data?.kind ?? 'AUFTRAGSBERICHT', title: r.data?.title ?? null })));
   app.post('/api/reports', async (req, rep) => {
     const u = need(req, 2); const mid = (req.body as any).mission_id; const m = get('missions', mid); if (!m) throw nf('Auftrag');
     const id = `B-${mid}`; const data = buildReport(mid, u.name); insert('reports', { id, mission_id: mid, created_at: now(), created_by: u.id, data }, true);

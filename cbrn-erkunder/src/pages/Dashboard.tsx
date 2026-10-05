@@ -3,13 +3,16 @@ import { Page, Panel, Stat, StatusBadge, Badge, CatBadge } from '../components/u
 import { MapView, DEFAULT_LAYERS } from '../components/MapView';
 import { TimeChart } from '../components/Charts';
 import { useApi, useLive } from '../store';
+import { EndIncidentModal } from '../components/IncidentReport';
+import { Btn } from '../components/ui';
+import { useState } from 'react';
 import { RunCard } from '../components/RunCard';
 import { WeatherCopy } from '../components/WeatherCopy';
 import { num, time, CAT, STATUS_COLOR, fmtPos } from '../lib/format';
 
 export default function Dashboard() {
   const { status, live, mpCount, hist, weather, meta, own, ownVehicle, incident } = useLive();
-  const v = ownVehicle; const r = live[own];
+  const v = ownVehicle; const r = live[own]; const [endOpen, setEndOpen] = useState(false);
   const missions = useApi<any[]>('/missions', ['mission.created', 'mission.updated']);
   const samples = useApi<any[]>('/samples', ['sample.created', 'sample.updated']);
   const alarms = useApi<any[]>('/alarms', ['alarm.created']);
@@ -40,7 +43,8 @@ export default function Dashboard() {
             {incident ? (<><div className="text-[14px] font-semibold">{incident.id} · {incident.name}</div>
               <div className="text-[12px] text-dim">{incident.location_text ?? 'Ort nicht angegeben'} · {incident.category_text} · Menge {incident.amount}</div>
               {incident.report && <div className="text-[12.5px] mt-2">{incident.report}</div>}
-              <div className="text-[12px] mt-2">Stoff: {incident.ref_hidden ? <Badge>UNBEKANNT / VERDECKT</Badge> : <b>{incident.ref_name}</b>}</div></>) : <div className="text-dim">Kein aktiver Einsatz</div>}
+              <div className="text-[12px] mt-2">Stoff: {incident.ref_hidden ? <Badge>UNBEKANNT / VERDECKT</Badge> : <b>{incident.ref_name}</b>}</div>
+              <div className="mt-3"><Btn kind="danger" onClick={() => setEndOpen(true)}>Einsatz beenden …</Btn></div>{endOpen && <EndIncidentModal onClose={() => setEndOpen(false)} />}</>) : <div className="text-dim">Kein aktiver Einsatz</div>}
           </Panel>
           <Panel title="CBRN-Lage">
             {[['C', 'CHEMISCH', L.CHEMISCH], ['R', 'RADIOLOGISCH', L.RADIOLOGISCH], ['B', 'BIOLOGISCH', L.BIOLOGISCH], ['N', 'NUKLEAR', L.NUKLEAR], ['U', 'UNBEKANNT', L.UNBEKANNT]].map(([k, l, n]) => (

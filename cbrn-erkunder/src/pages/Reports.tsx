@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Page, Panel, Field, Btn, Select, Badge, StatusBadge, LevelBadge } from '../components/ui';
 import { api } from '../api';
 import { copyText } from '../lib/clipboard';
+import { IncidentReportView } from '../components/IncidentReport';
 import { useApi, useLive } from '../store';
 import { dt, time, coord, NA } from '../lib/format';
 
@@ -44,9 +45,9 @@ export default function Reports() {
       <Btn kind="primary" onClick={create} disabled={!can(2)} title={!can(2) ? 'Truppführer erforderlich' : ''}>Bericht erstellen / aktualisieren</Btn></>}>
       {err && <div className="text-bad mb-2">{err}</div>}
       <div className="grid grid-cols-12 gap-3">
-        <Panel title="Berichte" className="col-span-3" body="!p-0"><table className="t"><tbody>{(reports.data ?? []).map((r) => <tr key={r.id} className="cursor-pointer" onClick={() => open(r.id)}><td className="font-mono">{r.id}</td><td>{dt(r.created_at)}</td></tr>)}
+        <Panel title="Berichte" className="col-span-3" body="!p-0"><table className="t"><tbody>{(reports.data ?? []).map((r) => <tr key={r.id} className="cursor-pointer" onClick={() => open(r.id)}><td className="font-mono">{r.id}{r.kind === 'EINSATZBERICHT_E' && <div className="text-dim text-[11px] font-sans">{r.title}</div>}</td><td>{dt(r.created_at)}</td></tr>)}
           {!(reports.data ?? []).length && <tr><td className="text-dim">Noch keine Berichte</td></tr>}</tbody></table></Panel>
-        <div className="col-span-9">{cur ? <Panel title={`Einsatzbericht ${cur.number}`} right={<span className="no-print flex gap-2"><Badge color="#f0500a">SIMULATION</Badge><Btn onClick={() => copyCsv(cur.id)}>CSV kopieren</Btn><Btn onClick={() => copy(JSON.stringify(cur, null, 2))}>JSON kopieren</Btn>{cmsg && <span className="text-ok text-[12px] self-center">{cmsg}</span>}</span>}><ReportView r={cur} /></Panel>
+        <div className="col-span-9">{cur?.kind === 'EINSATZBERICHT_E' ? <Panel title={`Einsatzbericht ${cur.number}`}><IncidentReportView r={cur} /></Panel> : cur ? <Panel title={`Einsatzbericht ${cur.number}`} right={<span className="no-print flex gap-2"><Badge color="#f0500a">SIMULATION</Badge><Btn onClick={() => copyCsv(cur.id)}>CSV kopieren</Btn><Btn onClick={() => copy(JSON.stringify(cur, null, 2))}>JSON kopieren</Btn>{cmsg && <span className="text-ok text-[12px] self-center">{cmsg}</span>}</span>}><ReportView r={cur} /></Panel>
           : <Panel><div className="text-dim py-8 text-center">Bericht auswählen oder erstellen</div></Panel>}</div>
       </div>
     </Page>

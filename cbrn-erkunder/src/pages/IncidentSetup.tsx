@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { Siren } from 'lucide-react';
 import { Logo } from '../components/Logo';
 import { MapPicker, type Pos } from '../components/MapPicker';
-import { Btn, Select } from '../components/ui';
+import { Btn, Modal, Select } from '../components/ui';
+import { IncidentReportView } from '../components/IncidentReport';
 import { api } from '../api';
 import { useApi, useLive } from '../store';
 
@@ -15,6 +16,9 @@ export default function IncidentSetup({ embedded, onDone }: { embedded?: boolean
   const subs = useApi<any[]>('/substances?cat=C'); const nucs = useApi<any[]>('/radionuclides'); const bios = useApi<any[]>('/biological-agents');
   const [f, setF] = useState({ name: '', location_text: '', report: '', category: 'C', amount: 'mittel', known: false, ref: '' });
   const [pos, setPos] = useState<Pos | null>(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
+  const [last, setLast] = useState<any>(null);
+  const showLast = async () => { const l = await api<any[]>('/reports'); const id = l.find((r) => r.kind === 'EINSATZBERICHT_E')?.id; if (id) setLast(await api('/reports/' + id)); };
+  const lastList = useApi<any[]>('/reports', ['incident.changed']); const hasLast = (lastList.data ?? []).some((r) => r.kind === 'EINSATZBERICHT_E');
   const fivem = status?.fivem === 'CONNECTED' && ownVehicle?.gps_fix ? { lat: ownVehicle.lat, lon: ownVehicle.lon } : null;
 
   const options = useMemo<[string, string][]>(() => {
@@ -59,7 +63,10 @@ export default function IncidentSetup({ embedded, onDone }: { embedded?: boolean
       <div className="w-full max-w-[860px] mx-auto">
         <div className="flex items-center gap-3 mb-5"><Logo size={44} /><div className="flex-1"><div className="eyebrow">{session?.vehicle_name} · {session?.name} ({session?.funktion})</div><h1 className="text-[26px] font-semibold tracking-tight leading-tight flex items-center gap-2"><Siren size={22} className="text-accent" />Neuer Einsatz</h1></div>
           <button className="text-dim text-[12px] underline" onClick={() => logout()}>Abmelden</button></div>
+        <div className="text-[12.5px] text-dim mb-3">Du bist die erste Person am Fahrzeug – nur du legst den Einsatz an. Alle weiteren Anmeldungen steigen automatisch in diesen Einsatz ein.</div>
+        {hasLast && <div className="mb-3"><Btn onClick={showLast}>Letzten Einsatzbericht ansehen</Btn></div>}
         {body}
+        {last && <Modal title="Letzter Einsatzbericht" wide onClose={() => setLast(null)}><IncidentReportView r={last} /></Modal>}
       </div>
     </div>
   );

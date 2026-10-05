@@ -1,3 +1,4 @@
+var __dirname = (typeof GetResourcePath === 'function' ? GetResourcePath(GetCurrentResourceName()) : process.cwd()) + '/server'; var __filename = __dirname + '/main.js';
 "use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -2322,11 +2323,12 @@ CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
 CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, vehicle_id TEXT, name TEXT, funktion TEXT, created_at TEXT, last_seen TEXT);
 CREATE INDEX IF NOT EXISTS ix_meas_veh ON measurements(vehicle_id);
 CREATE TABLE IF NOT EXISTS incidents (id TEXT PRIMARY KEY, name TEXT, status TEXT, created_at TEXT, created_by TEXT, ended_at TEXT, location_text TEXT, report TEXT, category TEXT, ref_type TEXT, ref_id TEXT, known INTEGER DEFAULT 0, amount TEXT, radius_m REAL, peak REAL, lat REAL, lon REAL);
+CREATE TABLE IF NOT EXISTS incident_crew (incident_id TEXT, name TEXT, funktion TEXT, vehicle_id TEXT, since TEXT, PRIMARY KEY (incident_id, name, funktion, vehicle_id));
 CREATE TABLE IF NOT EXISTS runs (id TEXT PRIMARY KEY, vehicle_id TEXT, name TEXT, started_at TEXT, ended_at TEXT, started_by TEXT, distance_m REAL DEFAULT 0, points INTEGER DEFAULT 0, max_dose REAL, max_pid REAL, source TEXT, mission_id TEXT);
 `;
 function setupSchema() {
   db.exec(SCHEMA);
-  for (const [t, c] of [["substances", "traits"], ["substances", "response"], ["substances", "gestis_zvg"], ["radionuclides", "response"], ["biological_agents", "response"], ["measurements", "run_id"], ["samples", "analysis"], ["runs", "start_lat"], ["runs", "start_lon"], ["runs", "incident_id"], ["measurements", "incident_id"]]) {
+  for (const [t, c] of [["substances", "traits"], ["substances", "response"], ["substances", "gestis_zvg"], ["radionuclides", "response"], ["biological_agents", "response"], ["measurements", "run_id"], ["samples", "analysis"], ["runs", "start_lat"], ["runs", "start_lon"], ["runs", "incident_id"], ["measurements", "incident_id"], ["reports", "incident_id"]]) {
     const cols = db.prepare(`PRAGMA table_info(${t})`).all().map((x) => x.name);
     if (!cols.includes(c)) db.exec(`ALTER TABLE ${t} ADD COLUMN ${c} TEXT`);
   }
@@ -5243,6 +5245,7 @@ function validateImport(table, format, content) {
 
 // server/incident.ts
 var CATEGORIES = { C: "Chemisch", R: "Radiologisch", B: "Biologisch", U: "Unbekannt" };
+var ROLES = ["Messtechniker (Maschinist)", "Gruppenf\xFChrer CBRN-ErkW", "Messtrupp"];
 var AMOUNTS = ["gering", "mittel", "gro\xDF"];
 var SIZE = {
   // [Radius m, Spitzenwert]
@@ -5286,8 +5289,7 @@ function createIncident(by, b) {
     if (cat === "U") truth.category = "U";
   } else truth = pickTruth(cat);
   const [radius_m, peak] = SIZE[truth.category === "U" ? truth.ref_type === "radionuclide" ? "R" : "C" : truth.category][amount];
-  const old = activeIncident();
-  if (old) endIncident(by, old.id);
+  if (activeIncident()) return { error: "Es l\xE4uft bereits ein Einsatz \u2013 er wurde von einer anderen Person angelegt" };
   const n = (db.prepare("SELECT COUNT(*) c FROM incidents").get().c ?? 0) + 1;
   const inc = {
     id: "E-" + String(n).padStart(4, "0"),
@@ -5308,25 +5310,100 @@ function createIncident(by, b) {
     lon
   };
   insert("incidents", inc);
+  for (const c of crewOf()) noteCrew(c.name, c.role, c.vehicle_id);
   audit(by, "create", "incident", inc.id, { name, category: truth.category, amount, known: !!b.known });
   emit("incident.changed", publicIncident(inc));
   emit("system.status", systemStatus());
   return { incident: publicIncident(inc) };
 }
-function endIncident(by, id) {
+function noteCrew(name, funktion, vehicle_id) {
+  const inc = activeIncident();
+  if (!inc) return;
+  db.prepare("INSERT OR IGNORE INTO incident_crew(incident_id,name,funktion,vehicle_id,since) VALUES(?,?,?,?,?)").run(inc.id, name, funktion, vehicle_id, now());
+}
+var REQUIRED = [["where", "Wo (Einsatzort)"], ["what", "Was (Lage / Einsatzgeschehen)"], ["measures", "Durchgef\xFChrte Ma\xDFnahmen"], ["result", "Ergebnis / Feststellungen"]];
+var num2 = (v) => v === "" || v == null || !Number.isFinite(Number(v)) ? null : Math.max(0, Math.round(Number(v)));
+function endIncident(by, id, form = {}) {
   const inc = get("incidents", id);
   if (!inc || inc.status !== "AKTIV") return { error: "Kein aktiver Einsatz mit dieser Kennung" };
+  const f = form ?? {};
+  const missing = REQUIRED.filter(([k]) => !String(f[k] ?? "").trim()).map(([, l]) => l);
+  if (missing.length) return { error: `Einsatzbericht unvollst\xE4ndig: ${missing.join(", ")}` };
   for (const vid of Object.keys(state.runs)) stopRun(by, vid);
-  update("incidents", id, { status: "BEENDET", ended_at: now() });
-  audit(by, "end", "incident", id);
+  const ended = now();
+  const t = (v) => String(v ?? "").trim() || null;
+  const crew = list("incident_crew", "WHERE incident_id = ? ORDER BY since", [id]).map((c) => {
+    var _a;
+    return { name: c.name, funktion: c.funktion, vehicle_id: c.vehicle_id, vehicle: ((_a = get("vehicles", c.vehicle_id)) == null ? void 0 : _a.name) ?? c.vehicle_id };
+  });
+  const people = new Set(crew.map((c) => c.name.toLowerCase())).size;
+  const runs = list("runs", "WHERE incident_id = ?", [id]);
+  const q = (sql, ...a) => db.prepare(sql).get(...a);
+  const meas = q("SELECT COUNT(*) c, SUM(CASE WHEN status != ? THEN 1 ELSE 0 END) a FROM measurements WHERE incident_id = ?", "NORMAL", id);
+  const samples = list("samples", "WHERE ts >= ? ORDER BY ts", [inc.created_at]).map(({ truth_ref, ...s }) => s);
+  const alarms = list("alarms", "WHERE ts >= ? ORDER BY ts", [inc.created_at]);
+  const w = db.prepare("SELECT * FROM weather_records ORDER BY ts DESC LIMIT 1").get();
+  const ims = list("measurements", "WHERE incident_id = ? AND device = 'IMS' AND substance_id IS NOT NULL", [id]).map((m) => m.substance_id);
+  const imsNames = [...new Set(ims)].map((sid) => {
+    var _a;
+    return (_a = get("substances", sid)) == null ? void 0 : _a.name;
+  }).filter(Boolean);
+  const truthRow = inc.ref_type === "substance" ? get("substances", inc.ref_id) : inc.ref_type === "radionuclide" ? get("radionuclides", inc.ref_id) : get("biological_agents", inc.ref_id);
+  const startMs = Date.parse(inc.created_at), endMs = Date.parse(ended);
+  const data = {
+    kind: "EINSATZBERICHT_E",
+    title: inc.name,
+    simulated: true,
+    number: `EB-${inc.id}`,
+    author: by,
+    notice: "SIMULATION \u2013 Messwerte, Identifikationen und Laborergebnisse sind nicht real. Fachdaten ungepr\xFCft.",
+    incident: { id: inc.id, name: inc.name, category: inc.category, category_text: CATEGORIES[inc.category], amount: inc.amount, lat: inc.lat, lon: inc.lon, report: inc.report, created_by: inc.created_by },
+    where: t(f.where),
+    what: t(f.what),
+    measures: t(f.measures),
+    result: t(f.result),
+    handover: t(f.handover),
+    remarks: t(f.remarks),
+    other_forces: t(f.other_forces),
+    injured: num2(f.injured),
+    evacuated: num2(f.evacuated),
+    start: inc.created_at,
+    end: ended,
+    duration_min: Math.max(0, Math.round((endMs - startMs) / 6e4)),
+    forces_count: num2(f.forces_count) ?? people,
+    crew_count: people,
+    crew,
+    vehicles: [...new Set(crew.map((c) => c.vehicle))],
+    stats: {
+      runs: runs.length,
+      run_distance_m: Math.round(runs.reduce((a, r) => a + (r.distance_m ?? 0), 0)),
+      measurements: (meas == null ? void 0 : meas.c) ?? 0,
+      anomalies: (meas == null ? void 0 : meas.a) ?? 0,
+      samples: samples.length,
+      alarms: alarms.length,
+      max_dose: runs.reduce((a, r) => Math.max(a, r.max_dose ?? 0), 0),
+      max_pid: runs.reduce((a, r) => Math.max(a, r.max_pid ?? 0), 0)
+    },
+    samples: samples.map((s) => {
+      var _a;
+      return { id: s.id, kind: s.kind, ts: s.ts, lab_status: s.lab_status, lab_text: ((_a = s.lab_result) == null ? void 0 : _a.text) ?? null };
+    }),
+    alarms: alarms.map((a) => ({ id: a.id, ts: a.ts, category: a.category, description: a.description })),
+    device_findings: imsNames,
+    weather: w ? { temperature: w.temperature, humidity: w.humidity, pressure: w.pressure, wind_speed: w.wind_speed, wind_from: w.wind_from, wind_from_text: compass(w.wind_from) } : null,
+    truth: { known: !!inc.known, type: inc.ref_type, name: (truthRow == null ? void 0 : truthRow.name) ?? null, cas: (truthRow == null ? void 0 : truthRow.cas) ?? null }
+  };
+  update("incidents", id, { status: "BEENDET", ended_at: ended });
+  insert("reports", { id: data.number, mission_id: null, incident_id: id, created_at: ended, created_by: by, data }, true);
+  audit(by, "end", "incident", id, { report: data.number });
   emit("incident.changed", null);
   emit("system.status", systemStatus());
-  return { incident: publicIncident(get("incidents", id)) };
+  return { incident: publicIncident(get("incidents", id)), report: { id: data.number, ...data } };
 }
 
 // server/routes.ts
 var ADMIN_TABLES = ["substances", "radionuclides", "biological_agents", "measurement_devices", "measurement_methods", "sources", "test_tubes", "vehicles"];
-var FUNKTIONEN = ["Fahrzeugf\xFChrer", "Truppf\xFChrer", "Messtrupp", "Melder", "Messleitung (MLK)", "Einsatzleiter"];
+var FUNKTIONEN = ROLES;
 var PUBLIC = [/^\/api\/meta$/, /^\/api\/auth\/(vehicles|login)$/];
 function shiftedBounds() {
   const b = config.gta5.bounds;
@@ -5364,10 +5441,11 @@ function registerRoutes(app) {
     const v = get("vehicles", String(b.vehicle_id ?? ""));
     if (!v) throw Object.assign(new Error("Bitte ein Fahrzeug ausw\xE4hlen"), { statusCode: 400 });
     if (name.length < 2) throw Object.assign(new Error("Bitte den Namen eingeben"), { statusCode: 400 });
-    if (!funktion) throw Object.assign(new Error("Bitte die Funktion eingeben"), { statusCode: 400 });
+    if (!FUNKTIONEN.includes(funktion)) throw Object.assign(new Error("Bitte eine Funktion aus der Liste w\xE4hlen"), { statusCode: 400 });
     purgeSessions();
     const token = createSession(v.id, name, funktion);
     audit(`${name} (${funktion})`, "login", "vehicle", v.id);
+    noteCrew(name, funktion, v.id);
     emit("crew.changed", { vehicle_id: v.id });
     rep.code(201);
     return { token, session: { vehicle_id: v.id, vehicle_name: v.name, name, funktion } };
@@ -5376,6 +5454,7 @@ function registerRoutes(app) {
     var _a;
     const u = user(req);
     touch(u.token);
+    noteCrew(u.name, u.callsign, u.vehicle_id);
     return { vehicle_id: u.vehicle_id, vehicle_name: (_a = get("vehicles", u.vehicle_id)) == null ? void 0 : _a.name, name: u.name, funktion: u.callsign };
   });
   app.post("/api/auth/logout", async (req) => {
@@ -5502,7 +5581,7 @@ function registerRoutes(app) {
   });
   app.post("/api/incidents/:id/end", async (req) => {
     const u = need(req);
-    const r = endIncident(u.id, req.params.id);
+    const r = endIncident(u.id, req.params.id, req.body);
     if (r.error) throw Object.assign(new Error(r.error), { statusCode: 409 });
     return r;
   });
@@ -5770,7 +5849,10 @@ function registerRoutes(app) {
     const cnt = (cat) => db.prepare("SELECT COUNT(*) c FROM alarms WHERE category = ? AND status != 'ERLEDIGT' AND status != 'QUITTIERT'").get(cat).c;
     return { CHEMISCH: cnt("CHEMISCH"), RADIOLOGISCH: cnt("RADIOLOGISCH"), BIOLOGISCH: cnt("BIOLOGISCH"), NUKLEAR: cnt("NUKLEAR"), UNBEKANNT: cnt("UNBEKANNT"), system: cnt("SYSTEM"), netzwerk: cnt("NETZWERK") };
   });
-  app.get("/api/reports", async () => list("reports", "", [], "ORDER BY created_at DESC").map((r) => ({ id: r.id, mission_id: r.mission_id, created_at: r.created_at, created_by: r.created_by })));
+  app.get("/api/reports", async () => list("reports", "", [], "ORDER BY created_at DESC").map((r) => {
+    var _a, _b;
+    return { id: r.id, mission_id: r.mission_id, created_at: r.created_at, created_by: r.created_by, kind: ((_a = r.data) == null ? void 0 : _a.kind) ?? "AUFTRAGSBERICHT", title: ((_b = r.data) == null ? void 0 : _b.title) ?? null };
+  }));
   app.post("/api/reports", async (req, rep) => {
     const u = need(req, 2);
     const mid = req.body.mission_id;
