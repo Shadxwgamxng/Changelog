@@ -74,7 +74,7 @@ export default function Layout() {
       </nav>
       <main className="min-w-0 min-h-0 relative overflow-hidden"><Outlet /></main>
       <footer className="col-span-2 h-7 flex items-center gap-4 px-4 border-t border-line bg-bg2 text-[11.5px] text-dim no-print" style={{ gridColumn: '1 / -1' }}>
-        {[['Web-App', status?.web], ['Datenbank', status?.database], ['API', status?.api], ['WebSocket', wsUp ? 'ONLINE' : 'OFFLINE']].map(([k, s]) => (
+        {[['Oberfläche', status?.web], ['Datenbank', status?.database], ['Server-Skript', status?.api], ['Live-Ereignisse', wsUp ? 'ONLINE' : 'OFFLINE']].map(([k, s]) => (
           <span key={k as string} className="flex items-center gap-1.5"><i className="w-1.5 h-1.5 rounded-full inline-block" style={{ background: STATUS_COLOR(s as string) }} />{k}</span>))}
         <span className="flex items-center gap-1.5"><i className="w-1.5 h-1.5 rounded-full inline-block" style={{ background: fivem ? '#3fb950' : '#817d78' }} />FiveM {fivem ? 'verbunden' : 'nicht verbunden'}</span>
         <span>Datenquelle: {status?.data_source ?? '–'}</span>

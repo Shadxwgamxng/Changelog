@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { api, cfg, getToken, setToken } from './api';
+import { api, getToken, setToken, subscribe } from './api';
 
 export interface HistPoint { t: number; pid: number; dose: number; speed: number }
 export interface Session { vehicle_id: string; vehicle_name: string; name: string; funktion: string }
@@ -54,20 +54,10 @@ export function LiveProvider({ children }: { children: ReactNode }) {
   // In FiveM-NUI eingebettet: dem Spiel mitteilen, welches Fahrzeug übernommen werden soll
   useEffect(() => { if (window.parent !== window) window.parent.postMessage({ type: 'cbrn-vehicle', vehicle: session?.vehicle_id ?? null }, '*'); }, [session]);
 
-  const wsRef = useRef<WebSocket | null>(null);
   useEffect(() => {
     if (!session) return;
-    let stop = false; let retry: any;
-    const open = () => {
-      const c = cfg(); const base = c.wsUrl || `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`;
-      let ws: WebSocket; try { ws = new WebSocket(`${base}?token=${encodeURIComponent(getToken() ?? '')}`); } catch { retry = setTimeout(open, 3000); return; }
-      wsRef.current = ws;
-      ws.onopen = () => setWsUp(true);
-      ws.onclose = () => { setWsUp(false); if (!stop) retry = setTimeout(open, 3000); };
-      ws.onerror = () => ws.close();
-      ws.onmessage = (m) => {
-        const e = JSON.parse(m.data);
-        switch (e.type) {
+    const onEvent = (e: any) => {
+      switch (e.type) {
           case 'hello': case 'system.status': setStatus((s: any) => ({ ...s, ...e.payload })); break;
           case 'reading.live': {
             const p = e.payload; setLive((l) => ({ ...l, [p.vehicle_id]: p }));
@@ -80,10 +70,8 @@ export function LiveProvider({ children }: { children: ReactNode }) {
           case 'alarm.created': setToasts((t) => [...t.slice(-3), e.payload]); setTimeout(() => setToasts((t) => t.slice(1)), 9000); setRev((r) => ({ ...r, [e.type]: (r[e.type] ?? 0) + 1 })); break;
           default: setRev((r) => ({ ...r, [e.type]: (r[e.type] ?? 0) + 1 }));
         }
-      };
     };
-    open();
-    return () => { stop = true; clearTimeout(retry); wsRef.current?.close(); };
+    return subscribe(onEvent, setWsUp);
   }, [session]);
   // Fallback ohne WebSocket (z. B. NUI ohne WS-Zugriff): Polling
   useEffect(() => {

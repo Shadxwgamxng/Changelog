@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Page, Panel, Field, Btn, Select, Badge, StatusBadge, LevelBadge } from '../components/ui';
-import { api, url } from '../api';
+import { api } from '../api';
+import { copyText } from '../lib/clipboard';
 import { useApi, useLive } from '../store';
 import { dt, time, coord, NA } from '../lib/format';
 
@@ -34,16 +35,18 @@ export default function Reports() {
   const { can } = useLive(); const missions = useApi<any[]>('/missions', ['mission.updated']); const reports = useApi<any[]>('/reports'); const [mid, setMid] = useState(''); const [cur, setCur] = useState<any>(null); const [err, setErr] = useState('');
   const create = async () => { try { const r = await api('/reports', { method: 'POST', body: { mission_id: mid || missions.data?.[0]?.id } }); setCur(r); reports.reload(); } catch (e: any) { setErr(e.message); } };
   const open = async (id: string) => setCur(await api('/reports/' + id));
-  const dl = (id: string, ext: string) => window.open(url(`/api/reports/${id}/${ext}`), '_blank');
+  const [cmsg, setCmsg] = useState('');
+  const copy = async (text: string) => { setCmsg((await copyText(text)) ? 'In Zwischenablage kopiert ✓' : 'Kopieren nicht möglich'); setTimeout(() => setCmsg(''), 2500); };
+  const copyCsv = async (id: string) => copy((await api(`/reports/${id}/csv`)).text);
   return (
-    <Page title="Einsatzberichte" sub="Export: PDF · CSV · JSON" right={<>
+    <Page title="Einsatzberichte" sub="Export: CSV · JSON (Zwischenablage)" right={<>
       <Select value={mid || missions.data?.[0]?.id || ''} onChange={setMid} options={(missions.data ?? []).map((m) => [m.id, `#${m.id} ${m.vehicle_id} – ${m.sector_name}`] as [string, string])} />
       <Btn kind="primary" onClick={create} disabled={!can(2)} title={!can(2) ? 'Truppführer erforderlich' : ''}>Bericht erstellen / aktualisieren</Btn></>}>
       {err && <div className="text-bad mb-2">{err}</div>}
       <div className="grid grid-cols-12 gap-3">
         <Panel title="Berichte" className="col-span-3" body="!p-0"><table className="t"><tbody>{(reports.data ?? []).map((r) => <tr key={r.id} className="cursor-pointer" onClick={() => open(r.id)}><td className="font-mono">{r.id}</td><td>{dt(r.created_at)}</td></tr>)}
           {!(reports.data ?? []).length && <tr><td className="text-dim">Noch keine Berichte</td></tr>}</tbody></table></Panel>
-        <div className="col-span-9">{cur ? <Panel title={`Einsatzbericht ${cur.number}`} right={<span className="no-print flex gap-2"><Badge color="#f0500a">SIMULATION</Badge><Btn onClick={() => dl(cur.id, 'pdf')}>PDF</Btn><Btn onClick={() => dl(cur.id, 'csv')}>CSV</Btn><Btn onClick={() => { const b = new Blob([JSON.stringify(cur, null, 2)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `${cur.id}.json`; a.click(); }}>JSON</Btn><Btn onClick={() => window.print()}>Drucken</Btn></span>}><ReportView r={cur} /></Panel>
+        <div className="col-span-9">{cur ? <Panel title={`Einsatzbericht ${cur.number}`} right={<span className="no-print flex gap-2"><Badge color="#f0500a">SIMULATION</Badge><Btn onClick={() => copyCsv(cur.id)}>CSV kopieren</Btn><Btn onClick={() => copy(JSON.stringify(cur, null, 2))}>JSON kopieren</Btn>{cmsg && <span className="text-ok text-[12px] self-center">{cmsg}</span>}</span>}><ReportView r={cur} /></Panel>
           : <Panel><div className="text-dim py-8 text-center">Bericht auswählen oder erstellen</div></Panel>}</div>
       </div>
     </Page>

@@ -5,12 +5,5 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   base: './',
   plugins: [react()],
-  server: {
-    port: 5173,
-    proxy: {
-      '/api': 'http://localhost:3001',
-      '/ws': { target: 'ws://localhost:3001', ws: true },
-    },
-  },
-  build: { outDir: 'dist', chunkSizeWarningLimit: 1600 },
+  build: { outDir: 'resource/cbrn-erkunder/app', emptyOutDir: true, chunkSizeWarningLimit: 1600 },
 });

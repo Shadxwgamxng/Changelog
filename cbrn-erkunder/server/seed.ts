@@ -1,3 +1,4 @@
+import gestisJson from './data/gestis-index.json' with { type: 'json' };
 import { db, insert, list, get, now, setSetting, getSetting } from './db.js';
 import { substances as subs1 } from './data/substances.js';
 import { substances2 } from './data/substances2.js';
@@ -23,7 +24,7 @@ export const REF_VERSION = 6; // erhöhen, wenn sich Referenzdaten (Stoffe, Hand
 // Referenzdaten (fachliche Stammdaten) – werden bei Versionswechsel neu eingespielt (Admin-Änderungen daran gehen dabei verloren).
 // Ergebnis von tools/gestis-index-check.ts: CAS-Nummer/Name mit dem öffentlichen GESTIS-Stoffindex abgeglichen (nur Index, keine Artikeldaten)
 function gestisIndex(): Record<string, { zvg: string; gestis_name: string; cas_match: boolean }> {
-  try { return JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'server', 'data', 'gestis-index.json'), 'utf8')); } catch { return {}; }
+  return gestisJson as any;
 }
 const CHECK_DATE = '2026-10-04';
 

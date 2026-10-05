@@ -1,8 +1,19 @@
 {
   "compilerOptions": {
-    "target": "ES2022", "module": "NodeNext", "moduleResolution": "NodeNext", "strict": true,
-    "skipLibCheck": true, "outDir": "dist-server", "rootDir": "server", "esModuleInterop": true,
-    "types": ["node"]
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "skipLibCheck": true,
+    "outDir": "dist-server",
+    "rootDir": "server",
+    "esModuleInterop": true,
+    "types": [
+      "node"
+    ],
+    "resolveJsonModule": true
   },
-  "include": ["server"]
+  "include": [
+    "server"
+  ]
 }

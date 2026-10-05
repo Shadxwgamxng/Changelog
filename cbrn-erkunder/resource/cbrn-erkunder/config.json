@@ -1,0 +1,9 @@
+{
+  "mapMode": "gta5",
+  "_hinweis": "Karte: GTA V (public/maps/gta5.webp). bounds = Spielkoordinaten (Meter), die das Kartenbild abdeckt (links/rechts/unten/oben). Feinkorrektur ohne Neustart: System → Konfiguration → Kartenversatz.",
+  "gta5": {
+    "center": { "x": 195, "y": -934 },
+    "image": "/maps/gta5.webp",
+    "bounds": { "minX": -5489, "maxX": 6972, "minY": -4106, "maxY": 8355 }
+  }
+}

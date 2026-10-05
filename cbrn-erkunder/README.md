@@ -1,93 +1,40 @@
-# CBRN Erkunder Software (Simulation)
+# CBRN Erkunder – FiveM-Script (Simulation)
 
-Eigenständige Web-App, die den digitalen Arbeitsplatz eines deutschen CBRN-Erkundungswagens (neue ErkW-Generation, konzeptionell nach öffentlichen BBK-Informationen) nachbildet – als Grundlage für ein späteres FiveM-NUI.
+Bordcomputer für den CBRN-Erkundungswagen als **reine FiveM-Ressource**: Einsatz anlegen, Messfahrt mit GTA-Position, Messgeräte (PID, IMS, MGMG, Dosisleistung …), Probenanalyse, Stoff-/Nuklid-/Bio-Datenbank, Wetter, Aufträge, Berichte. Es läuft **kein Webserver und kein Port**: Die Oberfläche ist eine NUI, die Simulation läuft im Server-Skript der Ressource.
 
-> **SIMULATION.** Stoff-/Nuklid-/Agensdaten sind fachliche Referenzdaten aus öffentlichen Quellen, **aber noch nicht gegen die Primärquellen geprüft** (Status `unverified`, Abrufdatum/Datenstand „NICHT DOKUMENTIERT“). Messwerte, GPS, Einsätze, Identifikationen und Laborergebnisse sind **simuliert** – auch wenn FiveM verbunden ist. Kein offizielles Produkt einer Behörde; das Logo (`public/logo.png`) wurde vom Betreiber bereitgestellt.
+> Stoffdaten (CAS, UN, GHS …) sind Referenzdaten, **Messwerte, Identifikationen, Laborergebnisse und Einsatzlagen sind Simulation**. Fachdaten sind ungeprüft (siehe Quellenstatus im Programm).
 
-## Start
+## Installation
 
-Einfachster Weg: **`start.bat`** (Windows) bzw. `./start.sh` doppelklicken/ausführen – installiert beim ersten Mal alles (die ZIP enthält die fertig gebaute App), startet und öffnet den Browser (http://localhost:3001). Voraussetzung: Node.js 22+.
+1. Den Ordner `resource/cbrn-erkunder` in den `resources`-Ordner des FiveM-Servers kopieren (fertig gebaut, nichts zu installieren).
+2. In der `server.cfg`: `ensure cbrn-erkunder`
+3. `config.lua` anpassen – vor allem `Config.Models` (Spawnnamen der Fahrzeuge, in denen der Computer verfügbar ist).
+4. Optional `config.json` (Kartenmitte, Kartenbild-Grenzen).
 
-```bash
+Die Datenbank (`data/cbrn.db`) legt die Ressource beim ersten Start selbst an; zum Zurücksetzen Server stoppen und die Datei löschen.
+
+## Bedienung im Spiel
+
+- In ein Fahrzeug aus `Config.Models` einsteigen und einen **Beifahrerplatz** nehmen (der Fahrer hat keinen Zugriff).
+- Hinweis „Drücke E um den Computer des CBRN-Erkunders zu öffnen“ → **E** öffnet den Computer im Monitor-Rahmen, **ESC** schließt ihn. Beim Aussteigen oder Wechsel auf den Fahrersitz schließt er sich selbst. Es gibt keinen Befehl.
+- **Anmeldung am Fahrzeug:** *Florian Falkenwalde 11-71-01* oder *01-71-01* wählen, Name und Funktion eingeben – danach voller Zugriff. Erst mit der Anmeldung startet die Telemetrie (Position, Kurs, Speed, GTA-Wetter) für dieses Fahrzeug.
+- **Einsatz anlegen (Pflicht):** Stichwort, Ort, Lage, Gefahrenart C/R/B/U, Menge und Einsatzstelle auf der Karte. Daraus rechnet die Simulation die Lage (Ausbreitung nach Wind). Der Wahrheitsstoff bleibt verdeckt, außer die Lage meldet ihn als bekannt; nach Einsatzende steht er unter System → Einsätze.
+- **Messfahrt starten:** den eigenen Standort auf der Karte markieren; danach kommt alles Weitere aus FiveM (bei > 150 m Abweichung erscheint ein Hinweis).
+- Berichte/Wetterdaten werden in die Zwischenablage kopiert (kein Datei-Download in der NUI).
+
+## Entwickeln / selbst bauen
+
+```
 npm install
-npm run dev        # API :3001 + Web :5173 (http://localhost:5173)
-# oder
-npm run build && npm run start   # alles auf http://localhost:3001
+npm run build        # Oberfläche (Vite) + Server-Skript (esbuild) -> resource/cbrn-erkunder
+npm run dev:sim      # Entwickler-Testserver im Browser (http://localhost:3001) mit simulierter FiveM-Telemetrie
+npm run typecheck
 ```
 
-Die SQLite-Datenbank (`data/cbrn.db`) wird beim ersten Start angelegt und befüllt (`npm run db:reset` setzt zurück).
+Aufbau: `src/` Oberfläche (React) · `server/` Simulation, Datenbank (sql.js), Routen · `resource/cbrn-erkunder/` die fertige Ressource (`client.lua`, `web/` Monitor-Hülle, `app/` Oberfläche, `server/main.js`).
 
-## Optik
-
-Dunkle, neutrale Oberfläche mit orangem Akzent, Geist-Schrift (lokal eingebunden, SIL OFL), einklappbare Seitenleiste mit Symbolen (lucide, ISC) und Karten/Chips in der Art moderner Fraktionsverwaltungs-Tools wie ignis (EmergencyForge). Es wurde nur die Gestaltungsidee nachempfunden – kein Code, keine Grafiken und keine Markenzeichen aus ignis (GPL-3.0) übernommen. Die Farb-Token stehen in `tailwind.config.js` und `src/index.css`.
-
-## Funktionen für den Einsatz im Spiel
-
-* **Messfahrt:** „▶ Messfahrt starten“ (Dashboard, Live-Messung, Karte, Fahrzeug). Mit FiveM-Verbindung kommen Position, Geschwindigkeit und Kurs **dauerhaft aus GTA** auf die Karte (Track, Strecke, Messpunkte werden aufgezeichnet); ohne FiveM fährt die Demo-Route. Übersicht unter Historie → Messfahrten.
-* **Probe analysieren:** Probenahme → Probe wählen → „Probe analysieren“ (oder „Schnellanalyse“). Angaben: Herkunft, Aggregatzustand, entflammbar?, Geruch, Farbe, pH, Verhalten mit Wasser, Messwerte (PID/EX/CO/H₂S/O₂/Dosisleistung/Gamma-Linien), IMS-/Prüfröhrchen-Anzeige, UN-Nummer, eigene Vermutung, Symptome. Ergebnis: bewertete Stoffvorschläge (Hinweis / Verdacht / mögliche Identifikation) mit Begründung (✓/✗), nächsten Schritten und Link zu den Handlungsempfehlungen. Eine *bestätigte* Identifikation gibt es nur über das (simulierte) Labor.
-* **Stoff-Wiki:** 90+ Stoffe, filterbar nach Merkmalen (brennbar, giftig, ätzend …) und Herkunft; jede Stoff-/Nuklid-/Agens-Seite hat **Handlungsempfehlungen** (Gefahren, Absperrung, Schutz, Brandbekämpfung, Freisetzung, Dekon, Rettung/Erste Hilfe, Messtechnik). Diese sind **klassenbasierte Richtwerte** (GAMS-Regel, FwDV 500), nicht stoffspezifisch geprüft – bitte mit Einsatzleiter-Wiki/GESTIS/ERG abgleichen und über Import/Administration anpassen.
-* **Wetterdaten kopieren:** Button auf Wetter, Dashboard und Karte (mehrzeilig oder Kurzform). Mit FiveM kommen Wetterlage, Wind (kommt aus …) und Spielzeit aus GTA; Temperatur/Luftfeuchte/Druck werden daraus abgeleitet (GTA kennt sie nicht).
-* **Ohne Spiel testen:** `npm run fivem-sim` sendet simulierte GTA-Telemetrie (Position + Wetter) an das Backend.
-
-## Geräte-Grafiken
-
-Jede Geräteseite (Messgeräte → Gerät anklicken) zeigt eine **eigene Vektorgrafik** des Geräts mit nummerierten Beschriftungen und den Live-Werten (Display, Sonde/Einlass, Status, GPS, Auftrag …); Zahl anklicken für Details. Für CoMo, MGMG, PID, Dosisleistungsmesser und IMS werden die vom Betreiber gelieferten Grafikdateien verwendet (`public/devices/<gerät>.png`; Display-Fläche und Beschriftungsanker in `src/components/deviceImages.ts`), FMG und Prüfröhrchen sind eigene schematische Zeichnungen (`src/components/DeviceFigure.tsx`). Eigene Bilder austauschen: Datei ersetzen und Display-/Ankerkoordinaten in `deviceImages.ts` anpassen.
-
-## GTA-5-Karte
-
-Die App läuft ausschließlich auf der GTA-V-Karte (`public/maps/gta5.webp`, vom Betreiber bereitgestellt). Positionen kommen als Spielkoordinaten (x/y in Metern) direkt aus FiveM. `config.json → gta5.bounds` legt fest, welchen Spielkoordinaten-Bereich das Bild abdeckt (aus Orientierungspunkten wie Flugplätzen/Stadtzentrum geschätzt, Abweichung bis ca. 200 m). Feinkorrektur ohne Neustart: **System → Konfiguration → Kartenversatz**. Eigenes Kartenbild: Datei ersetzen und `bounds` anpassen. Ohne FiveM-Verbindung bleibt das Fahrzeug am Einsatzzentrum (`gta5.center`, Standard Legion Square) stehen.
-
-## Aufbau
-
-| Teil | Inhalt |
-|---|---|
-| `server/` | Fastify + node:sqlite (relationales Schema, portables SQL → PostgreSQL), REST-API, WebSocket `/ws`, Simulationsengine, Berichte (PDF/CSV/JSON), Import (CSV/JSON mit CAS-Prüfziffer), Audit-Log |
-| `server/data/` | Seed: 28 Stoffe (inkl. 7 Kampfstoffe, nur Identifikationsdaten), 13 Radionuklide, 9 biologische Agenzien, Geräte, Verfahren, Prüfröhrchen, Quellen, Szenarien |
-| `src/` | React + TypeScript + Vite + Tailwind, MapLibre GL, Recharts, HashRouter (NUI-tauglich) |
-| `fivem-adapter/` | Optionale FiveM-Ressource (Lua): sendet Position/Speed/Heading an die API |
-| `public/config.js` | Laufzeitkonfiguration: `apiBase`, `wsUrl`, `tileUrl` (leer = komplett offline) |
-
-## Fachlogik
-
-* Arbeitsablauf: Messwert → Gerätehinweis → Stoffgruppe → mögliche Stoffe → weitere Messung/Probe → Laborbefund. Stufen: *Hinweis / Verdacht / mögliche Identifikation / bestätigte Identifikation*.
-* **PID** (10,6 eV) spricht nur an, wenn die Ionisierungsenergie des Stoffs darunter liegt (z. B. Chlor: kein Ansprechen) und liefert nur *SCREENING / HINWEIS*.
-* **MGMG**-Kanäle sind konfigurierbar (System → Konfiguration); Alarmschwellen sind als Simulationswerte gekennzeichnet.
-* **Gammaspektrum** wird aus IAEA-Linienenergien + Szenario erzeugt, die Nuklidzuordnung per Linienvergleich – immer als *SIMULIERTE AUSWERTUNG* markiert.
-* **Wind** wird als meteorologische Richtung geführt („Wind kommt aus NW“); die Ausbreitungsfahne läuft entgegengesetzt.
-* Datenherkunft je Messpunkt: `REAL DATA` · `SIMULATED DATA` · `MANUAL ENTRY` · `DATABASE REFERENCE`.
-
-## API (Auszug)
-
-`GET /api/substances[?q&cat&state&group&hazard&method&device&cas&un]`, `/api/substances/:id`, `/api/radionuclides`, `/api/biological-agents`, `/api/vehicles`, `/api/missions` (POST), `/api/measurements` (POST/PATCH), `/api/samples` (POST, `/:id/events`, `/:id/lab`), `/api/weather`, `/api/alarms`, `/api/audit`, `/api/search?q=`, `/api/reports` (+ `/:id/pdf|csv`), `/api/import/:table`, `/api/admin/:table`, `POST /api/adapter/fivem/telemetry`.
-WebSocket-Events: `vehicle.position`, `vehicle.status`, `measurement.created|updated`, `mission.created|updated`, `sample.created`, `alarm.created`, `weather.updated`, `reading.live`, `system.status`.
-
-## FiveM
-
-1. Backend starten, `FIVEM_TOKEN` setzen.
-2. `fivem-adapter/` als Ressource einbinden, `config.lua` anpassen (Fahrzeugmodelle, API-URL, Token).
-3. `Config.WebUrl` auf die vom Spieler erreichbare Adresse der Web-App setzen. In `Config.Models` die Spawnnamen der Fahrzeuge eintragen, in denen der **Computer des CBRN-Erkunders** verfügbar ist. Er lässt sich nur auf den **Beifahrerplätzen** öffnen (nicht vom Fahrer): Hinweis „Drücke E um den Computer des CBRN-Erkunders zu öffnen“, Taste `Config.Control` (Standard E). Es gibt keinen Befehl und keine Tastenbelegung. Die Oberfläche erscheint im Monitor-Rahmen (`web/monitor.png`); ESC schließt. Die Telemetrie (Position, Kurs, Speed, GTA-Wetter) startet, sobald am Computer die Anmeldung erfolgt ist.
-4. Sobald Telemetrie eintrifft, zeigt die Kopfzeile **FIVEM VERBUNDEN**; 10 s ohne Telemetrie → **FIVEM GETRENNT**. Spielkoordinaten werden direkt übernommen.
+Der Server-Teil ist ein Node-Skript (Standard-Node der FiveM-Laufzeit genügt, Ziel Node 16). Falls dein Server-Artifact eine neuere Laufzeit verlangt, `node_version '22'` in die `fxmanifest.lua` eintragen.
 
 ## GESTIS-Abgleich
 
-`npm run gestis-check` (Internet nötig) gleicht CAS-Nummer und Stoffname aller Stoffe mit dem **öffentlichen GESTIS-Stoffindex** ab (nur CAS, Name, ZVG-Nr.; Ergebnis in `server/data/gestis-index.json`). Bestätigte Stoffe erhalten den Status „CAS/NAME GEPRÜFT" und einen Link auf ihren GESTIS-Eintrag. Die Stoffeigenschaften selbst (Einstufung, physikalische Daten) sind **nicht** übernommen, weil die GESTIS-Artikel nur über eine geschützte Schnittstelle erreichbar sind – dafür ist eine Lizenz/Zugang der DGUV nötig. Stand: 91 von 93 Stoffen im Index gefunden (VX und Flüssiggas nicht).
-
-## Offene Punkte / Hinweise
-
-* Fachdaten gegen GESTIS/ECHA/NIOSH/NIST/IAEA/OPCW/RKI prüfen und `quality`, `last_checked`, Quellen-`retrieved_at`/`data_stand` pflegen (Import- und Admin-Funktion vorhanden).
-* Prüfröhrchen-Messbereiche: `QUELLE ERFORDERLICH` (Herstellerdatenblätter einpflegen). Chargen/Verfall sind simulierte Inventardaten.
-* IMS-Treffer (`ims_sim`) sind Szenarioannahmen, keine Aussage über reale Gerätebibliotheken.
-* Keine Authentifizierung (Rollenumschaltung in der Kopfzeile).
-* Tablet-Ansicht: reduziertes Raster per CSS (≤ 1100 px); nicht alle Seiten sind für Touch optimiert.
-
-## Anmeldung am Fahrzeug
-
-Beim Öffnen der Seite wählt man eines von zwei Fahrzeugen (**Florian Falkenwalde 11-71-01** / **Florian Falkenwalde 01-71-01**), gibt Name und Funktion ein und hat danach vollen Zugriff. Messfahrten, Track, Spektrum und Proben gehören zum angemeldeten Fahrzeug.
-
-FiveM: Fahrzeug-IDs sind `FFW-11-71-01` und `FFW-01-71-01`. Die Web-App meldet das bei der Anmeldung per `cbrn-vehicle` an den Adapter; die Telemetrie wird diesem Fahrzeug zugeordnet. Simulator: `node tools/fivem-sim.mjs http://localhost:3001 dev-token FFW-01-71-01`.
-Hinweis: Beim ersten Start mit dieser Version werden alte Betriebsdaten (CBRN-0x) verworfen.
-
-## Einsatz & Messfahrt
-
-- **Einsatz anlegen (Pflicht):** Nach der Anmeldung muss ein Einsatz mit Grunddaten angelegt werden (Stichwort, Ort, Lage, Gefahrenart C/R/B/U, Menge, Einsatzstelle auf der Karte, optional Stoff vorgeben). Daraus rechnet die Simulation die Lage (Ausbreitung nach Wind, Geräteanzeigen, Probenergebnisse). Der Wahrheitsstoff bleibt verdeckt, außer die Lage meldet ihn als bekannt; nach Einsatzende steht er unter System → Einsätze. Beenden: Einsatz-Schaltfläche in der Kopfzeile.
-- **Messfahrt starten:** Der eigene Standort wird auf der Karte markiert. Mit FiveM kommen danach Position, Kurs, Speed und Wetter laufend aus dem Spiel (bei großer Abweichung erscheint ein Hinweis); ohne FiveM gilt der markierte Punkt als Fahrzeugposition.
+`tools/gestis-index-check.ts` gleicht CAS/Name mit dem öffentlichen GESTIS-Stoffindex ab (nur Index, keine Artikeldaten); Ergebnis in `server/data/gestis-index.json`.

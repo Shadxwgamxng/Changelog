@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { RES_DIR } from './paths.js';
 
 export interface AppConfig {
   mapMode: 'geo' | 'gta5';
@@ -13,7 +14,7 @@ const DEFAULT: AppConfig = {
 };
 export function loadConfig(): AppConfig {
   try {
-    const j = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'config.json'), 'utf8'));
+    const j = JSON.parse(fs.readFileSync(path.resolve(RES_DIR, 'config.json'), 'utf8'));
     return { ...DEFAULT, ...j, geo: { ...DEFAULT.geo, ...j.geo }, gta5: { ...DEFAULT.gta5, ...j.gta5 } };
   } catch { return DEFAULT; }
 }

@@ -1,11 +1,11 @@
-import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { App as FastifyInstance, Req as FastifyRequest } from './router.js';
 import { db, get, list, insert, update, remove, audit, now, getSetting, setSetting, TABLES, columns } from './db.js';
 import { state, emit, fivemConnected, systemStatus, weatherNow, ingestFivem, spectrumAt, currentSnapshotAt, completeLab, mgmgChannels, activeIncident, routeLL, levelText, startRun, stopRun, runInfo } from './sim.js';
 import { analyze } from './analysis.js';
 import { ORIGIN_LABEL } from './data/derive.js';
 import { SECTORS, sectorPolygon, llToOffset, compass, CENTER, MODE } from './geo.js';
 import { config } from './config.js';
-import { buildReport, reportCsv, reportPdf } from './report.js';
+import { buildReport, reportCsv } from './report.js';
 import { validateImport } from './import.js';
 import { createIncident, endIncident, publicIncident } from './incident.js';
 import { authUser, createSession, crewOf, endSession, getSession, touch, purgeSessions } from './auth.js';
@@ -13,7 +13,7 @@ import { authUser, createSession, crewOf, endSession, getSession, touch, purgeSe
 const LEVEL: Record<string, number> = { erkunder: 1, truppfuehrer: 2, messleitung: 3, admin: 4 };
 const ADMIN_TABLES = ['substances', 'radionuclides', 'biological_agents', 'measurement_devices', 'measurement_methods', 'sources', 'test_tubes', 'vehicles'];
 const FUNKTIONEN = ['Fahrzeugführer', 'Truppführer', 'Messtrupp', 'Melder', 'Messleitung (MLK)', 'Einsatzleiter'];
-const PUBLIC = [/^\/api\/meta$/, /^\/api\/auth\/(vehicles|login)$/, /^\/api\/adapter\//];
+const PUBLIC = [/^\/api\/meta$/, /^\/api\/auth\/(vehicles|login)$/];
 
 function shiftedBounds() {
   const b = config.gta5.bounds; const o = getSetting('gta_offset', { dx: 0, dy: 0 }) as { dx: number; dy: number };
@@ -236,8 +236,7 @@ export function registerRoutes(app: FastifyInstance) {
     audit(u.id, 'create', 'report', id); rep.code(201); return { id, ...data };
   });
   app.get('/api/reports/:id', async (req) => { const r = get('reports', (req.params as any).id); if (!r) throw nf('Bericht'); return { id: r.id, created_at: r.created_at, ...r.data }; });
-  app.get('/api/reports/:id/csv', async (req, rep) => { const r = get('reports', (req.params as any).id); if (!r) throw nf('Bericht'); rep.header('content-type', 'text/csv; charset=utf-8').header('content-disposition', `attachment; filename="${r.id}.csv"`); return '﻿' + reportCsv(r.data); });
-  app.get('/api/reports/:id/pdf', async (req, rep) => { const r = get('reports', (req.params as any).id); if (!r) throw nf('Bericht'); const buf = await reportPdf(r.id, r.data); rep.header('content-type', 'application/pdf').header('content-disposition', `attachment; filename="${r.id}.pdf"`); return buf; });
+  app.get('/api/reports/:id/csv', async (req) => { const r = get('reports', (req.params as any).id); if (!r) throw nf('Bericht'); return { filename: `${r.id}.csv`, text: reportCsv(r.data) }; });
 
   // ---------- Import / Admin
   app.post('/api/import/:table', async (req) => {
@@ -254,12 +253,4 @@ export function registerRoutes(app: FastifyInstance) {
     insert(table, body, true); audit(u.id, before ? 'update' : 'create', table, id, before ? { before } : undefined); return get(table, id);
   });
   app.delete('/api/admin/:table/:id', async (req) => { const u = need(req, 4); const { table, id } = req.params as any; if (!ADMIN_TABLES.includes(table)) throw nf('Tabelle'); remove(table, id); audit(u.id, 'delete', table, id); return { ok: true }; });
-
-  // ---------- FiveM-Adapter (optional; die Web-App funktioniert ohne)
-  app.post('/api/adapter/fivem/telemetry', async (req) => {
-    const token = process.env.FIVEM_TOKEN ?? 'dev-token';
-    if (req.headers['x-adapter-token'] !== token) throw Object.assign(new Error('Adapter-Token ungültig'), { statusCode: 401 });
-    return { ok: ingestFivem(req.body as any) };
-  });
-  app.get('/api/adapter/fivem/status', async () => ({ connected: fivemConnected(), vehicles: systemStatus().vehicles }));
 }

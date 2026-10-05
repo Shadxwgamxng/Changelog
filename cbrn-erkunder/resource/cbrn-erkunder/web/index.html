@@ -12,7 +12,7 @@
 </style></head>
 <body>
 <div id="wrap">
-  <div id="screen"><iframe id="f" allow="clipboard-write"></iframe></div>
+  <div id="screen"><iframe id="f" src="../app/index.html" allow="clipboard-write"></iframe></div>
   <img id="frame" src="monitor.png" alt="">
   <div id="hint">ESC – Computer schließen</div>
 </div>
@@ -24,10 +24,17 @@
   window.addEventListener('resize', fit);
   window.addEventListener('message', (e) => {
     const d = e.data || {};
-    if (d.type === 'open') { if (!f.src || f.dataset.url !== d.url) { f.src = d.url; f.dataset.url = d.url; } wrap.classList.add('on'); fit(); }
+    if (d.type === 'open') { wrap.classList.add('on'); fit(); }
+    else if (d.type === 'evt') f.contentWindow && f.contentWindow.postMessage({ cbrn: 'evt', data: d.data }, '*'); // Live-Ereignis vom Server
     else if (d.type === 'close') wrap.classList.remove('on');
     else if (d.type === 'cbrn-vehicle') post('setVehicle', { vehicle: d.vehicle }); // aus der eingebetteten Web-App nach Anmeldung/Abmeldung
     else if (d.type === 'cbrn-close') post('close'); // ESC aus der eingebetteten Web-App
+  });
+  // Anfragen der Oberflaeche (iframe) -> Lua-Client -> Server-Skript; Antwort zurueck an den iframe
+  window.addEventListener('message', async (e) => {
+    const d = e.data; if (!d || d.cbrn !== 'req') return;
+    let r; try { r = await (await fetch(`https://${res}/api`, { method: 'POST', body: JSON.stringify({ id: d.id, method: d.method, path: d.path, body: d.body, token: d.token }) })).json(); } catch { r = { status: 0, text: '{"error":"NUI-Verbindung fehlgeschlagen"}' }; }
+    f.contentWindow.postMessage({ cbrn: 'res', id: d.id, status: r.status, text: r.text }, '*');
   });
   window.addEventListener('keydown', (e) => e.key === 'Escape' && post('close'));
 </script></body></html>

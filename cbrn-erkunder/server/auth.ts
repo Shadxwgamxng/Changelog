@@ -1,6 +1,6 @@
 // Anmeldung am Fahrzeug: Name + Funktion, danach voller Zugriff. Sitzungen liegen in der Datenbank.
 import { randomBytes } from 'node:crypto';
-import type { FastifyRequest } from 'fastify';
+import type { Req as FastifyRequest } from './router.js';
 import { db, now } from './db.js';
 
 export interface Session { token: string; vehicle_id: string; name: string; funktion: string; created_at: string; last_seen: string }

@@ -1,20 +1,47 @@
-import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
 import path from 'node:path';
+import initSqlJs from 'sql.js';
 
-const dbFile = process.env.DB_FILE ?? path.resolve(process.cwd(), 'data', 'cbrn.db');
-fs.mkdirSync(path.dirname(dbFile), { recursive: true });
-// node:sqlite (in Node ab 22.5 eingebaut) – kein nativer Build/Python/Compiler nötig, läuft auch unter Windows.
-const raw = new DatabaseSync(dbFile);
-raw.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
-export const db = Object.assign(raw, {
+// SQLite läuft über sql.js (WebAssembly, reines JS – kein nativer Build, läuft im FiveM-Node-Runtime).
+// Die Datenbank liegt im Speicher und wird regelmäßig in data/cbrn.db geschrieben.
+type Param = string | number | null | bigint | Uint8Array;
+class Stmt {
+  constructor(private d: Db, private sql: string) {}
+  private exec<R>(params: Param[], fn: (s: any) => R): R {
+    const s = this.d.inner.prepare(this.sql);
+    try { s.bind(params.map((p) => (p === undefined ? null : typeof p === 'bigint' ? Number(p) : p))); return fn(s); } finally { s.free(); }
+  }
+  run(...params: Param[]) { this.exec(params, (s) => { s.step(); }); this.d.dirty = true; const r = this.d.inner.exec('SELECT last_insert_rowid() id, changes() c')[0]?.values[0] ?? [0, 0]; return { lastInsertRowid: r[0] as number, changes: r[1] as number }; }
+  get(...params: Param[]): any { return this.exec(params, (s) => (s.step() ? s.getAsObject() : undefined)); }
+  all(...params: Param[]): any[] { return this.exec(params, (s) => { const out: any[] = []; while (s.step()) out.push(s.getAsObject()); return out; }); }
+}
+class Db {
+  inner!: any; dirty = false; file = '';
+  prepare(sql: string) { return new Stmt(this, sql); }
+  exec(sql: string) { this.inner.exec(sql); this.dirty = true; }
   transaction<A extends unknown[], R>(fn: (...a: A) => R) {
     return (...a: A): R => {
-      raw.exec('BEGIN');
-      try { const r = fn(...a); raw.exec('COMMIT'); return r; } catch (e) { raw.exec('ROLLBACK'); throw e; }
+      this.exec('BEGIN');
+      try { const r = fn(...a); this.exec('COMMIT'); return r; } catch (e) { this.exec('ROLLBACK'); throw e; }
     };
-  },
-});
+  }
+  save() {
+    if (!this.dirty || !this.file) return; this.dirty = false;
+    try { const data = this.inner.export(); this.inner.exec('PRAGMA foreign_keys = ON'); const tmp = this.file + '.tmp'; fs.writeFileSync(tmp, Buffer.from(data)); fs.renameSync(tmp, this.file); }
+    catch (e) { console.error('[cbrn] Datenbank konnte nicht gespeichert werden:', e); this.dirty = true; }
+  }
+}
+export const db = new Db();
+
+/** Öffnet (oder legt an) die Datenbank. `file` = null → rein im Speicher (Tests). */
+export async function initDb(file: string | null, wasmFile: string) {
+  const SQL = await initSqlJs({ wasmBinary: fs.readFileSync(wasmFile) as any });
+  let data: Uint8Array | undefined;
+  if (file) { fs.mkdirSync(path.dirname(file), { recursive: true }); if (fs.existsSync(file)) data = fs.readFileSync(file); }
+  db.inner = new SQL.Database(data); db.file = file ?? '';
+  db.inner.exec('PRAGMA foreign_keys = ON;');
+  setupSchema(); db.dirty = true; db.save();
+}
 
 // Schema ist bewusst portables SQL (TEXT/INTEGER/REAL) – Umstieg auf PostgreSQL = Treiber + Typnamen anpassen.
 export const SCHEMA = `
@@ -60,11 +87,13 @@ CREATE INDEX IF NOT EXISTS ix_meas_veh ON measurements(vehicle_id);
 CREATE TABLE IF NOT EXISTS incidents (id TEXT PRIMARY KEY, name TEXT, status TEXT, created_at TEXT, created_by TEXT, ended_at TEXT, location_text TEXT, report TEXT, category TEXT, ref_type TEXT, ref_id TEXT, known INTEGER DEFAULT 0, amount TEXT, radius_m REAL, peak REAL, lat REAL, lon REAL);
 CREATE TABLE IF NOT EXISTS runs (id TEXT PRIMARY KEY, vehicle_id TEXT, name TEXT, started_at TEXT, ended_at TEXT, started_by TEXT, distance_m REAL DEFAULT 0, points INTEGER DEFAULT 0, max_dose REAL, max_pid REAL, source TEXT, mission_id TEXT);
 `;
+function setupSchema() {
 db.exec(SCHEMA);
 // Migration älterer Datenbanken: fehlende Spalten ergänzen
 for (const [t, c] of [['substances', 'traits'], ['substances', 'response'], ['substances', 'gestis_zvg'], ['radionuclides', 'response'], ['biological_agents', 'response'], ['measurements', 'run_id'], ['samples', 'analysis'], ['runs', 'start_lat'], ['runs', 'start_lon'], ['runs', 'incident_id'], ['measurements', 'incident_id']] as const) {
   const cols = (db.prepare(`PRAGMA table_info(${t})`).all() as { name: string }[]).map((x) => x.name);
   if (!cols.includes(c)) db.exec(`ALTER TABLE ${t} ADD COLUMN ${c} TEXT`);
+}
 }
 
 const JSON_COLS: Record<string, string[]> = {

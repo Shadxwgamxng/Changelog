@@ -6,7 +6,7 @@ import { NA } from '../lib/format';
 
 function Status() {
   const { status, wsUp } = useLive(); const fm = useApi<any>('/adapter/fivem/status', ['system.status']);
-  const rows: [string, string][] = [['WEB APP', status?.web], ['DATABASE', status?.database], ['API', status?.api], ['WEBSOCKET', wsUp ? 'ONLINE' : 'OFFLINE'], ['FIVEM', status?.fivem], ['DATA SOURCE', status?.data_source]];
+  const rows: [string, string][] = [['OBERFLÄCHE', status?.web], ['DATABASE', status?.database], ['SERVER-SKRIPT', status?.api], ['LIVE-EREIGNISSE', wsUp ? 'ONLINE' : 'OFFLINE'], ['FIVEM', status?.fivem], ['DATA SOURCE', status?.data_source]];
   return (<div className="grid grid-cols-3 gap-3">
     {rows.map(([k, v]) => <div key={k} className="panel p-3"><div className="lbl">{k}</div><div className="mt-1"><StatusBadge s={v} /></div></div>)}
     <Panel title="Betriebsmodus" className="col-span-3">

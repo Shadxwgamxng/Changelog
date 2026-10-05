@@ -58,7 +58,7 @@ end)
 local function setOpen(state)
   open = state
   SetNuiFocus(open, open)
-  SendNUIMessage({ type = open and 'open' or 'close', url = Config.WebUrl })
+  SendNUIMessage({ type = open and 'open' or 'close' })
 end
 
 -- Hinweis + Öffnen (nur Beifahrer); geöffnet wird mit Config.Control (E)
@@ -76,6 +76,26 @@ CreateThread(function()
     end
   end
 end)
+
+-- Bruecke NUI <-> Server-Skript: Anfragen der Oberflaeche laufen als Events zum Server, Antworten kommen in Teilen zurueck
+local pending, parts = {}, {}
+RegisterNUICallback('api', function(d, cb)
+  local id = d.id
+  pending[id] = cb
+  TriggerServerEvent('cbrn:req', id, d.method, d.path, d.body, d.token)
+end)
+RegisterNetEvent('cbrn:resp', function(id, idx, total, status, chunk)
+  local p = parts[id]
+  if not p then p = { n = 0, t = {} }; parts[id] = p end
+  p.t[idx + 1] = chunk; p.n = p.n + 1
+  if p.n >= total then
+    parts[id] = nil
+    local cb = pending[id]; pending[id] = nil
+    if cb then cb({ status = status, text = table.concat(p.t) }) end
+  end
+end)
+-- Live-Ereignisse (Messwerte, Alarme, Wetter ...) an die Oberflaeche
+RegisterNetEvent('cbrn:evt', function(json) SendNUIMessage({ type = 'evt', data = json }) end)
 
 RegisterNUICallback('setVehicle', function(d, cb) currentVehicle = d and d.vehicle or nil; cb('ok') end)
 RegisterNUICallback('close', function(_, cb) setOpen(false); cb('ok') end)
