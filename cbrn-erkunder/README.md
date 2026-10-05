@@ -59,3 +59,10 @@ Ablauf: **Am Fahrzeug (Offset-Punkt) Probenentnahmeset nehmen → zum gewünscht
 - `web/index.html` – HUD unten rechts · `src/pages/Samples.tsx` – Computer-Modul „Proben“
 
 Analyse: Dauer je Art in `Config.Sample.AnalysisDurations`; das Ergebnis wird aus dem verdeckten Einsatzprofil an der Entnahmestelle simuliert und ist mehrstufig (KEIN BEFUND · UNBEKANNT · STOFFGRUPPE ERKANNT · VERDACHT · SIMULIERTE IDENTIFIKATION).
+
+## Brandeinsatz / Rauchgasmessung
+
+- **Einsatz anlegen:** Gefahrenart „Brand (Rauchgasmessung)“ wählen und Brandart festlegen. Die erste Brandstelle entsteht an der Einsatzstelle. Bei jedem Einsatz können auf der **Karte** (rechte Leiste → „Brandstellen“) weitere Brandstellen eingezeichnet (Brandart, Größe) und wieder entfernt werden. Die Karte zeigt Brandstelle und Rauchfahne in Windrichtung.
+- **Messfahrt starten:** Auswahl **CBRN-Einsatz** oder **Brandeinsatz**. Brandeinsatz braucht mindestens eine eingezeichnete Brandstelle; bei reinem Brandeinsatz ist nur der Brandmodus möglich.
+- **Brandmodus:** Das MGMG zeigt O₂, CO, CO₂, HCN, HCl, der PID VOC; Werte folgen der Rauchfahne (Wind). Schwellen sind Simulationswerte. Proben im Rauch liefern als Analyse nur die Stoffgruppe „Brandrauch“.
+- Alle Werte sind **simuliert**. Eine automatische Übernahme von z_fire-Bränden ist nicht eingebaut (die Brandstellen werden manuell eingezeichnet).

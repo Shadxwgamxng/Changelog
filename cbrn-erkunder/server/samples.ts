@@ -6,6 +6,7 @@ import { db, get, list, insert, update, now, audit, getSetting, setSetting } fro
 import { emit, sampleTruth, activeIncident } from './sim.js';
 import { gameToLL, distM } from './geo.js';
 import { crewOf } from './auth.js';
+import { FIRE_TYPES } from './fire.js';
 
 export type SampleStatus = 'COLLECTED' | 'TRANSPORT' | 'STORED' | 'ANALYSIS' | 'COMPLETED' | 'ARCHIVED';
 export type AnalysisType = 'CHEMICAL' | 'BIOLOGICAL' | 'RADIOLOGICAL' | 'GENERAL';
@@ -122,6 +123,12 @@ export function analysisResult(sample: any, type: AnalysisType) {
   const base = { simulated: true, outcome: 'NO_FINDING', outcome_text: 'KEIN BEFUND', category: null as string | null, group: null as string | null, ref_type: null as string | null, substance_id: null as string | null, candidates: [] as any[], confidence: null as number | null, description: 'Es wurde keine Auffälligkeit festgestellt.' };
   const truth = sample.truth_ref as { type: string; id: string } | null; const ratio = (sample.truth_ratio ?? 0) + (Math.random() - 0.5) * 0.06;
   if (!truth) return base;
+  if (truth.type === 'fire') { // Rauchgas-/Brandprobe: nur Stoffgruppe, keine Einzelstoff-Identifikation
+    const ft = FIRE_TYPES[truth.id]; const chem = type === 'CHEMICAL' || type === 'GENERAL';
+    if (!chem) return base;
+    if (ratio < 0.08) return { ...base, category: 'CHEMISCH', outcome: 'UNKNOWN', outcome_text: 'UNBEKANNT', ref_type: 'fire', description: 'Spuren von Verbrennungsprodukten nicht ausgeschlossen, aber nicht näher bestimmbar.' };
+    return { ...base, category: 'CHEMISCH', ref_type: 'fire', group: 'Brandrauch / Verbrennungsprodukte', outcome: 'GROUP', outcome_text: 'STOFFGRUPPE ERKANNT', description: `Chemische Auffälligkeit festgestellt.\nStoffgruppe: Brandrauch (${ft?.label ?? 'Brand'}).\nTypisch enthalten: ${ft?.main ?? 'Verbrennungsprodukte'}.\nEine Einzelstoff-Identifikation ist nicht möglich.` };
+  }
   const cat = catOf(truth.type)!; const need = typeCat[type];
   if (need && need !== cat) return base; // Untersuchungsart passt nicht zum vorhandenen Gefahrstoff -> kein Befund (kein Hinweis auf andere Art)
   const row = truth.type === 'substance' ? get('substances', truth.id) : truth.type === 'radionuclide' ? get('radionuclides', truth.id) : get('biological_agents', truth.id);

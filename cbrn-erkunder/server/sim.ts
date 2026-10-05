@@ -1,5 +1,6 @@
 import { EventEmitter } from 'node:events';
 import { db, get, list, insert, update, now, getSetting, setSetting, audit } from './db.js';
+import { smokeAt, hasFire, activeFires, GAS_BG, GAS_ALARM } from './fire.js';
 import { offsetToLL, llToOffset, distM, bearing, compass, MODE, gameToLL } from './geo.js';
 
 // ---------------------------------------------------------------------------------------------
@@ -48,7 +49,7 @@ export function setDevicePower(by: string, vid: string, key: string, on: boolean
 export function resetDevices() { for (const k of Object.keys(devices)) delete devices[k]; }
 
 // ---- Laufzeitzustand
-export interface Run { id: string; vehicle_id: string; name: string; started_at: string; started_by: string; dist: number; points: number; maxDose: number; maxPid: number; source: string; mission_id: string | null; start: { lat: number; lon: number } | null }
+export interface Run { id: string; vehicle_id: string; name: string; started_at: string; started_by: string; dist: number; points: number; maxDose: number; maxPid: number; source: string; mission_id: string | null; mode: 'CBRN' | 'BRAND'; start: { lat: number; lon: number } | null }
 export const state = {
   drive: process.env.DEV_DRIVE === '1', s: 0, s2: 0, speed: 12, seen: {} as Record<string, number>, // m/s
   weather: { temperature: 11.4, humidity: 78, pressure: 1014, wind_speed: 3.4, wind_from: 315, cloud_okta: 5, precipitation: 0 },
@@ -65,7 +66,7 @@ export const fivemConnected = (id?: string) => (id ? Date.now() - (state.seen[id
 export const activeIncident = () => list('incidents', "WHERE status = 'AKTIV' ORDER BY created_at DESC LIMIT 1")[0] ?? null;
 // Die Simulation rechnet mit dem verdeckten Wahrheitsstoff des aktiven Einsatzes (Quelle = Einsatzstelle).
 export function activeScenario() {
-  const inc = activeIncident(); if (!inc) return null;
+  const inc = activeIncident(); if (!inc || inc.ref_type === 'fire') return null;
   const ref = inc.ref_type === 'substance' ? get('substances', inc.ref_id) : inc.ref_type === 'radionuclide' ? get('radionuclides', inc.ref_id) : get('biological_agents', inc.ref_id);
   const sc = { id: inc.id, name: inc.name, category: inc.ref_type === 'radionuclide' ? 'R' : inc.ref_type === 'biological' ? 'B' : 'C', display: inc.category, ref_type: inc.ref_type, ref_id: inc.ref_id, radius_m: inc.radius_m, peak: inc.peak };
   return { sc, ref, src: llToOffset(inc.lat, inc.lon) as { x: number; y: number } };
@@ -94,9 +95,26 @@ function pidGroups(sub: any) {
   return ['Anorganische/organische Verbindungen mit Ionisierungsenergie < 10,6 eV', 'VOC-Gemische'];
 }
 
-export function mgmgChannels(): string[] { return getSetting('mgmg_channels', ['O2', 'CO', 'H2S', 'LEL', 'CH4']); }
+export function mgmgChannels(mode: string = 'CBRN'): string[] { return mode === 'BRAND' ? BRAND_CHANNELS : getSetting('mgmg_channels', ['O2', 'CO', 'H2S', 'LEL', 'CH4']); }
+/** Kanäle des Mehrgasmessgeräts bei der Rauchgasmessung (Brandeinsatz). */
+export const BRAND_CHANNELS = ['O2', 'CO', 'CO2', 'HCN', 'HCl'];
 
-export function readingsAt(x: number, y: number, speed: number) {
+/** Rauchgasmessung am Brand: Gase aus der Rauchfahne der eingezeichneten Brandstellen (SIMULATION). */
+function brandReadings(x: number, y: number, speed: number) {
+  const { gases, density } = smokeAt(x, y, state.weather.wind_from, state.tick * 2);
+  const g = (k: string) => Math.max(0, GAS_BG[k] + gases[k] + rnd(Math.max(0.02, gases[k] * 0.05)));
+  const o2 = +(BG.o2 + rnd(0.05) - Math.max(0, gases.CO2) / 10000).toFixed(1);
+  const mg: Record<string, number> = { O2: o2, CO: +g('CO').toFixed(0), CO2: +g('CO2').toFixed(0), HCN: +g('HCN').toFixed(1), NO2: +g('NO2').toFixed(1), HCl: +g('HCl').toFixed(1), SO2: +g('SO2').toFixed(1), H2S: 0, LEL: 0, CH4: 0 };
+  const channels = Object.fromEntries(BRAND_CHANNELS.map((k) => [k, mg[k] ?? null]));
+  const pid = Math.max(0, BG.pid + rnd(0.05) + gases.VOC);
+  const dose = Math.max(0.03, BG.dose + rnd(0.012)); const cps = Math.max(0, BG.cps + gauss() * 0.5);
+  return { c: density, pid: { value: +pid.toFixed(2), unit: 'ppm', groups: pid > 2 ? ['Flüchtige organische Verbindungen (VOC)', 'Brandrauch / Pyrolyseprodukte'] : [] },
+    mgmg: { channels }, ims: { state: 'ONLINE', mode: 'AKTIV', level: null, result: 'KEIN TREFFER', confidence: null, substance_id: null, group: null, candidates: [] },
+    dose: { value: +dose.toFixed(3), unit: 'µSv/h' }, como: { value: +cps.toFixed(1), unit: 'cps' }, fmg: { speed_kmh: +(speed * 3.6).toFixed(0) } };
+}
+
+export function readingsAt(x: number, y: number, speed: number, mode: string = 'CBRN') {
+  if (mode === 'BRAND') return brandReadings(x, y, speed) as any;
   const { c, A } = truthAt(x, y);
   const sc = A?.sc, ref = A?.ref;
   const chem = !!sc && (sc.category === 'C' || sc.category === 'U') && ref;
@@ -188,8 +206,10 @@ function evaluateAndStore(v: any, pos: { lat: number; lon: number }, r: ReturnTy
   if (ok('ims') && r.ims.level && throttle) rows.push({ ...base, device: 'IMS', value: r.ims.confidence, unit: r.ims.confidence != null ? '%' : null, status: r.ims.level === 'moegliche_identifikation' ? 'AUSWERTUNG ERFORDERLICH' : 'ERHÖHT', level: r.ims.level, headline: r.ims.result, substance_id: r.ims.level === 'moegliche_identifikation' ? r.ims.substance_id : null, candidates: r.ims.candidates, remark: null });
   // MGMG
   const ch = r.mgmg.channels as Record<string, number | null>;
-  const bad = (ch.O2 != null && ch.O2 < 19.5) || (ch.CO ?? 0) > 30 || (ch.H2S ?? 0) > 5 || (ch.LEL ?? 0) > 10;
-  const raised = (ch.CO ?? 0) > 5 || (ch.H2S ?? 0) > 0.5 || (ch.LEL ?? 0) > 1;
+  const gasBad = (['CO2', 'HCN', 'NO2', 'HCl', 'SO2'] as const).some((g) => (ch[g] ?? 0) > GAS_ALARM[g]);
+  const gasRaised = (['HCN', 'NO2', 'HCl', 'SO2'] as const).some((g) => (ch[g] ?? 0) > GAS_ALARM[g] * 0.2) || (ch.CO2 ?? 0) > 1000;
+  const bad = gasBad || (ch.O2 != null && ch.O2 < 19.5) || (ch.CO ?? 0) > 30 || (ch.H2S ?? 0) > 5 || (ch.LEL ?? 0) > 10;
+  const raised = gasRaised || (ch.CO ?? 0) > 5 || (ch.H2S ?? 0) > 0.5 || (ch.LEL ?? 0) > 1;
   if (ok('mgmg') && (bad || raised) && throttle) rows.push({ ...base, device: 'MGMG', value: ch.LEL ?? null, unit: '%LEL', channels: ch, status: bad ? 'ALARM' : 'ERHÖHT', level: 'hinweis', headline: bad ? 'Grenzwert-/Alarmschwelle überschritten' : 'Kanalanzeige erhöht', remark: null });
   // Dosisleistung
   if (ok('dlm') && r.dose.value >= 0.3 && throttle) rows.push({ ...base, device: 'DLM', value: r.dose.value, unit: 'µSv/h', status: r.dose.value >= 1 ? 'ALARM' : 'ERHÖHT', level: 'hinweis', headline: 'Erhöhte Dosisleistung', remark: null });
@@ -244,22 +264,25 @@ export function ingestFivem(d: FivemIn) {
 }
 
 // ---- Messfahrt (Run) – je Fahrzeug eine
-export function runInfo(vehicleId: string) { const R = state.runs[vehicleId]; return R ? { id: R.id, name: R.name, vehicle_id: R.vehicle_id, started_at: R.started_at, distance_m: Math.round(R.dist), points: R.points, source: R.source, max_dose: R.maxDose, max_pid: R.maxPid, start: R.start } : null; }
+export function runInfo(vehicleId: string) { const R = state.runs[vehicleId]; return R ? { id: R.id, name: R.name, vehicle_id: R.vehicle_id, started_at: R.started_at, distance_m: Math.round(R.dist), points: R.points, source: R.source, max_dose: R.maxDose, max_pid: R.maxPid, mode: R.mode, start: R.start } : null; }
 function saveRun(R: Run) {
   const pts = (db.prepare('SELECT COUNT(*) c FROM measurements WHERE run_id = ?').get(R.id) as any).c; R.points = pts;
   update('runs', R.id, { distance_m: Math.round(R.dist), points: pts, max_dose: R.maxDose, max_pid: R.maxPid });
 }
-export function startRun(userLabel: string, vehicleId: string, name?: string, start?: { lat: number; lon: number }) {
+export function startRun(userLabel: string, vehicleId: string, name?: string, start?: { lat: number; lon: number }, mode: 'CBRN' | 'BRAND' = 'CBRN') {
   if (state.runs[vehicleId]) return { error: 'Auf diesem Fahrzeug läuft bereits eine Messfahrt' };
   const inc = activeIncident(); if (!inc) return { error: 'Kein aktiver Einsatz – bitte zuerst einen Einsatz anlegen' };
+  if (mode !== 'CBRN' && mode !== 'BRAND') return { error: 'Unbekannter Modus' };
+  if (mode === 'BRAND' && !hasFire()) return { error: 'Keine Brandstelle eingezeichnet – bitte zuerst auf der Karte die Brandstelle markieren' };
+  if (mode === 'CBRN' && inc.category === 'F') return { error: 'Brandeinsatz – bitte als Messfahrt „Brandeinsatz (Rauchgas)“ starten' };
   if (!start || !Number.isFinite(start.lat) || !Number.isFinite(start.lon)) return { error: 'Startposition fehlt – bitte den Standort auf der Karte markieren' };
   // Ohne FiveM-Verbindung gilt die markierte Position als Fahrzeugposition; mit FiveM kommt alles Weitere laufend aus GTA.
   if (!fivemConnected(vehicleId)) { update('vehicles', vehicleId, { lat: start.lat, lon: start.lon, speed: 0 }); emit('vehicle.position', get('vehicles', vehicleId)); }
   const n = ((db.prepare('SELECT COUNT(*) c FROM runs').get() as any).c ?? 0) + 1;
   const mission = list('missions', "WHERE vehicle_id = ? AND status = 'IN BEARBEITUNG' LIMIT 1", [vehicleId])[0];
-  const R: Run = { id: 'MF-' + String(n).padStart(4, '0'), vehicle_id: vehicleId, name: name || `Messfahrt ${n}`, started_at: now(), started_by: userLabel, dist: 0, points: 0, maxDose: 0, maxPid: 0, source: fivemConnected(vehicleId) ? "FIVEM" : "MANUELL", mission_id: mission?.id ?? null, start };
+  const R: Run = { id: 'MF-' + String(n).padStart(4, '0'), vehicle_id: vehicleId, name: name || `Messfahrt ${n}`, started_at: now(), started_by: userLabel, dist: 0, points: 0, maxDose: 0, maxPid: 0, source: fivemConnected(vehicleId) ? "FIVEM" : "MANUELL", mission_id: mission?.id ?? null, mode, start };
   state.runs[vehicleId] = R; (state.track[vehicleId] ??= { len: 0, last: null }).last = null;
-  insert('runs', { id: R.id, vehicle_id: R.vehicle_id, name: R.name, started_at: R.started_at, started_by: userLabel, distance_m: 0, points: 0, source: R.source, mission_id: R.mission_id, start_lat: start.lat, start_lon: start.lon, incident_id: inc.id });
+  insert('runs', { id: R.id, vehicle_id: R.vehicle_id, name: R.name, started_at: R.started_at, started_by: userLabel, distance_m: 0, points: 0, source: R.source, mission_id: R.mission_id, mode, start_lat: start.lat, start_lon: start.lon, incident_id: inc.id });
   const dev = fivemConnected(vehicleId) ? Math.round(distM(start, { lat: get('vehicles', vehicleId)!.lat, lon: get('vehicles', vehicleId)!.lon })) : 0;
   audit(userLabel, 'start', 'run', R.id, { source: R.source, vehicle: vehicleId, start, deviation_m: dev }); emit('run.started', runInfo(vehicleId)); return { run: runInfo(vehicleId), deviation_m: dev };
 }
@@ -314,11 +337,11 @@ function tick() {
     else if (state.drive && idx === 0) { state.s += state.speed * dt; ({ x, y } = routePos(state.s)); speed = state.speed; const ll = offsetToLL(x, y); const h = bearing({ lat: v.lat, lon: v.lon }, ll); update('vehicles', v.id, { lat: ll.lat, lon: ll.lon, heading: h, speed: speed * 3.6 }); } // nur Entwicklung (DEV_DRIVE=1)
     else { ({ x, y } = llToOffset(v.lat, v.lon)); if (v.speed) update('vehicles', v.id, { speed: 0 }); }
     const cur = get('vehicles', v.id)!; const pos = { lat: cur.lat, lon: cur.lon };
-    const r = readingsAt(x!, y!, speed);
+    const r = readingsAt(x!, y!, speed, state.runs[v.id]?.mode ?? 'CBRN');
     const T = (state.track[v.id] ??= { len: 0, last: null }); const R = state.runs[v.id];
     if (T.last) { const dd = distM(T.last, pos); T.len += dd; if (R) R.dist += dd; } T.last = pos;
     if (R) { if (devState(v.id, 'dlm') === 'ready' || devState(v.id, 'fmg') === 'ready') R.maxDose = Math.max(R.maxDose, r.dose.value); if (devState(v.id, 'pid') === 'ready') R.maxPid = Math.max(R.maxPid, r.pid.value); if (state.tick % 5 === 0) saveRun(R); }
-    const payload = { vehicle_id: v.id, ts: now(), lat: pos.lat, lon: pos.lon, speed_kmh: +(speed * 3.6).toFixed(0), heading: cur.heading, ...r, track_km: +(T.len / 1000).toFixed(2), run: runInfo(v.id), devices: deviceInfo(v.id), mp_count: (db.prepare('SELECT COUNT(*) c FROM measurements WHERE vehicle_id = ?').get(v.id) as any).c };
+    const payload = { vehicle_id: v.id, ts: now(), lat: pos.lat, lon: pos.lon, speed_kmh: +(speed * 3.6).toFixed(0), heading: cur.heading, ...r, track_km: +(T.len / 1000).toFixed(2), mode: state.runs[v.id]?.mode ?? 'CBRN', run: runInfo(v.id), devices: deviceInfo(v.id), mp_count: (db.prepare('SELECT COUNT(*) c FROM measurements WHERE vehicle_id = ?').get(v.id) as any).c };
     state.live[v.id] = payload; emit('reading.live', payload); emit('vehicle.position', cur);
     const mission = activeMissionFor(v.id);
     if (R || mission) evaluateAndStore(cur, pos, r, mission, !!R && state.tick % 2 === 0 && (speed > 0 || state.tick % 10 === 0));
@@ -327,7 +350,12 @@ function tick() {
 
 /** Wahrheitsprofil an einer Entnahmestelle (für Probenanalysen): welcher Stoff, wie stark (ratio 0..1). Verdeckt, nur serverseitig. */
 export function sampleTruth(lat: number, lon: number) {
-  const A = activeScenario(); if (!A) return null; const { x, y } = llToOffset(lat, lon); let ratio: number;
+  const { x, y } = llToOffset(lat, lon);
+  if (hasFire()) { // Rauchprobe: Zusammensetzung nach Brandart der dichtesten Brandstelle
+    const d = smokeAt(x, y, state.weather.wind_from, Date.now() / 1000).density;
+    if (d > 0.02) { const f = activeFires().sort((a: any, b: any) => distM(a, { lat, lon }) - distM(b, { lat, lon }))[0]; return { type: 'fire', id: f.type, category: 'F', ratio: +Math.min(1, d).toFixed(3) }; }
+  }
+  const A = activeScenario(); if (!A) return null; let ratio: number;
   if (A.sc.category === 'B') ratio = Math.max(0, 1 - Math.hypot(x - A.src.x, y - A.src.y) / (A.sc.radius_m * 1.2));
   else { const { c } = truthAt(x, y); ratio = Math.min(1, c / (A.sc.peak || 1)); }
   return ratio > 0.02 ? { type: A.sc.ref_type, id: A.sc.ref_id, category: A.sc.display, ratio: +ratio.toFixed(3) } : null;

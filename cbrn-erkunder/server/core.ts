@@ -15,7 +15,7 @@ export async function boot(opts: { dbFile: string | null; wasmFile: string }) {
   if (seeded && seeded !== config.mapMode) {
     console.log(`[cbrn] Kartenmodus ${seeded} -> ${config.mapMode}: Daten werden neu angelegt.`);
     db.exec('PRAGMA foreign_keys = OFF');
-    for (const t of ['sources', 'substances', 'radionuclides', 'biological_agents', 'measurement_devices', 'measurement_methods', 'test_tubes', 'users', 'vehicles', 'crew', 'scenarios', 'missions', 'measurements', 'samples', 'sample_events', 'weather_records', 'alarms', 'reports', 'audit_log', 'runs', 'incidents', 'incident_crew', 'sample_analyses', 'sessions', 'settings']) db.exec(`DELETE FROM ${t}`);
+    for (const t of ['sources', 'substances', 'radionuclides', 'biological_agents', 'measurement_devices', 'measurement_methods', 'test_tubes', 'users', 'vehicles', 'crew', 'scenarios', 'missions', 'measurements', 'samples', 'sample_events', 'weather_records', 'alarms', 'reports', 'audit_log', 'runs', 'incidents', 'incident_crew', 'sample_analyses', 'incident_fires', 'sessions', 'settings']) db.exec(`DELETE FROM ${t}`);
     db.exec('PRAGMA foreign_keys = ON');
   }
   seedIfEmpty();

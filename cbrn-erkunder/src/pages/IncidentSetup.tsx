@@ -7,14 +7,15 @@ import { IncidentReportView } from '../components/IncidentReport';
 import { api } from '../api';
 import { useApi, useLive } from '../store';
 
-const CATS: [string, string][] = [['C', 'Chemisch (C)'], ['R', 'Radiologisch (R)'], ['B', 'Biologisch (B)'], ['U', 'Unbekannt (U)']];
+const CATS: [string, string][] = [['C', 'Chemisch (C)'], ['R', 'Radiologisch (R)'], ['B', 'Biologisch (B)'], ['U', 'Unbekannt (U)'], ['F', 'Brand (Rauchgasmessung)']];
+const FIRE_TYPES: [string, string][] = [['GEBAEUDE', 'Gebäudebrand'], ['FAHRZEUG', 'Fahrzeugbrand'], ['INDUSTRIE', 'Industrie-/Lagerbrand (Kunststoffe)'], ['VEGETATION', 'Vegetations-/Flächenbrand']];
 const AMOUNTS: [string, string][] = [['gering', 'Gering'], ['mittel', 'Mittel'], ['groß', 'Groß']];
 
 /** Einsatz anlegen: Grunddaten, aus denen die Simulation eine realistische (verdeckte) Lage rechnet. Pflicht vor der ersten Messfahrt. */
 export default function IncidentSetup({ embedded, onDone }: { embedded?: boolean; onDone?: () => void }) {
   const { ownVehicle, session, status, logout } = useLive();
   const subs = useApi<any[]>('/substances?cat=C'); const nucs = useApi<any[]>('/radionuclides'); const bios = useApi<any[]>('/biological-agents');
-  const [f, setF] = useState({ name: '', location_text: '', report: '', category: 'C', amount: 'mittel', known: false, ref: '' });
+  const [f, setF] = useState({ name: '', location_text: '', report: '', category: 'C', amount: 'mittel', known: false, ref: '', fire_type: 'GEBAEUDE' });
   const [pos, setPos] = useState<Pos | null>(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
   const [last, setLast] = useState<any>(null);
   const showLast = async () => { const l = await api<any[]>('/reports'); const id = l.find((r) => r.kind === 'EINSATZBERICHT_E')?.id; if (id) setLast(await api('/reports/' + id)); };
@@ -29,12 +30,12 @@ export default function IncidentSetup({ embedded, onDone }: { embedded?: boolean
     return f.category === 'C' ? s : f.category === 'R' ? n : f.category === 'B' ? b : [...s, ...n];
   }, [subs.data, nucs.data, bios.data, f.category]);
 
-  const needRef = f.known && !f.ref;
+  const isFire = f.category === 'F'; const needRef = !isFire && f.known && !f.ref;
   const ok = f.name.trim() && pos && !needRef;
   const submit = async () => {
     if (!pos) return; setBusy(true); setErr('');
     const [ref_type, ref_id] = f.ref ? f.ref.split(':') : [undefined, undefined];
-    try { await api('/incidents', { method: 'POST', body: { name: f.name, location_text: f.location_text, report: f.report, category: f.category, amount: f.amount, known: f.known, ref_type, ref_id, lat: pos.lat, lon: pos.lon } }); onDone?.(); }
+    try { await api('/incidents', { method: 'POST', body: { name: f.name, location_text: f.location_text, report: f.report, category: f.category, amount: f.amount, known: isFire ? false : f.known, fire_type: f.fire_type, ref_type, ref_id, lat: pos.lat, lon: pos.lon } }); onDone?.(); }
     catch (e: any) { setErr(e.message); } finally { setBusy(false); }
   };
   const body = (
@@ -45,10 +46,11 @@ export default function IncidentSetup({ embedded, onDone }: { embedded?: boolean
         <div><div className="lbl">Gefahrenart (Meldebild)</div><Select className="w-full" value={f.category} onChange={(v) => setF({ ...f, category: v, ref: '' })} options={CATS} /></div>
         <div className="col-span-2"><div className="lbl">Lagebeschreibung</div><textarea className="inp w-full h-16" placeholder="Was wurde gemeldet? Verletzte, Geruch, Behälter, Kennzeichnung …" value={f.report} onChange={(e) => setF({ ...f, report: e.target.value })} /></div>
         <div><div className="lbl">Freigesetzte Menge / Ausdehnung</div><Select className="w-full" value={f.amount} onChange={(v) => setF({ ...f, amount: v })} options={AMOUNTS} /></div>
+        {isFire ? <div><div className="lbl">Brandart</div><Select className="w-full" value={f.fire_type} onChange={(v) => setF({ ...f, fire_type: v })} options={FIRE_TYPES} /></div> :
         <div><div className="lbl">Stoff vorgeben (verdeckt)</div>
-          <Select className="w-full" value={f.ref} onChange={(v) => setF({ ...f, ref: v })} options={[['', 'Zufällig passend zur Gefahrenart'], ...options]} /></div>
-        <label className="col-span-2 flex items-start gap-2 text-[12.5px]"><input type="checkbox" className="mt-1" checked={f.known} onChange={(e) => setF({ ...f, known: e.target.checked })} />
-          <span>Stoff ist der Lage <b>bekannt</b> (z. B. Gefahrgutkennzeichnung) – wird dann im Einsatz angezeigt. Sonst bleibt er verdeckt und muss mit Messgeräten, Proben und Analyse eingegrenzt werden.{needRef && <span className="text-warn"> Bitte oben einen Stoff wählen.</span>}</span></label>
+          <Select className="w-full" value={f.ref} onChange={(v) => setF({ ...f, ref: v })} options={[['', 'Zufällig passend zur Gefahrenart'], ...options]} /></div>}
+        {isFire ? <div className="col-span-2 text-[12.5px] text-dim">Die Brandstelle wird an der Einsatzstelle angelegt. Weitere Brandstellen kannst du später auf der Karte einzeichnen.</div> : <label className="col-span-2 flex items-start gap-2 text-[12.5px]"><input type="checkbox" className="mt-1" checked={f.known} onChange={(e) => setF({ ...f, known: e.target.checked })} />
+          <span>Stoff ist der Lage <b>bekannt</b> (z. B. Gefahrgutkennzeichnung) – wird dann im Einsatz angezeigt. Sonst bleibt er verdeckt und muss mit Messgeräten, Proben und Analyse eingegrenzt werden.{needRef && <span className="text-warn"> Bitte oben einen Stoff wählen.</span>}</span></label>}
         <div className="col-span-2"><div className="lbl mb-1">Einsatzstelle auf der Karte markieren *</div>
           <MapPicker value={pos} onChange={setPos} hint={fivem} hintLabel="Aktuelle FiveM-Position des Fahrzeugs" height={300} />
           {fivem && <button className="text-[12px] text-accent mt-1" onClick={() => setPos(fivem)}>Einsatzstelle = aktuelle Fahrzeugposition</button>}</div>

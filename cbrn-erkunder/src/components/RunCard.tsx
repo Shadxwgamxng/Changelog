@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 import { Panel, Btn, Badge, Field, Modal } from './ui';
 import { MapPicker, type Pos } from './MapPicker';
 import { api } from '../api';
-import { useLive } from '../store';
+import { useLive, useApi } from '../store';
 import { num } from '../lib/format';
 
 const hms = (ms: number) => { const d = Math.max(0, Math.floor(ms / 1000)); return `${String(Math.floor(d / 3600)).padStart(2, '0')}:${String(Math.floor(d / 60) % 60).padStart(2, '0')}:${String(d % 60).padStart(2, '0')}`; };
 export function RunCard({ compact }: { compact?: boolean }) {
-  const { live, status, can, own, ownVehicle, incident, meta } = useLive(); const [pick, setPick] = useState(false); const [pos, setPos] = useState<Pos | null>(null); const [warn, setWarn] = useState(''); const run = live[own]?.run ?? null; const [, setT] = useState(0); const [err, setErr] = useState('');
+  const { live, status, can, own, ownVehicle, incident, meta } = useLive(); const [pick, setPick] = useState(false); const [pos, setPos] = useState<Pos | null>(null); const [warn, setWarn] = useState(''); const run = live[own]?.run ?? null; const [, setT] = useState(0); const [err, setErr] = useState(''); const [mode, setMode] = useState<'CBRN' | 'BRAND'>('CBRN'); const fires = useApi<any[]>('/fires', ['fires.changed', 'incident.changed']);
   useEffect(() => { const t = setInterval(() => setT((x) => x + 1), 1000); return () => clearInterval(t); }, []);
   const fivem = status?.fivem === 'CONNECTED';
   const fv = fivem && ownVehicle?.gps_fix ? { lat: ownVehicle.lat, lon: ownVehicle.lon } : null;
@@ -15,15 +15,15 @@ export function RunCard({ compact }: { compact?: boolean }) {
   const dE = pos && fv ? (pos.lon - fv.lon) * 111320 : 0, dN = pos && fv ? (pos.lat - fv.lat) * 111320 : 0; const dist = Math.hypot(dE, dN);
   const calibrate = async () => { try { setErr(''); await api('/system/calibrate', { method: 'POST', body: { dx: dE, dy: dN } }); setPos(fv); } catch (e: any) { setErr(e.message); } };
   const go = async (what: 'start' | 'stop') => {
-    try { setErr(''); setWarn(''); const r = await api(`/runs/${what}`, { method: 'POST', body: what === 'start' ? { lat: pos?.lat, lon: pos?.lon } : {} });
+    try { setErr(''); setWarn(''); const r = await api(`/runs/${what}`, { method: 'POST', body: what === 'start' ? { lat: pos?.lat, lon: pos?.lon, mode } : {} });
       if (what === 'start') { setPick(false); if (r.deviation_m > 150) setWarn(`Hinweis: Die markierte Position weicht ${r.deviation_m} m von der FiveM-Position ab. Die Messwerte folgen der FiveM-Position.`); } }
     catch (e: any) { setErr(e.message); }
   };
   const body = (
     <>
       <div className="flex items-center gap-3 flex-wrap">
-        {run ? <Badge color="#e5534b" solid>● MESSFAHRT LÄUFT</Badge> : <Badge>KEINE MESSFAHRT</Badge>}
-        {!run ? <Btn kind="primary" onClick={() => { setPos(null); setPick(true); }} disabled={!incident}>▶ Messfahrt starten</Btn> : <Btn kind="danger" onClick={() => go('stop')}>■ Messfahrt beenden</Btn>}
+        {run ? <Badge color="#e5534b" solid>● MESSFAHRT LÄUFT{run.mode === 'BRAND' ? ' · BRAND' : ''}</Badge> : <Badge>KEINE MESSFAHRT</Badge>}
+        {!run ? <Btn kind="primary" onClick={() => { setPos(null); setMode(incident?.category === 'F' ? 'BRAND' : 'CBRN'); setPick(true); }} disabled={!incident}>▶ Messfahrt starten</Btn> : <Btn kind="danger" onClick={() => go('stop')}>■ Messfahrt beenden</Btn>}
         {err && <span className="text-bad">{err}</span>}{warn && <span className="text-warn text-[12px]">{warn}</span>}
       </div>
       {run && (
@@ -36,6 +36,11 @@ export function RunCard({ compact }: { compact?: boolean }) {
   return (<>
     <Panel title="Messfahrt" className={compact ? '' : ''}>{body}</Panel>
     {pick && <Modal title="Messfahrt starten – eigenen Standort markieren" wide onClose={() => setPick(false)}>
+      <div className="lbl mb-1">Art der Messfahrt</div>
+      <div className="flex gap-2 mb-3">
+        {([['CBRN', 'CBRN-Einsatz', 'Gefahrstoffe: PID, IMS, Dosisleistung …', incident?.category === 'F'], ['BRAND', 'Brandeinsatz', 'Rauchgasmessung an den eingezeichneten Brandstellen', !(fires.data ?? []).length]] as [string, string, string, boolean][]).map(([k, t, d, dis]) => (
+          <button key={k} disabled={dis} onClick={() => setMode(k as any)} className={`flex-1 text-left p-2 rounded border ${mode === k ? 'border-accent bg-accent/10' : 'border-line'} ${dis ? 'opacity-40' : ''}`}><div className="font-semibold text-[13px]">{t}</div><div className="text-[11.5px] text-dim">{dis && k === 'BRAND' ? 'Zuerst Brandstelle auf der Karte einzeichnen' : dis ? 'Nicht möglich bei Brandeinsatz' : d}</div></button>))}
+      </div>
       <div className="text-[12.5px] text-dim mb-2">Markiere auf der Karte, wo sich das Fahrzeug jetzt befindet.</div>
       <MapPicker value={pos} onChange={setPos} hint={fv} hintLabel="Aktuelle FiveM-Position" color="#f0500a" height={340} />
       {gta && fv && pos && dist > 30 && (<div className="mt-2 panel p-2 text-[12.5px] border-warn/50">Die markierte Stelle liegt <b>{Math.round(Math.abs(dE))} m {dE >= 0 ? 'östlich' : 'westlich'}</b> und <b>{Math.round(Math.abs(dN))} m {dN >= 0 ? 'nördlich' : 'südlich'}</b> der FiveM-Position.

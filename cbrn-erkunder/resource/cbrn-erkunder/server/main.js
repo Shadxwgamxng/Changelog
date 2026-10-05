@@ -2326,11 +2326,12 @@ CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, vehicle_id TEXT, na
 CREATE INDEX IF NOT EXISTS ix_meas_veh ON measurements(vehicle_id);
 CREATE TABLE IF NOT EXISTS incidents (id TEXT PRIMARY KEY, name TEXT, status TEXT, created_at TEXT, created_by TEXT, ended_at TEXT, location_text TEXT, report TEXT, category TEXT, ref_type TEXT, ref_id TEXT, known INTEGER DEFAULT 0, amount TEXT, radius_m REAL, peak REAL, lat REAL, lon REAL);
 CREATE TABLE IF NOT EXISTS incident_crew (incident_id TEXT, name TEXT, funktion TEXT, vehicle_id TEXT, since TEXT, PRIMARY KEY (incident_id, name, funktion, vehicle_id));
+CREATE TABLE IF NOT EXISTS incident_fires (id TEXT PRIMARY KEY, incident_id TEXT, lat REAL, lon REAL, size TEXT, type TEXT, active INTEGER DEFAULT 1, created_by TEXT, created_at TEXT, label TEXT);
 CREATE TABLE IF NOT EXISTS runs (id TEXT PRIMARY KEY, vehicle_id TEXT, name TEXT, started_at TEXT, ended_at TEXT, started_by TEXT, distance_m REAL DEFAULT 0, points INTEGER DEFAULT 0, max_dose REAL, max_pid REAL, source TEXT, mission_id TEXT);
 `;
 function setupSchema() {
   db.exec(SCHEMA);
-  for (const [t, c] of [["substances", "traits"], ["substances", "response"], ["substances", "gestis_zvg"], ["radionuclides", "response"], ["biological_agents", "response"], ["measurements", "run_id"], ["samples", "analysis"], ["runs", "start_lat"], ["runs", "start_lon"], ["runs", "incident_id"], ["measurements", "incident_id"], ["reports", "incident_id"], ["samples", "label"], ["samples", "info"], ["samples", "sample_type"], ["samples", "source_description"], ["samples", "collected_by"], ["samples", "collected_license"], ["samples", "collection_pos"], ["samples", "collection_offset"], ["samples", "collection_model"], ["samples", "status"], ["samples", "incident_id"], ["samples", "container"], ["samples", "stored_at"], ["samples", "truth_ratio"]]) {
+  for (const [t, c] of [["substances", "traits"], ["substances", "response"], ["substances", "gestis_zvg"], ["radionuclides", "response"], ["biological_agents", "response"], ["measurements", "run_id"], ["samples", "analysis"], ["runs", "start_lat"], ["runs", "start_lon"], ["runs", "incident_id"], ["measurements", "incident_id"], ["reports", "incident_id"], ["samples", "label"], ["samples", "info"], ["samples", "sample_type"], ["samples", "source_description"], ["samples", "collected_by"], ["samples", "collected_license"], ["samples", "collection_pos"], ["samples", "collection_offset"], ["samples", "collection_model"], ["samples", "status"], ["samples", "incident_id"], ["samples", "container"], ["samples", "stored_at"], ["samples", "truth_ratio"], ["runs", "mode"]]) {
     const cols = db.prepare(`PRAGMA table_info(${t})`).all().map((x) => x.name);
     if (!cols.includes(c)) db.exec(`ALTER TABLE ${t} ADD COLUMN ${c} TEXT`);
   }
@@ -4476,6 +4477,82 @@ function seedIfEmpty() {
 
 // server/sim.ts
 var import_node_events = require("node:events");
+
+// server/fire.ts
+var FIRE_SIZES = {
+  klein: { f: 0.5, r: 150, label: "klein" },
+  mittel: { f: 1, r: 300, label: "mittel" },
+  "gro\xDF": { f: 2, r: 550, label: "gro\xDF" }
+};
+var FIRE_TYPES = {
+  GEBAEUDE: { label: "Geb\xE4udebrand", gases: { CO: 120, CO2: 3e3, HCN: 6, NO2: 3, HCl: 8, SO2: 2, VOC: 60 }, main: "Kohlenmonoxid, Kohlendioxid, Blaus\xE4ure, Stickoxide und Chlorwasserstoff aus Einrichtung/Baustoffen" },
+  FAHRZEUG: { label: "Fahrzeugbrand", gases: { CO: 90, CO2: 2500, HCN: 8, NO2: 4, HCl: 25, SO2: 6, VOC: 120 }, main: "Kohlenmonoxid, Chlorwasserstoff aus Kabeln/Kunststoffen, Schwefeldioxid und organische Verbrennungsprodukte" },
+  INDUSTRIE: { label: "Industrie-/Lagerbrand (Kunststoffe)", gases: { CO: 150, CO2: 3500, HCN: 18, NO2: 5, HCl: 40, SO2: 10, VOC: 180 }, main: "Kohlenmonoxid, Blaus\xE4ure, Chlorwasserstoff, Schwefeldioxid und organische Verbrennungsprodukte" },
+  VEGETATION: { label: "Vegetations-/Fl\xE4chenbrand", gases: { CO: 100, CO2: 2e3, HCN: 1, NO2: 2, HCl: 0.5, SO2: 1, VOC: 50 }, main: "Kohlenmonoxid, Kohlendioxid und organische Verbrennungsprodukte" }
+};
+var GAS_BG = { CO: 0.5, CO2: 420, HCN: 0, NO2: 0, HCl: 0, SO2: 0, VOC: 0.1 };
+var GAS_ALARM = { CO: 30, CO2: 5e3, HCN: 2, NO2: 0.5, HCl: 2, SO2: 0.5 };
+var err = (msg, code = 400) => Object.assign(new Error(msg), { statusCode: code });
+var activeIncidentId = () => {
+  var _a;
+  return (_a = db.prepare("SELECT id FROM incidents WHERE status = 'AKTIV' ORDER BY created_at DESC LIMIT 1").get()) == null ? void 0 : _a.id;
+};
+var activeFires = () => {
+  const id = activeIncidentId();
+  return id ? list("incident_fires", "WHERE incident_id = ? AND active = 1 ORDER BY created_at", [id]) : [];
+};
+var hasFire = () => activeFires().length > 0;
+function shape(x, y, src, r, windFrom, t) {
+  const th = (windFrom + 180) % 360 * (Math.PI / 180);
+  const ux = Math.sin(th), uy = Math.cos(th);
+  const dx = x - src.x, dy = y - src.y, along = dx * ux + dy * uy, cross = -dx * uy + dy * ux;
+  const sx = along > 0 ? 1 * r : 0.12 * r, sy = 0.16 * r + Math.max(0, along) * 0.1;
+  const turb = 1 + 0.15 * Math.sin(t / 6) + 0.05 * Math.sin(t / 2.3);
+  return Math.exp(-(along * along) / (2 * sx * sx) - cross * cross / (2 * sy * sy)) * Math.max(0.3, turb);
+}
+function smokeAt(x, y, windFrom, t) {
+  const gases = { CO: 0, CO2: 0, HCN: 0, NO2: 0, HCl: 0, SO2: 0, VOC: 0 };
+  let total = 0;
+  for (const f of activeFires()) {
+    const sz = FIRE_SIZES[f.size] ?? FIRE_SIZES.mittel;
+    const ty = FIRE_TYPES[f.type] ?? FIRE_TYPES.GEBAEUDE;
+    const s = shape(x, y, llToOffset(f.lat, f.lon), sz.r, windFrom, t);
+    total += s * sz.f;
+    for (const g of Object.keys(gases)) gases[g] += ty.gases[g] * sz.f * s;
+  }
+  return { gases, density: total };
+}
+var publicFire = (f) => {
+  var _a;
+  return { ...f, type_text: ((_a = FIRE_TYPES[f.type]) == null ? void 0 : _a.label) ?? f.type, size_text: f.size };
+};
+function listFires() {
+  return activeFires().map(publicFire);
+}
+function addFire(by, b) {
+  const incident = activeIncidentId();
+  if (!incident) throw err("Kein aktiver Einsatz");
+  const lat = Number(b.lat), lon = Number(b.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) throw err("Bitte die Brandstelle auf der Karte markieren");
+  const size = FIRE_SIZES[String(b.size)] ? String(b.size) : "mittel";
+  const type = FIRE_TYPES[String(b.type)] ? String(b.type) : "GEBAEUDE";
+  const n = (db.prepare("SELECT COUNT(*) c FROM incident_fires").get().c ?? 0) + 1;
+  const id = "F-" + String(n).padStart(3, "0");
+  insert("incident_fires", { id, incident_id: incident, lat, lon, size, type, active: 1, created_by: by, created_at: now(), label: String(b.label ?? "").trim().slice(0, 60) || null });
+  audit(by, "create", "fire", id, { incident, size, type });
+  emit2("fires.changed", listFires());
+  return publicFire(get("incident_fires", id));
+}
+function removeFire(by, id) {
+  const f = get("incident_fires", id);
+  if (!f || !f.active) throw err("Brandstelle nicht gefunden", 404);
+  update("incident_fires", id, { active: 0 });
+  audit(by, "extinguish", "fire", id);
+  emit2("fires.changed", listFires());
+  return { ok: true };
+}
+
+// server/sim.ts
 var bus = new import_node_events.EventEmitter();
 var emit2 = (type, payload) => bus.emit("event", { type, payload, ts: now() });
 var BG = { dose: 0.09, o2: 20.9, co: 0.5, pid: 0.1, cps: 1.2 };
@@ -4553,7 +4630,7 @@ var fivemConnected = (id) => id ? Date.now() - (state.seen[id] ?? 0) < 1e4 : Obj
 var activeIncident = () => list("incidents", "WHERE status = 'AKTIV' ORDER BY created_at DESC LIMIT 1")[0] ?? null;
 function activeScenario() {
   const inc = activeIncident();
-  if (!inc) return null;
+  if (!inc || inc.ref_type === "fire") return null;
   const ref = inc.ref_type === "substance" ? get("substances", inc.ref_id) : inc.ref_type === "radionuclide" ? get("radionuclides", inc.ref_id) : get("biological_agents", inc.ref_id);
   const sc = { id: inc.id, name: inc.name, category: inc.ref_type === "radionuclide" ? "R" : inc.ref_type === "biological" ? "B" : "C", display: inc.category, ref_type: inc.ref_type, ref_id: inc.ref_id, radius_m: inc.radius_m, peak: inc.peak };
   return { sc, ref, src: llToOffset(inc.lat, inc.lon) };
@@ -4585,10 +4662,31 @@ function pidGroups(sub) {
   if (g.includes("l\xF6semittel") || g.includes("alkohol") || g.includes("keton")) return ["L\xF6semittel", "Sauerstoffhaltige VOC", "VOC-Gemische"];
   return ["Anorganische/organische Verbindungen mit Ionisierungsenergie < 10,6 eV", "VOC-Gemische"];
 }
-function mgmgChannels() {
-  return getSetting("mgmg_channels", ["O2", "CO", "H2S", "LEL", "CH4"]);
+function mgmgChannels(mode = "CBRN") {
+  return mode === "BRAND" ? BRAND_CHANNELS : getSetting("mgmg_channels", ["O2", "CO", "H2S", "LEL", "CH4"]);
 }
-function readingsAt(x, y, speed) {
+var BRAND_CHANNELS = ["O2", "CO", "CO2", "HCN", "HCl"];
+function brandReadings(x, y, speed) {
+  const { gases, density } = smokeAt(x, y, state.weather.wind_from, state.tick * 2);
+  const g = (k) => Math.max(0, GAS_BG[k] + gases[k] + rnd(Math.max(0.02, gases[k] * 0.05)));
+  const o2 = +(BG.o2 + rnd(0.05) - Math.max(0, gases.CO2) / 1e4).toFixed(1);
+  const mg = { O2: o2, CO: +g("CO").toFixed(0), CO2: +g("CO2").toFixed(0), HCN: +g("HCN").toFixed(1), NO2: +g("NO2").toFixed(1), HCl: +g("HCl").toFixed(1), SO2: +g("SO2").toFixed(1), H2S: 0, LEL: 0, CH4: 0 };
+  const channels = Object.fromEntries(BRAND_CHANNELS.map((k) => [k, mg[k] ?? null]));
+  const pid = Math.max(0, BG.pid + rnd(0.05) + gases.VOC);
+  const dose = Math.max(0.03, BG.dose + rnd(0.012));
+  const cps = Math.max(0, BG.cps + gauss() * 0.5);
+  return {
+    c: density,
+    pid: { value: +pid.toFixed(2), unit: "ppm", groups: pid > 2 ? ["Fl\xFCchtige organische Verbindungen (VOC)", "Brandrauch / Pyrolyseprodukte"] : [] },
+    mgmg: { channels },
+    ims: { state: "ONLINE", mode: "AKTIV", level: null, result: "KEIN TREFFER", confidence: null, substance_id: null, group: null, candidates: [] },
+    dose: { value: +dose.toFixed(3), unit: "\xB5Sv/h" },
+    como: { value: +cps.toFixed(1), unit: "cps" },
+    fmg: { speed_kmh: +(speed * 3.6).toFixed(0) }
+  };
+}
+function readingsAt(x, y, speed, mode = "CBRN") {
+  if (mode === "BRAND") return brandReadings(x, y, speed);
   const { c, A } = truthAt(x, y);
   const sc = A == null ? void 0 : A.sc, ref = A == null ? void 0 : A.ref;
   const chem = !!sc && (sc.category === "C" || sc.category === "U") && ref;
@@ -4686,8 +4784,10 @@ function evaluateAndStore(v, pos, r, mission, forceRoutine) {
   if (ok2("pid") && r.pid.value >= 2 && throttle) rows.push({ ...base, device: "PID", value: r.pid.value, unit: "ppm", status: r.pid.value >= 50 ? "HOCH" : "ERH\xD6HT", level: "hinweis", headline: "Erh\xF6hte VOC-Anzeige (Screening)", candidates: r.pid.groups, remark: null });
   if (ok2("ims") && r.ims.level && throttle) rows.push({ ...base, device: "IMS", value: r.ims.confidence, unit: r.ims.confidence != null ? "%" : null, status: r.ims.level === "moegliche_identifikation" ? "AUSWERTUNG ERFORDERLICH" : "ERH\xD6HT", level: r.ims.level, headline: r.ims.result, substance_id: r.ims.level === "moegliche_identifikation" ? r.ims.substance_id : null, candidates: r.ims.candidates, remark: null });
   const ch = r.mgmg.channels;
-  const bad = ch.O2 != null && ch.O2 < 19.5 || (ch.CO ?? 0) > 30 || (ch.H2S ?? 0) > 5 || (ch.LEL ?? 0) > 10;
-  const raised = (ch.CO ?? 0) > 5 || (ch.H2S ?? 0) > 0.5 || (ch.LEL ?? 0) > 1;
+  const gasBad = ["CO2", "HCN", "NO2", "HCl", "SO2"].some((g) => (ch[g] ?? 0) > GAS_ALARM[g]);
+  const gasRaised = ["HCN", "NO2", "HCl", "SO2"].some((g) => (ch[g] ?? 0) > GAS_ALARM[g] * 0.2) || (ch.CO2 ?? 0) > 1e3;
+  const bad = gasBad || ch.O2 != null && ch.O2 < 19.5 || (ch.CO ?? 0) > 30 || (ch.H2S ?? 0) > 5 || (ch.LEL ?? 0) > 10;
+  const raised = gasRaised || (ch.CO ?? 0) > 5 || (ch.H2S ?? 0) > 0.5 || (ch.LEL ?? 0) > 1;
   if (ok2("mgmg") && (bad || raised) && throttle) rows.push({ ...base, device: "MGMG", value: ch.LEL ?? null, unit: "%LEL", channels: ch, status: bad ? "ALARM" : "ERH\xD6HT", level: "hinweis", headline: bad ? "Grenzwert-/Alarmschwelle \xFCberschritten" : "Kanalanzeige erh\xF6ht", remark: null });
   if (ok2("dlm") && r.dose.value >= 0.3 && throttle) rows.push({ ...base, device: "DLM", value: r.dose.value, unit: "\xB5Sv/h", status: r.dose.value >= 1 ? "ALARM" : "ERH\xD6HT", level: "hinweis", headline: "Erh\xF6hte Dosisleistung", remark: null });
   if (ok2("fmg") && forceRoutine) rows.push({ ...base, device: "FMG", value: r.dose.value, unit: "\xB5Sv/h", status: "NORMAL", level: null, headline: "FMG-Routinemesspunkt", remark: null });
@@ -4750,17 +4850,20 @@ function ingestFivem(d) {
 }
 function runInfo(vehicleId) {
   const R2 = state.runs[vehicleId];
-  return R2 ? { id: R2.id, name: R2.name, vehicle_id: R2.vehicle_id, started_at: R2.started_at, distance_m: Math.round(R2.dist), points: R2.points, source: R2.source, max_dose: R2.maxDose, max_pid: R2.maxPid, start: R2.start } : null;
+  return R2 ? { id: R2.id, name: R2.name, vehicle_id: R2.vehicle_id, started_at: R2.started_at, distance_m: Math.round(R2.dist), points: R2.points, source: R2.source, max_dose: R2.maxDose, max_pid: R2.maxPid, mode: R2.mode, start: R2.start } : null;
 }
 function saveRun(R2) {
   const pts = db.prepare("SELECT COUNT(*) c FROM measurements WHERE run_id = ?").get(R2.id).c;
   R2.points = pts;
   update("runs", R2.id, { distance_m: Math.round(R2.dist), points: pts, max_dose: R2.maxDose, max_pid: R2.maxPid });
 }
-function startRun(userLabel, vehicleId, name, start) {
+function startRun(userLabel, vehicleId, name, start, mode = "CBRN") {
   if (state.runs[vehicleId]) return { error: "Auf diesem Fahrzeug l\xE4uft bereits eine Messfahrt" };
   const inc = activeIncident();
   if (!inc) return { error: "Kein aktiver Einsatz \u2013 bitte zuerst einen Einsatz anlegen" };
+  if (mode !== "CBRN" && mode !== "BRAND") return { error: "Unbekannter Modus" };
+  if (mode === "BRAND" && !hasFire()) return { error: "Keine Brandstelle eingezeichnet \u2013 bitte zuerst auf der Karte die Brandstelle markieren" };
+  if (mode === "CBRN" && inc.category === "F") return { error: "Brandeinsatz \u2013 bitte als Messfahrt \u201EBrandeinsatz (Rauchgas)\u201C starten" };
   if (!start || !Number.isFinite(start.lat) || !Number.isFinite(start.lon)) return { error: "Startposition fehlt \u2013 bitte den Standort auf der Karte markieren" };
   if (!fivemConnected(vehicleId)) {
     update("vehicles", vehicleId, { lat: start.lat, lon: start.lon, speed: 0 });
@@ -4768,10 +4871,10 @@ function startRun(userLabel, vehicleId, name, start) {
   }
   const n = (db.prepare("SELECT COUNT(*) c FROM runs").get().c ?? 0) + 1;
   const mission = list("missions", "WHERE vehicle_id = ? AND status = 'IN BEARBEITUNG' LIMIT 1", [vehicleId])[0];
-  const R2 = { id: "MF-" + String(n).padStart(4, "0"), vehicle_id: vehicleId, name: name || `Messfahrt ${n}`, started_at: now(), started_by: userLabel, dist: 0, points: 0, maxDose: 0, maxPid: 0, source: fivemConnected(vehicleId) ? "FIVEM" : "MANUELL", mission_id: (mission == null ? void 0 : mission.id) ?? null, start };
+  const R2 = { id: "MF-" + String(n).padStart(4, "0"), vehicle_id: vehicleId, name: name || `Messfahrt ${n}`, started_at: now(), started_by: userLabel, dist: 0, points: 0, maxDose: 0, maxPid: 0, source: fivemConnected(vehicleId) ? "FIVEM" : "MANUELL", mission_id: (mission == null ? void 0 : mission.id) ?? null, mode, start };
   state.runs[vehicleId] = R2;
   (state.track[vehicleId] ??= { len: 0, last: null }).last = null;
-  insert("runs", { id: R2.id, vehicle_id: R2.vehicle_id, name: R2.name, started_at: R2.started_at, started_by: userLabel, distance_m: 0, points: 0, source: R2.source, mission_id: R2.mission_id, start_lat: start.lat, start_lon: start.lon, incident_id: inc.id });
+  insert("runs", { id: R2.id, vehicle_id: R2.vehicle_id, name: R2.name, started_at: R2.started_at, started_by: userLabel, distance_m: 0, points: 0, source: R2.source, mission_id: R2.mission_id, mode, start_lat: start.lat, start_lon: start.lon, incident_id: inc.id });
   const dev = fivemConnected(vehicleId) ? Math.round(distM(start, { lat: get("vehicles", vehicleId).lat, lon: get("vehicles", vehicleId).lon })) : 0;
   audit(userLabel, "start", "run", R2.id, { source: R2.source, vehicle: vehicleId, start, deviation_m: dev });
   emit2("run.started", runInfo(vehicleId));
@@ -4858,6 +4961,7 @@ function tick() {
   }
   const vehicles2 = list("vehicles");
   vehicles2.forEach((v, idx) => {
+    var _a, _b;
     let x, y, speed = 0;
     if (fivemConnected(v.id)) {
       ({ x, y } = llToOffset(v.lat, v.lon));
@@ -4875,7 +4979,7 @@ function tick() {
     }
     const cur = get("vehicles", v.id);
     const pos = { lat: cur.lat, lon: cur.lon };
-    const r = readingsAt(x, y, speed);
+    const r = readingsAt(x, y, speed, ((_a = state.runs[v.id]) == null ? void 0 : _a.mode) ?? "CBRN");
     const T2 = state.track[v.id] ??= { len: 0, last: null };
     const R2 = state.runs[v.id];
     if (T2.last) {
@@ -4889,7 +4993,7 @@ function tick() {
       if (devState(v.id, "pid") === "ready") R2.maxPid = Math.max(R2.maxPid, r.pid.value);
       if (state.tick % 5 === 0) saveRun(R2);
     }
-    const payload = { vehicle_id: v.id, ts: now(), lat: pos.lat, lon: pos.lon, speed_kmh: +(speed * 3.6).toFixed(0), heading: cur.heading, ...r, track_km: +(T2.len / 1e3).toFixed(2), run: runInfo(v.id), devices: deviceInfo(v.id), mp_count: db.prepare("SELECT COUNT(*) c FROM measurements WHERE vehicle_id = ?").get(v.id).c };
+    const payload = { vehicle_id: v.id, ts: now(), lat: pos.lat, lon: pos.lon, speed_kmh: +(speed * 3.6).toFixed(0), heading: cur.heading, ...r, track_km: +(T2.len / 1e3).toFixed(2), mode: ((_b = state.runs[v.id]) == null ? void 0 : _b.mode) ?? "CBRN", run: runInfo(v.id), devices: deviceInfo(v.id), mp_count: db.prepare("SELECT COUNT(*) c FROM measurements WHERE vehicle_id = ?").get(v.id).c };
     state.live[v.id] = payload;
     emit2("reading.live", payload);
     emit2("vehicle.position", cur);
@@ -4898,9 +5002,16 @@ function tick() {
   });
 }
 function sampleTruth(lat, lon) {
+  const { x, y } = llToOffset(lat, lon);
+  if (hasFire()) {
+    const d = smokeAt(x, y, state.weather.wind_from, Date.now() / 1e3).density;
+    if (d > 0.02) {
+      const f = activeFires().sort((a, b) => distM(a, { lat, lon }) - distM(b, { lat, lon }))[0];
+      return { type: "fire", id: f.type, category: "F", ratio: +Math.min(1, d).toFixed(3) };
+    }
+  }
   const A = activeScenario();
   if (!A) return null;
-  const { x, y } = llToOffset(lat, lon);
   let ratio;
   if (A.sc.category === "B") ratio = Math.max(0, 1 - Math.hypot(x - A.src.x, y - A.src.y) / (A.sc.radius_m * 1.2));
   else {
@@ -5268,7 +5379,7 @@ function applySampleConfig(c) {
     for (const [k, v] of Object.entries(c.analysisDurations)) if (Number(v) > 0) SC.analysisDurations[k] = Number(v);
   }
 }
-var err = (msg, code = 400) => Object.assign(new Error(msg), { statusCode: code });
+var err2 = (msg, code = 400) => Object.assign(new Error(msg), { statusCode: code });
 var nextSeq = (key) => {
   const n = getSetting(key, 0) + 1;
   setSetting(key, n);
@@ -5307,9 +5418,9 @@ function resolveVehicleId(x, y) {
   return crewed.length === 1 ? crewed[0].id : null;
 }
 function createSample(n) {
-  if (!SAMPLE_TYPES[n.type]) throw err("Ung\xFCltige Probenart");
+  if (!SAMPLE_TYPES[n.type]) throw err2("Ung\xFCltige Probenart");
   const source2 = String(n.source ?? "").trim();
-  if (source2.length < 2 || source2.length > 120) throw err("Bitte die Herkunft der Probe angeben (2\u2013120 Zeichen)");
+  if (source2.length < 2 || source2.length > 120) throw err2("Bitte die Herkunft der Probe angeben (2\u2013120 Zeichen)");
   const description = String(n.description ?? "").trim().slice(0, 300);
   const id = `P-${(/* @__PURE__ */ new Date()).getFullYear()}-${String(nextSeq("sample_seq")).padStart(6, "0")}`;
   const ll = gameToLL(n.pos.x, n.pos.y);
@@ -5350,10 +5461,10 @@ function createSample(n) {
 }
 function labelSample(id, label, info, by) {
   const s = get("samples", id);
-  if (!s) throw err("Probe nicht gefunden", 404);
-  if (!["COLLECTED", "TRANSPORT"].includes(s.status)) throw err("Die Probe kann nicht mehr beschriftet werden");
+  if (!s) throw err2("Probe nicht gefunden", 404);
+  if (!["COLLECTED", "TRANSPORT"].includes(s.status)) throw err2("Die Probe kann nicht mehr beschriftet werden");
   label = String(label ?? "").trim();
-  if (label.length < 1 || label.length > 60) throw err("Bitte eine Bezeichnung angeben (max. 60 Zeichen)");
+  if (label.length < 1 || label.length > 60) throw err2("Bitte eine Bezeichnung angeben (max. 60 Zeichen)");
   info = String(info ?? "").trim().slice(0, 120);
   update("samples", id, { label, info, status: "TRANSPORT", transport_status: "TRANSPORT", updated_at: now() });
   logEvent(id, "BESCHRIFTET", `${label}${info ? " \u2013 " + info : ""}`, by);
@@ -5363,14 +5474,14 @@ function labelSample(id, label, info, by) {
 }
 function storeSample(id, by, vehicleId) {
   const s = get("samples", id);
-  if (!s) throw err("Probe nicht gefunden", 404);
-  if (s.status !== "TRANSPORT") throw err(s.status === "COLLECTED" ? "Die Probe muss zuerst beschriftet werden" : "Die Probe ist bereits eingelagert");
+  if (!s) throw err2("Probe nicht gefunden", 404);
+  if (s.status !== "TRANSPORT") throw err2(s.status === "COLLECTED" ? "Die Probe muss zuerst beschriftet werden" : "Die Probe ist bereits eingelagert");
   if (!s.vehicle_id) {
-    if (!vehicleId) throw err("Kein angemeldetes CBRN-Fahrzeug erkannt \u2013 bitte am Bordcomputer anmelden.");
+    if (!vehicleId) throw err2("Kein angemeldetes CBRN-Fahrzeug erkannt \u2013 bitte am Bordcomputer anmelden.");
     update("samples", id, { vehicle_id: vehicleId });
     s.vehicle_id = vehicleId;
   }
-  if (storedCount(s.vehicle_id) >= SC.maxSamples) throw err("PROBENLAGER VOLL \u2013 Es k\xF6nnen keine weiteren Proben eingelagert werden.", 409);
+  if (storedCount(s.vehicle_id) >= SC.maxSamples) throw err2("PROBENLAGER VOLL \u2013 Es k\xF6nnen keine weiteren Proben eingelagert werden.", 409);
   update("samples", id, { status: "STORED", transport_status: "EINGELAGERT", stored_at: now(), updated_at: now() });
   logEvent(id, "EINGELAGERT", `Probenlager ${s.vehicle_id}`, by);
   audit(by, "store", "sample", id);
@@ -5381,8 +5492,8 @@ function storeSample(id, by, vehicleId) {
 }
 function archiveSample(id, by) {
   const s = get("samples", id);
-  if (!s) throw err("Probe nicht gefunden", 404);
-  if (s.status !== "COMPLETED") throw err("Nur abgeschlossene Proben k\xF6nnen archiviert werden");
+  if (!s) throw err2("Probe nicht gefunden", 404);
+  if (s.status !== "COMPLETED") throw err2("Nur abgeschlossene Proben k\xF6nnen archiviert werden");
   update("samples", id, { status: "ARCHIVED", updated_at: now() });
   logEvent(id, "ARCHIVIERT", null, by);
   audit(by, "archive", "sample", id);
@@ -5391,9 +5502,9 @@ function archiveSample(id, by) {
 }
 function startAnalysis(id, type, by, comment) {
   const s = get("samples", id);
-  if (!s) throw err("Probe nicht gefunden", 404);
-  if (!ANALYSIS_TYPES[type]) throw err("Ung\xFCltige Analyseart");
-  if (!["STORED", "COMPLETED"].includes(s.status)) throw err(s.status === "ANALYSIS" ? "F\xFCr diese Probe l\xE4uft bereits eine Analyse" : "Nur eingelagerte Proben k\xF6nnen analysiert werden");
+  if (!s) throw err2("Probe nicht gefunden", 404);
+  if (!ANALYSIS_TYPES[type]) throw err2("Ung\xFCltige Analyseart");
+  if (!["STORED", "COMPLETED"].includes(s.status)) throw err2(s.status === "ANALYSIS" ? "F\xFCr diese Probe l\xE4uft bereits eine Analyse" : "Nur eingelagerte Proben k\xF6nnen analysiert werden");
   const aid = `A-${String(nextSeq("analysis_seq")).padStart(5, "0")}`;
   const dur = SC.analysisDurations[type] ?? 6e4;
   insert("sample_analyses", { id: aid, sample_id: id, type, status: "RUNNING", started_at: now(), duration_ms: dur, by_user: by, comment: String(comment ?? "").trim().slice(0, 200) || null, result: null });
@@ -5415,6 +5526,16 @@ function analysisResult(sample, type) {
   const truth = sample.truth_ref;
   const ratio = (sample.truth_ratio ?? 0) + (Math.random() - 0.5) * 0.06;
   if (!truth) return base;
+  if (truth.type === "fire") {
+    const ft = FIRE_TYPES[truth.id];
+    const chem = type === "CHEMICAL" || type === "GENERAL";
+    if (!chem) return base;
+    if (ratio < 0.08) return { ...base, category: "CHEMISCH", outcome: "UNKNOWN", outcome_text: "UNBEKANNT", ref_type: "fire", description: "Spuren von Verbrennungsprodukten nicht ausgeschlossen, aber nicht n\xE4her bestimmbar." };
+    return { ...base, category: "CHEMISCH", ref_type: "fire", group: "Brandrauch / Verbrennungsprodukte", outcome: "GROUP", outcome_text: "STOFFGRUPPE ERKANNT", description: `Chemische Auff\xE4lligkeit festgestellt.
+Stoffgruppe: Brandrauch (${(ft == null ? void 0 : ft.label) ?? "Brand"}).
+Typisch enthalten: ${(ft == null ? void 0 : ft.main) ?? "Verbrennungsprodukte"}.
+Eine Einzelstoff-Identifikation ist nicht m\xF6glich.` };
+  }
   const cat = catOf(truth.type);
   const need = typeCat[type];
   if (need && need !== cat) return base;
@@ -5452,7 +5573,7 @@ function tickAnalyses() {
 }
 
 // server/incident.ts
-var CATEGORIES = { C: "Chemisch", R: "Radiologisch", B: "Biologisch", U: "Unbekannt" };
+var CATEGORIES = { C: "Chemisch", R: "Radiologisch", B: "Biologisch", U: "Unbekannt", F: "Brand (Rauchgas)" };
 var ROLES = ["Messtechniker (Maschinist)", "Gruppenf\xFChrer CBRN-ErkW", "Messtrupp"];
 var AMOUNTS = ["gering", "mittel", "gro\xDF"];
 var SIZE = {
@@ -5478,7 +5599,7 @@ function publicIncident(inc) {
   if (!inc) return null;
   const reveal = inc.status !== "AKTIV" || inc.known;
   const { ref_type, ref_id, peak, ...rest } = inc;
-  const ref = reveal ? ref_type === "substance" ? get("substances", ref_id) : ref_type === "radionuclide" ? get("radionuclides", ref_id) : get("biological_agents", ref_id) : null;
+  const ref = reveal && ref_type !== "fire" ? ref_type === "substance" ? get("substances", ref_id) : ref_type === "radionuclide" ? get("radionuclides", ref_id) : get("biological_agents", ref_id) : null;
   return { ...rest, category_text: CATEGORIES[inc.category] ?? inc.category, ref_type: reveal ? ref_type : null, ref_id: reveal ? ref_id : null, ref_name: (ref == null ? void 0 : ref.name) ?? null, ref_hidden: !reveal };
 }
 function createIncident(by, b) {
@@ -5490,13 +5611,15 @@ function createIncident(by, b) {
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return { error: "Einsatzstelle fehlt \u2013 bitte auf der Karte markieren" };
   const amount = AMOUNTS.includes(b.amount) ? b.amount : "mittel";
   let truth;
-  if (b.ref_type && b.ref_id) {
+  if (cat === "F") truth = { ref_type: "fire", ref_id: "-", category: "F" };
+  else if (b.ref_type && b.ref_id) {
     const row = get(b.ref_type === "substance" ? "substances" : b.ref_type === "radionuclide" ? "radionuclides" : "biological_agents", b.ref_id);
     if (!row) return { error: "Gew\xE4hlter Stoff nicht gefunden" };
     truth = { ref_type: b.ref_type, ref_id: b.ref_id, category: row.cbrn_category === "U" ? "U" : b.ref_type === "substance" ? "C" : b.ref_type === "radionuclide" ? "R" : "B" };
     if (cat === "U") truth.category = "U";
   } else truth = pickTruth(cat);
-  const [radius_m, peak] = SIZE[truth.category === "U" ? truth.ref_type === "radionuclide" ? "R" : "C" : truth.category][amount];
+  const fsz = { gering: "klein", mittel: "mittel", "gro\xDF": "gro\xDF" };
+  const [radius_m, peak] = truth.category === "F" ? [FIRE_SIZES[fsz[amount]].r, 0] : SIZE[truth.category === "U" ? truth.ref_type === "radionuclide" ? "R" : "C" : truth.category][amount];
   if (activeIncident()) return { error: "Es l\xE4uft bereits ein Einsatz \u2013 er wurde von einer anderen Person angelegt" };
   const n = (db.prepare("SELECT COUNT(*) c FROM incidents").get().c ?? 0) + 1;
   const inc = {
@@ -5518,6 +5641,7 @@ function createIncident(by, b) {
     lon
   };
   insert("incidents", inc);
+  if (cat === "F") addFire(by, { lat, lon, size: fsz[amount], type: FIRE_TYPES[String(b.fire_type)] ? String(b.fire_type) : "GEBAEUDE", label: "Brandstelle" });
   for (const c of crewOf()) noteCrew(c.name, c.role, c.vehicle_id);
   audit(by, "create", "incident", inc.id, { name, category: truth.category, amount, known: !!b.known });
   emit2("incident.changed", publicIncident(inc));
@@ -5557,7 +5681,7 @@ function endIncident(by, id, form = {}) {
     var _a;
     return (_a = get("substances", sid)) == null ? void 0 : _a.name;
   }).filter(Boolean);
-  const truthRow = inc.ref_type === "substance" ? get("substances", inc.ref_id) : inc.ref_type === "radionuclide" ? get("radionuclides", inc.ref_id) : get("biological_agents", inc.ref_id);
+  const truthRow = inc.ref_type === "fire" ? null : inc.ref_type === "substance" ? get("substances", inc.ref_id) : inc.ref_type === "radionuclide" ? get("radionuclides", inc.ref_id) : get("biological_agents", inc.ref_id);
   const startMs = Date.parse(inc.created_at), endMs = Date.parse(ended);
   const data = {
     kind: "EINSATZBERICHT_E",
@@ -5600,6 +5724,8 @@ function endIncident(by, id, form = {}) {
     alarms: alarms.map((a) => ({ id: a.id, ts: a.ts, category: a.category, description: a.description })),
     device_findings: imsNames,
     weather: w ? { temperature: w.temperature, humidity: w.humidity, pressure: w.pressure, wind_speed: w.wind_speed, wind_from: w.wind_from, wind_from_text: compass(w.wind_from) } : null,
+    fires: listFires().map((f2) => ({ id: f2.id, label: f2.label, type_text: f2.type_text, size: f2.size, lat: f2.lat, lon: f2.lon })),
+    run_modes: [...new Set(runs.map((r) => r.mode ?? "CBRN"))],
     truth: { known: !!inc.known, type: inc.ref_type, name: (truthRow == null ? void 0 : truthRow.name) ?? null, cas: (truthRow == null ? void 0 : truthRow.cas) ?? null }
   };
   update("incidents", id, { status: "BEENDET", ended_at: ended });
@@ -5796,6 +5922,16 @@ function registerRoutes(app) {
     const { x, y } = llToOffset(v.lat, v.lon);
     return { ...spectrumAt(x, y), label: "SIMULIERTE AUSWERTUNG", data_source: "SIMULATED" };
   });
+  app.get("/api/fires", async () => listFires());
+  app.post("/api/fires", async (req, rep) => {
+    const u = need(req);
+    rep.code(201);
+    return addFire(u.id, req.body ?? {});
+  });
+  app.delete("/api/fires/:id", async (req) => {
+    const u = need(req);
+    return removeFire(u.id, req.params.id);
+  });
   app.get("/api/incident", async () => publicIncident(activeIncident()));
   app.get("/api/incidents", async () => list("incidents", "", [], "ORDER BY created_at DESC").map(publicIncident));
   app.post("/api/incidents", async (req, rep) => {
@@ -5834,7 +5970,7 @@ function registerRoutes(app) {
   app.post("/api/runs/start", async (req, rep) => {
     const u = need(req, 1);
     const b = req.body ?? {};
-    const r = startRun(u.id, u.vehicle_id, b.name, b.lat != null ? { lat: Number(b.lat), lon: Number(b.lon) } : void 0);
+    const r = startRun(u.id, u.vehicle_id, b.name, b.lat != null ? { lat: Number(b.lat), lon: Number(b.lon) } : void 0, b.mode === "BRAND" ? "BRAND" : "CBRN");
     if (r.error) throw Object.assign(new Error(r.error), { statusCode: 409 });
     rep.code(201);
     return r;
@@ -6136,7 +6272,7 @@ async function boot(opts) {
   if (seeded && seeded !== config.mapMode) {
     console.log(`[cbrn] Kartenmodus ${seeded} -> ${config.mapMode}: Daten werden neu angelegt.`);
     db.exec("PRAGMA foreign_keys = OFF");
-    for (const t of ["sources", "substances", "radionuclides", "biological_agents", "measurement_devices", "measurement_methods", "test_tubes", "users", "vehicles", "crew", "scenarios", "missions", "measurements", "samples", "sample_events", "weather_records", "alarms", "reports", "audit_log", "runs", "incidents", "incident_crew", "sample_analyses", "sessions", "settings"]) db.exec(`DELETE FROM ${t}`);
+    for (const t of ["sources", "substances", "radionuclides", "biological_agents", "measurement_devices", "measurement_methods", "test_tubes", "users", "vehicles", "crew", "scenarios", "missions", "measurements", "samples", "sample_events", "weather_records", "alarms", "reports", "audit_log", "runs", "incidents", "incident_crew", "sample_analyses", "incident_fires", "sessions", "settings"]) db.exec(`DELETE FROM ${t}`);
     db.exec("PRAGMA foreign_keys = ON");
   }
   seedIfEmpty();

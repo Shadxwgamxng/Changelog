@@ -49,8 +49,8 @@ function PidInner({ r, link = true }: { r: any; link?: boolean }) {
 
 function MgmgInner({ r, link = true }: { r: any; link?: boolean }) {
   const { meta } = useLive(); if (!r) return null; const ch = r.mgmg.channels as Record<string, number | null>;
-  const U: Record<string, [string, string]> = { O2: ['O₂', '% vol'], CO: ['CO', 'ppm'], H2S: ['H₂S', 'ppm'], LEL: ['EX', '%LEL'], CH4: ['CH₄', 'ppm'] };
-  const warn = (k: string, v: number) => (k === 'O2' ? v < 19.5 : k === 'CO' ? v > 30 : k === 'H2S' ? v > 5 : k === 'LEL' ? v > 10 : false);
+  const U: Record<string, [string, string]> = { O2: ['O₂', '% vol'], CO: ['CO', 'ppm'], H2S: ['H₂S', 'ppm'], LEL: ['EX', '%LEL'], CH4: ['CH₄', 'ppm'], CO2: ['CO₂', 'ppm'], HCN: ['HCN', 'ppm'], NO2: ['NO₂', 'ppm'], HCl: ['HCl', 'ppm'], SO2: ['SO₂', 'ppm'] };
+  const warn = (k: string, v: number) => (k === 'O2' ? v < 19.5 : k === 'CO' ? v > 30 : k === 'H2S' ? v > 5 : k === 'LEL' ? v > 10 : k === 'CO2' ? v > 5000 : k === 'HCN' ? v > 2 : k === 'NO2' ? v > 0.5 : k === 'HCl' ? v > 2 : k === 'SO2' ? v > 0.5 : false);
   return (
     <Panel title="MGMG – Mehrgasmessgerät" right={link && <Link className="text-accent" to="/geraete/mgmg">Gerätepage →</Link>} className="h-full">
       <div className="grid grid-cols-3 gap-3">

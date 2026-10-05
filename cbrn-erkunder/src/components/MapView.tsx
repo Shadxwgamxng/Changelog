@@ -5,8 +5,8 @@ import { useApi, useLive } from '../store';
 import { CAT } from '../lib/format';
 
 export type Layers = Record<string, boolean>;
-export const DEFAULT_LAYERS: Layers = { basemap: true, grid: false, vehicle: true, track: true, points: true, missions: true, samples: true, areas: true, weather: true, history: false, others: true, route: false };
-export const LAYER_LABELS: [string, string][] = [['vehicle', 'Fahrzeug'], ['track', 'GPS-Track'], ['points', 'Messpunkte'], ['missions', 'Messaufträge'], ['samples', 'Proben'], ['areas', 'CBRN-Bereiche'], ['weather', 'Wetter'], ['history', 'Historische Messungen'], ['others', 'Andere Fahrzeuge'], ['grid', 'Gitter 100 m'], ['basemap', 'Hintergrundkarte']];
+export const DEFAULT_LAYERS: Layers = { basemap: true, grid: false, vehicle: true, track: true, points: true, missions: true, samples: true, areas: true, weather: true, fires: true, history: false, others: true, route: false };
+export const LAYER_LABELS: [string, string][] = [['vehicle', 'Fahrzeug'], ['track', 'GPS-Track'], ['points', 'Messpunkte'], ['missions', 'Messaufträge'], ['samples', 'Proben'], ['areas', 'CBRN-Bereiche'], ['weather', 'Wetter'], ['fires', 'Brandstellen / Rauch'], ['history', 'Historische Messungen'], ['others', 'Andere Fahrzeuge'], ['grid', 'Gitter 100 m'], ['basemap', 'Hintergrundkarte']];
 
 const EMPTY = { type: 'FeatureCollection', features: [] } as any;
 const fc = (features: any[]) => ({ type: 'FeatureCollection', features });
@@ -16,18 +16,19 @@ const circlePoly = (lon: number, lat: number, r: number) => {
 };
 const statusColor = ['match', ['get', 'status'], 'ALARM', '#e5534b', 'HOCH', '#e5534b', 'ERHÖHT', '#d29922', 'AUSWERTUNG ERFORDERLICH', '#f0500a', 'NORMAL', '#58a6ff', '#817d78'] as any;
 
-export function MapView({ layers, onSelect, follow = true, grid = true, showVehicleLabels = true }: { layers: Layers; onSelect?: (s: { type: string; id: string }) => void; follow?: boolean; grid?: boolean; showVehicleLabels?: boolean }) {
+export function MapView({ layers, onSelect, follow = true, grid = true, showVehicleLabels = true, onMapClick }: { onMapClick?: (p: { lat: number; lon: number }) => void; layers: Layers; onSelect?: (s: { type: string; id: string }) => void; follow?: boolean; grid?: boolean; showVehicleLabels?: boolean }) {
   const el = useRef<HTMLDivElement>(null); const mapRef = useRef<maplibregl.Map | null>(null); const ready = useRef(false);
   const marker = useRef<maplibregl.Marker | null>(null); const markerEl = useRef<HTMLDivElement | null>(null);
   const { meta, vehicles, weather, own, incident } = useLive(); const incMk = useRef<maplibregl.Marker | null>(null);
   const meas = useApi<any[]>('/measurements?limit=500', ['measurement.created', 'poll']);
   const samples = useApi<any[]>('/samples', ['sample.created', 'sample.updated']);
+  const fires = useApi<any[]>('/fires', ['fires.changed', 'incident.changed']);
   const alarms = useApi<any[]>('/alarms', ['alarm.created']);
   const missions = useApi<any[]>('/missions', ['mission.created', 'mission.updated']);
   const track = useApi<any[]>(`/track?vehicle=${own}`, ['measurement.created', 'poll', 'run.started', 'run.stopped'], [own]);
   const [imgMissing, setImgMissing] = useState(false);
   const mm = meta?.map;
-  const onSel = useRef(onSelect); onSel.current = onSelect;
+  const onSel = useRef(onSelect); onSel.current = onSelect; const onClk = useRef(onMapClick); onClk.current = onMapClick;
 
   // Kartenbild folgt einem geänderten Kartenversatz (Kalibrierung) sofort
   useEffect(() => {
@@ -54,21 +55,25 @@ export function MapView({ layers, onSelect, follow = true, grid = true, showVehi
       for (let k = -80; k <= 80; k++) { const dx = k * 100 / (111320 * Math.cos((cc.lat * Math.PI) / 180)), dy = k * 100 / 111320;
         lines.push({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [[cc.lon + dx, cc.lat - 0.08], [cc.lon + dx, cc.lat + 0.08]] } }, { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [[cc.lon - 0.08, cc.lat + dy], [cc.lon + 0.08, cc.lat + dy]] } }); }
       map.addSource('grid', { type: 'geojson', data: fc(lines) }); map.addLayer({ id: 'grid', type: 'line', source: 'grid', paint: { 'line-color': '#000000', 'line-width': 0.6, 'line-opacity': 0.22 } });
-      for (const s of ['route', 'track', 'sectors', 'areas', 'points', 'samples', 'others', 'hist']) map.addSource(s, { type: 'geojson', data: EMPTY });
+      for (const s of ['route', 'track', 'sectors', 'areas', 'points', 'samples', 'others', 'hist', 'fires', 'smoke']) map.addSource(s, { type: 'geojson', data: EMPTY });
       map.addLayer({ id: 'route', type: 'line', source: 'route', paint: { 'line-color': '#817d78', 'line-width': 1, 'line-dasharray': [2, 3] } });
       map.addLayer({ id: 'sectors-fill', type: 'fill', source: 'sectors', paint: { 'fill-color': ['case', ['get', 'active'], '#f0500a', '#363636'], 'fill-opacity': ['case', ['get', 'active'], 0.07, 0.03] } });
       map.addLayer({ id: 'sectors', type: 'line', source: 'sectors', paint: { 'line-color': ['case', ['get', 'active'], '#f0500a', '#363636'], 'line-width': 1.5, 'line-dasharray': [4, 2] } });
       map.addLayer({ id: 'areas-fill', type: 'fill', source: 'areas', paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.18 } });
       map.addLayer({ id: 'areas', type: 'line', source: 'areas', paint: { 'line-color': ['get', 'color'], 'line-width': 1.5 } });
+      map.addLayer({ id: 'smoke-fill', type: 'fill', source: 'smoke', paint: { 'fill-color': '#8a8f98', 'fill-opacity': 0.28 } });
+      map.addLayer({ id: 'smoke', type: 'line', source: 'smoke', paint: { 'line-color': '#b9bec6', 'line-width': 1.2, 'line-dasharray': [3, 2] } });
       map.addLayer({ id: 'track', type: 'line', source: 'track', paint: { 'line-color': '#f0500a', 'line-width': 2.5, 'line-opacity': 0.9 } });
       map.addLayer({ id: 'hist', type: 'circle', source: 'hist', paint: { 'circle-radius': 3, 'circle-color': '#817d78', 'circle-opacity': 0.6 } });
       map.addLayer({ id: 'points', type: 'circle', source: 'points', paint: { 'circle-radius': ['case', ['==', ['get', 'status'], 'NORMAL'], 3.5, 6], 'circle-color': statusColor, 'circle-stroke-color': '#0b0b0b', 'circle-stroke-width': 1 } });
       map.addLayer({ id: 'samples', type: 'circle', source: 'samples', paint: { 'circle-radius': 6, 'circle-color': '#0b0b0b', 'circle-stroke-color': '#ebe9e6', 'circle-stroke-width': 2 } });
+      map.addLayer({ id: 'fires', type: 'circle', source: 'fires', paint: { 'circle-radius': 9, 'circle-color': '#e5534b', 'circle-stroke-color': '#f5a623', 'circle-stroke-width': 3 } });
       map.addLayer({ id: 'others', type: 'circle', source: 'others', paint: { 'circle-radius': 7, 'circle-color': ['get', 'color'], 'circle-stroke-color': '#ebe9e6', 'circle-stroke-width': 1.5 } });
       map.on('click', (e: any) => {
-        const f = map.queryRenderedFeatures(e.point, { layers: ['points', 'samples', 'others'] })[0]; if (f) onSel.current?.({ type: f.layer.id, id: String(f.properties?.id) });
+        if (onClk.current) { onClk.current({ lat: e.lngLat.lat, lon: e.lngLat.lng }); return; }
+        const f = map.queryRenderedFeatures(e.point, { layers: ['points', 'samples', 'others', 'fires'] })[0]; if (f) onSel.current?.({ type: f.layer.id, id: String(f.properties?.id) });
       });
-      for (const l of ['points', 'samples', 'others']) { map.on('mouseenter', l, () => (map.getCanvas().style.cursor = 'pointer')); map.on('mouseleave', l, () => (map.getCanvas().style.cursor = '')); }
+      for (const l of ['points', 'samples', 'others', 'fires']) { map.on('mouseenter', l, () => (map.getCanvas().style.cursor = 'pointer')); map.on('mouseleave', l, () => (map.getCanvas().style.cursor = '')); }
       ready.current = true; mapRef.current!.fire('cbrn-ready' as any);
     });
     return () => { map.remove(); mapRef.current = null; ready.current = false; incMk.current = null; marker.current = null; };
@@ -88,6 +93,12 @@ export function MapView({ layers, onSelect, follow = true, grid = true, showVehi
     const act = new Set((missions.data ?? []).filter((x) => ['ÜBERMITTELT', 'ANGENOMMEN', 'IN BEARBEITUNG'].includes(x.status)).map((x) => x.sector));
     set('sectors', fc((meta?.sectors ?? []).map((s: any) => ({ type: 'Feature', properties: { name: s.name, active: act.has(s.key) }, geometry: { type: 'Polygon', coordinates: [s.polygon] } }))));
     set('areas', fc((alarms.data ?? []).filter((a) => a.status === 'OFFEN' && ['CHEMISCH', 'RADIOLOGISCH', 'NUKLEAR', 'BIOLOGISCH', 'UNBEKANNT'].includes(a.category)).map((a) => ({ type: 'Feature', properties: { color: (CAT[a.category[0]] ?? CAT.U).color }, geometry: circlePoly(a.lon, a.lat, 90) }))));
+    set('fires', fc((fires.data ?? []).map((f) => ({ type: 'Feature', properties: { id: f.id }, geometry: { type: 'Point', coordinates: [f.lon, f.lat] } }))));
+    set('smoke', fc((fires.data ?? []).map((f) => {
+      const L = ({ klein: 150, mittel: 300, 'groß': 550 } as any)[f.size] ?? 300, dir = (((weather?.wind_from ?? 0) + 180) % 360) * Math.PI / 180, kx = 111320 * Math.cos((f.lat * Math.PI) / 180);
+      const P = (a: number, c: number) => [f.lon + (Math.sin(dir) * a + Math.cos(dir) * c) / kx, f.lat + (Math.cos(dir) * a - Math.sin(dir) * c) / 111320];
+      return { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [[P(-0.1 * L, -0.15 * L), P(0.4 * L, -0.28 * L), P(L, -0.45 * L), P(L, 0.45 * L), P(0.4 * L, 0.28 * L), P(-0.1 * L, 0.15 * L), P(-0.1 * L, -0.15 * L)]] } };
+    })));
     set('others', fc(vehicles.filter((v) => v.id !== own && v.link === 'ONLINE').map((v) => ({ type: 'Feature', properties: { id: v.id, color: '#3fb950' }, geometry: { type: 'Point', coordinates: [v.lon, v.lat] } }))));
     if (incident?.lat != null) {
       if (!incMk.current) { const d = document.createElement('div'); d.title = 'Einsatzstelle'; d.innerHTML = `<svg width="26" height="26" viewBox="-13 -13 26 26"><path d="M0,-11 L11,9 L-11,9Z" fill="#d29922" stroke="#0b0b0b" stroke-width="1.5"/><text x="0" y="6" text-anchor="middle" font-size="12" font-weight="700" fill="#0b0b0b">!</text></svg>`; incMk.current = new maplibregl.Marker({ element: d }).setLngLat([incident.lon, incident.lat]).addTo(map); }
@@ -108,7 +119,7 @@ export function MapView({ layers, onSelect, follow = true, grid = true, showVehi
     const map = mapRef.current; if (!map) return;
     const apply = () => {
       const vis = (id: string, on: boolean) => map.getLayer(id) && map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none');
-      vis('basemap', layers.basemap); vis('grid', layers.grid && grid); vis('track', layers.track); vis('points', layers.points); vis('samples', layers.samples); vis('hist', layers.history); vis('others', layers.others);
+      vis('basemap', layers.basemap); vis('grid', layers.grid && grid); vis('track', layers.track); vis('points', layers.points); vis('samples', layers.samples); vis('hist', layers.history); vis('others', layers.others); vis('fires', layers.fires); vis('smoke', layers.fires); vis('smoke-fill', layers.fires);
       vis('route', layers.route); vis('sectors', layers.missions); vis('sectors-fill', layers.missions); vis('areas', layers.areas); vis('areas-fill', layers.areas);
       if (markerEl.current) markerEl.current.style.display = layers.vehicle ? 'block' : 'none';
     };
@@ -117,7 +128,7 @@ export function MapView({ layers, onSelect, follow = true, grid = true, showVehi
 
   return (
     <div className="relative w-full h-full min-h-[200px]">
-      <div ref={el} className="absolute inset-0" />
+      <div ref={el} className="absolute inset-0" style={onMapClick ? { cursor: 'crosshair' } : undefined} />
       {imgMissing && (
         <div className="absolute inset-x-0 top-12 mx-auto w-[460px] panel p-3 bg-panel/95 text-[12px] z-10">
           <b>GTA-5-Kartenbild fehlt.</b> Lege dein Kartenbild als <span className="font-mono">public/maps/gta5.jpg</span> ab (Ränder in <span className="font-mono">config.json → gta5.bounds</span>) und lade die Seite neu. Bis dahin: Gitter 100 m, Sektoren und Messpunkte.

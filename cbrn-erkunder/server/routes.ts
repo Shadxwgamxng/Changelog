@@ -8,6 +8,7 @@ import { config } from './config.js';
 import { buildReport, reportCsv } from './report.js';
 import { validateImport } from './import.js';
 import { listSamples, publicSample, startAnalysis, archiveSample, storedCount, SC } from './samples.js';
+import { addFire, removeFire, listFires } from './fire.js';
 import { createIncident, endIncident, publicIncident } from './incident.js';
 import { authUser, createSession, crewOf, endSession, getSession, touch, purgeSessions } from './auth.js';
 
@@ -118,6 +119,9 @@ export function registerRoutes(app: FastifyInstance) {
   app.get('/api/live', async () => ({ vehicles: state.live, weather: weatherNow(), status: systemStatus() }));
   app.get('/api/live/spectrum', async (req) => { const v = get('vehicles', q(req).vehicle ?? user(req).vehicle_id); if (!v) throw nf('Fahrzeug'); const { x, y } = llToOffset(v.lat, v.lon); return { ...spectrumAt(x, y), label: 'SIMULIERTE AUSWERTUNG', data_source: 'SIMULATED' }; });
   // ---------- Einsatz
+  app.get('/api/fires', async () => listFires());
+  app.post('/api/fires', async (req, rep) => { const u = need(req); rep.code(201); return addFire(u.id, (req.body ?? {}) as any); });
+  app.delete('/api/fires/:id', async (req) => { const u = need(req); return removeFire(u.id, (req.params as any).id); });
   app.get('/api/incident', async () => publicIncident(activeIncident()));
   app.get('/api/incidents', async () => list('incidents', '', [], 'ORDER BY created_at DESC').map(publicIncident));
   app.post('/api/incidents', async (req, rep) => { const u = need(req); const r = createIncident(u.id, req.body ?? {}); if ((r as any).error) throw Object.assign(new Error((r as any).error), { statusCode: 400 }); rep.code(201); return r; });
@@ -134,7 +138,7 @@ export function registerRoutes(app: FastifyInstance) {
   // ---------- Messfahrten
   app.get('/api/runs', async () => list('runs', '', [], 'ORDER BY started_at DESC LIMIT 100').map((r: any) => (state.runs[r.vehicle_id]?.id === r.id ? { ...r, distance_m: Math.round(state.runs[r.vehicle_id].dist), active: true } : r)));
   app.get('/api/runs/active', async (req) => ({ run: runInfo(user(req).vehicle_id) }));
-  app.post('/api/runs/start', async (req, rep) => { const u = need(req, 1); const b = (req.body ?? {}) as any; const r = startRun(u.id, u.vehicle_id, b.name, b.lat != null ? { lat: Number(b.lat), lon: Number(b.lon) } : undefined); if ((r as any).error) throw Object.assign(new Error((r as any).error), { statusCode: 409 }); rep.code(201); return r; });
+  app.post('/api/runs/start', async (req, rep) => { const u = need(req, 1); const b = (req.body ?? {}) as any; const r = startRun(u.id, u.vehicle_id, b.name, b.lat != null ? { lat: Number(b.lat), lon: Number(b.lon) } : undefined, b.mode === 'BRAND' ? 'BRAND' : 'CBRN'); if ((r as any).error) throw Object.assign(new Error((r as any).error), { statusCode: 409 }); rep.code(201); return r; });
   app.post('/api/runs/stop', async (req) => { const u = need(req, 1); const r = stopRun(u.id, u.vehicle_id); if ((r as any).error) throw Object.assign(new Error((r as any).error), { statusCode: 409 }); return r; });
 
   // ---------- Probenanalyse (Entscheidungshilfe)

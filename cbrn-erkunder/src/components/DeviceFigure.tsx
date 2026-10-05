@@ -65,8 +65,8 @@ function ImsArt({ r }: { r: any }) {
   </g>);
 }
 function MgmgArt({ r, channels }: { r: any; channels: string[] }) {
-  const ch = r?.mgmg.channels ?? {}; const U: Record<string, [string, string]> = { O2: ['O₂', '% vol'], CO: ['CO', 'ppm'], H2S: ['H₂S', 'ppm'], LEL: ['EX', '%LEL'], CH4: ['CH₄', 'ppm'] };
-  const warn = (k: string, v: number) => (k === 'O2' ? v < 19.5 : k === 'CO' ? v > 30 : k === 'H2S' ? v > 5 : k === 'LEL' ? v > 10 : false);
+  const ch = r?.mgmg.channels ?? {}; const U: Record<string, [string, string]> = { O2: ['O₂', '% vol'], CO: ['CO', 'ppm'], H2S: ['H₂S', 'ppm'], LEL: ['EX', '%LEL'], CH4: ['CH₄', 'ppm'], CO2: ['CO₂', 'ppm'], HCN: ['HCN', 'ppm'], NO2: ['NO₂', 'ppm'], HCl: ['HCl', 'ppm'], SO2: ['SO₂', 'ppm'] };
+  const warn = (k: string, v: number) => (k === 'O2' ? v < 19.5 : k === 'CO' ? v > 30 : k === 'H2S' ? v > 5 : k === 'LEL' ? v > 10 : k === 'CO2' ? v > 5000 : k === 'HCN' ? v > 2 : k === 'NO2' ? v > 0.5 : k === 'HCl' ? v > 2 : k === 'SO2' ? v > 0.5 : false);
   const bad = Object.entries(ch).some(([k, v]) => v != null && warn(k, v as number));
   return (<g filter="url(#shadow)">
     <rect x={296} y={34} width={168} height={374} rx={28} fill="url(#gBody)" stroke={COL.edge} strokeWidth={2} /><rect x={296} y={356} width={168} height={52} rx={26} fill="#d29922" opacity=".9" /><rect x={296} y={356} width={168} height={14} fill="#d29922" opacity=".9" />
@@ -155,7 +155,7 @@ function ImgArt({ id, r, channels, now }: { id: string; r: any; channels: string
   if (id === 'como') { const v = r?.como.value ?? 0; content = (<><text x={L.x + 6} y={L.y + L.h * 0.2} fontSize={L.h * 0.14} fill={INK} fontFamily={MONO}>KONTAMINATION</text><text x={L.x + L.w / 2} y={L.y + L.h * 0.7} fontSize={L.h * 0.42} fontWeight="bold" textAnchor="middle" fill={INK} fontFamily={MONO}>{num(v, 1)}</text><text x={L.x + L.w - 6} y={L.y + L.h * 0.92} fontSize={L.h * 0.16} textAnchor="end" fill={INK} fontFamily={MONO}>cps</text></>); }
   if (id === 'ims') { const i = r?.ims; const lv = i?.level; content = (<><text x={L.x + 4} y={L.y + L.h * 0.42} fontSize={L.h * 0.36} fontWeight="bold" fill={INK} fontFamily={MONO}>{lv ? (lv === 'moegliche_identifikation' ? 'MÖGL. STOFF' : lv.toUpperCase()) : 'KEIN TREFFER'}</text><text x={L.x + 4} y={L.y + L.h * 0.85} fontSize={L.h * 0.3} fill={INK} fontFamily={MONO}>{i?.confidence != null ? `Konfidenz ${i.confidence} %` : 'Konfidenz –'}</text></>); }
   if (id === 'mgmg') {
-    const ch = r?.mgmg.channels ?? {}; const NM: Record<string, string> = { O2: 'O₂', CO: 'CO', H2S: 'H₂S', LEL: 'EX', CH4: 'CH₄' }; const U: Record<string, string> = { O2: '%', CO: 'ppm', H2S: 'ppm', LEL: '%UEG', CH4: 'ppm' };
+    const ch = r?.mgmg.channels ?? {}; const NM: Record<string, string> = { O2: 'O₂', CO: 'CO', H2S: 'H₂S', LEL: 'EX', CH4: 'CH₄', CO2: 'CO₂', HCN: 'HCN', NO2: 'NO₂', HCl: 'HCl', SO2: 'SO₂' }; const U: Record<string, string> = { O2: '%', CO: 'ppm', H2S: 'ppm', LEL: '%UEG', CH4: 'ppm', CO2: 'ppm', HCN: 'ppm', NO2: 'ppm', HCl: 'ppm', SO2: 'ppm' };
     const rowH = (L.h * 0.84) / Math.max(1, channels.slice(0, 5).length);
     content = (<>{channels.slice(0, 5).map((k, idx) => (<g key={k}><line x1={L.x} x2={L.x + L.w} y1={L.y + (idx + 1) * rowH} y2={L.y + (idx + 1) * rowH} stroke="#00000030" /><text x={L.x + 3} y={L.y + idx * rowH + rowH * 0.72} fontSize={rowH * 0.62} fill={INK}>{NM[k] ?? k}</text><text x={L.x + L.w - 3} y={L.y + idx * rowH + rowH * 0.72} fontSize={rowH * 0.58} fontWeight="bold" textAnchor="end" fill={INK} fontFamily={MONO}>{ch[k] == null ? '–' : num(ch[k], k === 'O2' || k === 'LEL' || k === 'H2S' ? 1 : 0)} {U[k]}</text></g>))}</>);
   }
@@ -191,8 +191,8 @@ function useSpots(id: string, ctx: any): Spot[] {
     P(...A('leds'), 'l', 230, 'Alarm-LED-Balken', lv ? 'AKTIV' : 'AUS', lv ? lv.replace('_', ' ') : undefined, lv ? COL.warn : COL.ok, [['Alarm', lv ? 'Hinweis/Verdacht aktiv' : 'kein Treffer']]);
     common(...A('conn'), 290);
   }
-  if (id === 'mgmg') { const ch = r?.mgmg.channels ?? {}; const U: Record<string, string> = { O2: '% vol', CO: 'ppm', H2S: 'ppm', LEL: '%LEL', CH4: 'ppm' }; const NM: Record<string, string> = { O2: 'O₂', CO: 'CO', H2S: 'H₂S', LEL: 'EX', CH4: 'CH₄' };
-    const TH: Record<string, string> = { O2: 'Schwelle < 19,5 %', CO: 'Schwelle > 30 ppm', H2S: 'Schwelle > 5 ppm', LEL: 'Schwelle > 10 %UEG', CH4: 'keine Schwelle hinterlegt' };
+  if (id === 'mgmg') { const ch = r?.mgmg.channels ?? {}; const U: Record<string, string> = { O2: '% vol', CO: 'ppm', H2S: 'ppm', LEL: '%LEL', CH4: 'ppm', CO2: 'ppm', HCN: 'ppm', NO2: 'ppm', HCl: 'ppm', SO2: 'ppm' }; const NM: Record<string, string> = { O2: 'O₂', CO: 'CO', H2S: 'H₂S', LEL: 'EX', CH4: 'CH₄', CO2: 'CO₂', HCN: 'HCN', NO2: 'NO₂', HCl: 'HCl', SO2: 'SO₂' };
+    const TH: Record<string, string> = { O2: 'Schwelle < 19,5 %', CO: 'Schwelle > 30 ppm', H2S: 'Schwelle > 5 ppm', LEL: 'Schwelle > 10 %UEG', CH4: 'keine Schwelle hinterlegt', CO2: 'Schwelle > 5000 ppm', HCN: 'Schwelle > 2 ppm', NO2: 'Schwelle > 0,5 ppm', HCl: 'Schwelle > 2 ppm', SO2: 'Schwelle > 0,5 ppm' };
     const g = lcd(id); const nCh = Math.max(1, channels.slice(0, 5).length); const rowH = (g.h * 0.84) / nCh;
     channels.slice(0, 5).forEach((k: string, idx: number) => { const v = ch[k]; P(g.x + g.w + 13, g.y + idx * rowH + rowH * 0.5, idx < 3 ? 'r' : 'l', idx < 3 ? 20 + idx * 78 : 140 + (idx - 3) * 80, `Kanal ${NM[k] ?? k}`, v == null ? '–' : `${num(v, k === 'O2' || k === 'LEL' || k === 'H2S' ? 1 : 0)} ${U[k]}`, TH[k], undefined, [['Messwert', v == null ? '–' : `${v} ${U[k]}`], ['Schwelle', TH[k]]]); });
     P(...A('sensor'), 'l', 20, 'Sensorik (Kanäle konfigurierbar)', `${channels.length} Kanäle`, channels.map((k: string) => NM[k]).join(' · '), COL.acc, [['Aktive Kanäle', channels.map((k: string) => NM[k]).join(', ')], ['Konfiguration', 'System → Konfiguration']]);
@@ -246,7 +246,7 @@ function useCtx(tubeId?: string) {
   const tubes = useApi<any[]>('/test-tubes').data ?? []; const missions = useApi<any[]>('/missions', ['mission.updated']).data ?? [];
   const r = live[own]; const v = vehicles.find((x) => x.id === own);
   return useMemo(() => ({
-    vname: v?.name ?? '–', r, now, dur, hist, trackKm, mpCount, drive, tubes, tube: tubes.find((t) => t.id === tubeId) ?? tubes[0], channels: (meta?.mgmg_channels ?? ['O2', 'CO', 'H2S', 'LEL', 'CH4']) as string[],
+    vname: v?.name ?? '–', r, now, dur, hist, trackKm, mpCount, drive, tubes, tube: tubes.find((t) => t.id === tubeId) ?? tubes[0], channels: (r?.mgmg?.channels ? Object.keys(r.mgmg.channels) : meta?.mgmg_channels ?? ['O2', 'CO', 'H2S', 'LEL', 'CH4']) as string[],
     pos: v ? fmtPos(meta?.map?.mode, v.lat, v.lon) : '–', mission: missions.find((m) => m.vehicle_id === own && m.status === 'IN BEARBEITUNG'), run: r?.run ?? null,
   }), [r, now, dur, hist, trackKm, mpCount, drive, tubes, tubeId, meta, v, missions]);
 }
