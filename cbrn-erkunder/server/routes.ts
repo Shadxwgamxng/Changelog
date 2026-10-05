@@ -57,6 +57,15 @@ export function registerRoutes(app: FastifyInstance) {
 
   // ---------- System
   app.get('/api/system/status', async () => ({ ...systemStatus(), drive: state.drive, fivem_origin: getSetting('fivem_origin'), gta_offset: getSetting('gta_offset', { dx: 0, dy: 0 }), mgmg_channels: mgmgChannels(), now: now(), uptime_s: Math.round(process.uptime()) }));
+  // Karte kalibrieren: dx/dy = Strecke (m, Ost/Nord) vom angezeigten Fahrzeugpunkt zur tatsächlich markierten Stelle. Das Kartenbild wird um diese Strecke zurückgeschoben.
+  app.post('/api/system/calibrate', async (req) => {
+    const u = need(req); const b = (req.body ?? {}) as any; const o = getSetting('gta_offset', { dx: 0, dy: 0 }) as { dx: number; dy: number };
+    let n = o;
+    if (b.reset) n = { dx: 0, dy: 0 };
+    else { const dx = Number(b.dx), dy = Number(b.dy); if (!Number.isFinite(dx) || !Number.isFinite(dy) || Math.abs(dx) > 5000 || Math.abs(dy) > 5000) throw Object.assign(new Error('Ungültiger Versatz'), { statusCode: 400 }); n = { dx: o.dx - dx, dy: o.dy - dy }; }
+    setSetting('gta_offset', n); audit(u.id, 'calibrate', 'map', 'gta_offset', { from: o, to: n });
+    const map = { offset: n, bounds: shiftedBounds() }; emit('map.changed', map); return map;
+  });
   app.post('/api/system/config', async (req) => {
     const u = need(req, 4); const b = req.body as any;
     if (b.mgmg_channels) setSetting('mgmg_channels', b.mgmg_channels);

@@ -66,6 +66,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
           }
           case 'vehicle.position': case 'vehicle.status': setVehicles((vs) => vs.map((v) => (v.id === e.payload.id ? e.payload : v))); break;
           case 'incident.changed': setIncident(e.payload && e.payload.id ? e.payload : null); setRev((r) => ({ ...r, [e.type]: (r[e.type] ?? 0) + 1 })); break;
+          case 'map.changed': setMeta((m: any) => (m ? { ...m, map: { ...m.map, ...e.payload } } : m)); break;
           case 'weather.updated': setWeather(e.payload); break;
           case 'alarm.created': setToasts((t) => [...t.slice(-3), e.payload]); setTimeout(() => setToasts((t) => t.slice(1)), 9000); setRev((r) => ({ ...r, [e.type]: (r[e.type] ?? 0) + 1 })); break;
           default: setRev((r) => ({ ...r, [e.type]: (r[e.type] ?? 0) + 1 }));

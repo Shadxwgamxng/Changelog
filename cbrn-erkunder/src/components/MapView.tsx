@@ -29,6 +29,11 @@ export function MapView({ layers, onSelect, follow = true, grid = true, showVehi
   const mm = meta?.map;
   const onSel = useRef(onSelect); onSel.current = onSelect;
 
+  // Kartenbild folgt einem geänderten Kartenversatz (Kalibrierung) sofort
+  useEffect(() => {
+    const map = mapRef.current, b = mm?.bounds, k = 111320; const src = map?.getSource('gta') as maplibregl.ImageSource | undefined;
+    if (b && src?.setCoordinates) src.setCoordinates([[b.minX / k, b.maxY / k], [b.maxX / k, b.maxY / k], [b.maxX / k, b.minY / k], [b.minX / k, b.minY / k]]);
+  }, [mm?.bounds?.minX, mm?.bounds?.minY]);
   useEffect(() => {
     if (!el.current || mapRef.current || !meta) return;
     const c = meta.center;

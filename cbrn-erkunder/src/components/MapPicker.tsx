@@ -9,8 +9,13 @@ const dot = (color: string, size = 14, ring = '#fff') => { const d = document.cr
 /** Kleine Karte zum Setzen eines Punkts (Einsatzstelle / eigener Standort). Optional: Referenzpunkte (z. B. FiveM-Position). */
 export function MapPicker({ value, onChange, hint, hintLabel, color = '#f0500a', height = 300 }: { value: Pos | null; onChange: (p: Pos) => void; hint?: Pos | null; hintLabel?: string; color?: string; height?: number }) {
   const el = useRef<HTMLDivElement>(null); const mapRef = useRef<maplibregl.Map | null>(null); const mk = useRef<maplibregl.Marker | null>(null); const hk = useRef<maplibregl.Marker | null>(null);
-  const cb = useRef(onChange); cb.current = onChange; const { meta } = useLive();
+  const cb = useRef(onChange); cb.current = onChange; const { meta } = useLive(); const mm = meta?.map;
 
+  // Kartenbild folgt einem geänderten Kartenversatz (Kalibrierung) sofort
+  useEffect(() => {
+    const map = mapRef.current, b = mm?.bounds, k = 111320; const src = map?.getSource('gta') as maplibregl.ImageSource | undefined;
+    if (b && src?.setCoordinates) src.setCoordinates([[b.minX / k, b.maxY / k], [b.maxX / k, b.maxY / k], [b.maxX / k, b.minY / k], [b.minX / k, b.minY / k]]);
+  }, [mm?.bounds?.minX, mm?.bounds?.minY]);
   useEffect(() => {
     if (!el.current || mapRef.current || !meta) return;
     const mm = meta.map, gta = mm?.mode === 'gta5', c = value ?? hint ?? meta.center;

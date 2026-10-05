@@ -7,10 +7,13 @@ import { num } from '../lib/format';
 
 const hms = (ms: number) => { const d = Math.max(0, Math.floor(ms / 1000)); return `${String(Math.floor(d / 3600)).padStart(2, '0')}:${String(Math.floor(d / 60) % 60).padStart(2, '0')}:${String(d % 60).padStart(2, '0')}`; };
 export function RunCard({ compact }: { compact?: boolean }) {
-  const { live, status, can, own, ownVehicle, incident } = useLive(); const [pick, setPick] = useState(false); const [pos, setPos] = useState<Pos | null>(null); const [warn, setWarn] = useState(''); const run = live[own]?.run ?? null; const [, setT] = useState(0); const [err, setErr] = useState('');
+  const { live, status, can, own, ownVehicle, incident, meta } = useLive(); const [pick, setPick] = useState(false); const [pos, setPos] = useState<Pos | null>(null); const [warn, setWarn] = useState(''); const run = live[own]?.run ?? null; const [, setT] = useState(0); const [err, setErr] = useState('');
   useEffect(() => { const t = setInterval(() => setT((x) => x + 1), 1000); return () => clearInterval(t); }, []);
   const fivem = status?.fivem === 'CONNECTED';
   const fv = fivem && ownVehicle?.gps_fix ? { lat: ownVehicle.lat, lon: ownVehicle.lon } : null;
+  const gta = meta?.map?.mode === 'gta5';
+  const dE = pos && fv ? (pos.lon - fv.lon) * 111320 : 0, dN = pos && fv ? (pos.lat - fv.lat) * 111320 : 0; const dist = Math.hypot(dE, dN);
+  const calibrate = async () => { try { setErr(''); await api('/system/calibrate', { method: 'POST', body: { dx: dE, dy: dN } }); setPos(fv); } catch (e: any) { setErr(e.message); } };
   const go = async (what: 'start' | 'stop') => {
     try { setErr(''); setWarn(''); const r = await api(`/runs/${what}`, { method: 'POST', body: what === 'start' ? { lat: pos?.lat, lon: pos?.lon } : {} });
       if (what === 'start') { setPick(false); if (r.deviation_m > 150) setWarn(`Hinweis: Die markierte Position weicht ${r.deviation_m} m von der FiveM-Position ab. Die Messwerte folgen der FiveM-Position.`); } }
@@ -37,6 +40,8 @@ export function RunCard({ compact }: { compact?: boolean }) {
     {pick && <Modal title="Messfahrt starten – eigenen Standort markieren" wide onClose={() => setPick(false)}>
       <div className="text-[12.5px] text-dim mb-2">Markiere auf der Karte, wo sich das Fahrzeug jetzt befindet. {fivem ? 'Alles Weitere (Position, Geschwindigkeit, Kurs, Wetter) wird danach laufend aus FiveM übernommen.' : 'Ohne FiveM-Verbindung gilt der markierte Punkt als Fahrzeugposition.'}</div>
       <MapPicker value={pos} onChange={setPos} hint={fv} hintLabel="Aktuelle FiveM-Position" color="#f0500a" height={340} />
+      {gta && fv && pos && dist > 30 && (<div className="mt-2 panel p-2 text-[12.5px] border-warn/50">Die markierte Stelle liegt <b>{Math.round(Math.abs(dE))} m {dE >= 0 ? 'östlich' : 'westlich'}</b> und <b>{Math.round(Math.abs(dN))} m {dN >= 0 ? 'nördlich' : 'südlich'}</b> der FiveM-Position.
+        Stimmt die Karte nicht mit dem Spiel überein? <button className="text-accent underline" onClick={calibrate}>Karte kalibrieren</button> – das Kartenbild wird passend verschoben, die FiveM-Position bleibt der Standort.</div>)}
       <div className="mt-3 flex items-center gap-3"><Btn kind="primary" onClick={() => go('start')} disabled={!pos}>Messfahrt starten</Btn>{fv && <button className="text-accent text-[12px]" onClick={() => setPos(fv)}>FiveM-Position übernehmen</button>}{err && <span className="text-bad">{err}</span>}</div>
     </Modal>}
   </>);
