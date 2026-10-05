@@ -2,8 +2,17 @@
 -- Probenentnahme-System: Konfiguration (wird von Client UND Server gelesen)
 -- ===========================================================================================
 
--- Fahrzeug-Offsets (Entnahme-/Abgabepunkt je Modell) stehen in sample_points.lua (Ausgabe von /offset dort eintragen).
-Config.SamplePoints = Config.SamplePoints or {}
+-- Fahrzeugmodell -> lokaler Offset (X = rechts/links, Y = vorne/hinten, Z = oben/unten), ermittelt mit /offset.
+-- Der Punkt am Fahrzeug ist die Ausgabe-/Abgabestelle: hier nimmt man das Probenentnahmeset und gibt entnommene Proben wieder ab.
+-- Die Probe selbst wird beliebig im Gelände entnommen (J).
+-- Einzelner Punkt:       [`modell`] = vector3(0.423, -1.274, 1.182)
+-- Getrennte Punkte:      [`modell`] = { sample = vector3(...), storage = vector3(...) }
+Config.SamplePoints = {
+    [`elwblaichach`] = {
+        sample = vector3(-0.950, 0.158, 0.725),
+        storage = vector3(-0.950, 0.158, 0.725)
+    },
+}
 
 Config.OffsetStep = 0.01              -- Schrittweite des Offset Finders (Meter)
 Config.OffsetStepFast = 0.10          -- SHIFT + Pfeiltaste

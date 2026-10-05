@@ -72,5 +72,5 @@ end)
 
 RegisterNetEvent('cbrn:offset:report', function(text)
   if not isAdmin(source) then return end
-  print(('\n^2[cbrn] OFFSET ermittelt von %s – in sample_points.lua eintragen:^7\n\n%s\n'):format(GetPlayerName(source) or '?', tostring(text):sub(1, 800)))
+  print(('\n^2[cbrn] OFFSET ermittelt von %s – in sample_config.lua eintragen:^7\n\n%s\n'):format(GetPlayerName(source) or '?', tostring(text):sub(1, 800)))
 end)
