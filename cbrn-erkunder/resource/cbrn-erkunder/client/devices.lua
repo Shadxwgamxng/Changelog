@@ -24,10 +24,12 @@ function CBRN.choose(title, items, cb)
   CreateThread(function()
     local t0 = GetGameTimer()
     while menuOpen do
-      for _, c in ipairs({ 14, 15, 16, 17, 99, 100, 24, 25, 37, 140, 141, 142, 257 }) do DisableControlAction(0, c, true) end -- kein Waffenrad/Schlagen/Waffenwechsel
-      local inv = Config.Devices.MenuInvertScroll
-      if IsDisabledControlJustPressed(0, 14) or IsDisabledControlJustPressed(0, 16) or IsDisabledControlJustPressed(0, 99) then nui({ type = 'dev-menu-nav', dir = inv and 'up' or 'down' }) end
-      if IsDisabledControlJustPressed(0, 15) or IsDisabledControlJustPressed(0, 17) or IsDisabledControlJustPressed(0, 100) then nui({ type = 'dev-menu-nav', dir = inv and 'down' or 'up' }) end
+      for _, c in ipairs({ 14, 15, 16, 17, 99, 100, 180, 181, 241, 242, 24, 25, 37, 140, 141, 142, 257 }) do DisableControlAction(0, c, true) end -- kein Waffenrad/Schlagen/Waffenwechsel
+      -- Mausrad: je nach Spielzustand kommt es als andere Control-ID an -> alle gängigen prüfen; Pfeiltasten ↑ ↓ funktionieren immer als Reserve
+      local down = IsDisabledControlJustPressed(0, 14) or IsDisabledControlJustPressed(0, 16) or IsDisabledControlJustPressed(0, 99) or IsDisabledControlJustPressed(0, 242) or IsDisabledControlJustPressed(0, 180) or IsDisabledControlJustPressed(0, 173)
+      local up = IsDisabledControlJustPressed(0, 15) or IsDisabledControlJustPressed(0, 17) or IsDisabledControlJustPressed(0, 100) or IsDisabledControlJustPressed(0, 241) or IsDisabledControlJustPressed(0, 181) or IsDisabledControlJustPressed(0, 172)
+      if Config.Devices.MenuInvertScroll then down, up = up, down end
+      if down and not up then nui({ type = 'dev-menu-nav', dir = 'down' }) elseif up and not down then nui({ type = 'dev-menu-nav', dir = 'up' }) end
       if GetGameTimer() - t0 > 300 and (IsDisabledControlJustPressed(0, 191) or IsDisabledControlJustPressed(0, 201) or IsDisabledControlJustPressed(0, 24)) then nui({ type = 'dev-menu-pick' }) end
       if IsControlJustPressed(0, 177) or IsPedInAnyVehicle(PlayerPedId(), false) or #(GetEntityCoords(PlayerPedId()) - p0) > 4.0 or IsEntityDead(PlayerPedId()) then nui({ type = 'dev-menu-close' }) end
       Wait(0)
@@ -195,3 +197,18 @@ RegisterCommand('clearcbrnsources', function() CBRN.requestAdmin('clearsources')
 RegisterCommand('debugdevice', function() CBRN.requestAdmin('debugdevice') end, false)
 RegisterCommand('debugmeasurement', function() CBRN.requestAdmin('debugmeasurement') end, false)
 RegisterCommand('cbrndeviceerror', function() CBRN.requestAdmin('deviceerror') end, false)
+
+-- Diagnose: /cbrnscrolltest – 10 s lang Mausrad drehen; zeigt, welche Control-IDs ankommen (falls das Rad im Menü nicht in beide Richtungen wählt)
+RegisterCommand('cbrnscrolltest', function()
+  notify('inform', 'Drehe 10 Sekunden das Mausrad hoch und runter (Ausgabe in F8).')
+  CreateThread(function()
+    local t0 = GetGameTimer()
+    while GetGameTimer() - t0 < 10000 do
+      for _, c in ipairs({ 14, 15, 16, 17, 99, 100, 180, 181, 241, 242 }) do
+        DisableControlAction(0, c, true)
+        if IsDisabledControlJustPressed(0, c) then print(('[cbrn] Mausrad-Control %d'):format(c)) end
+      end
+      Wait(0)
+    end
+  end)
+end, false)
