@@ -52,17 +52,17 @@
       pw: { id: 'k2', onMs: 1000, offMs: 2500 }, snd: { alarm: { synth: 'alarm', every: 1200 }, warn: { synth: 'warn', every: 4000 } }, wheel: ['k1', 'k3', 'k2'],
       btns: [btn('k1', 'Drehknopf links (Menü / auf)', rect(36, 172, 18, 48, 376, 700), 'menu', 'up'), btn('k2', 'Drehknopf drücken (Start/Stop · halten: Ein/Aus · im Menü: Auswahl)', rect(54, 172, 16, 48, 376, 700), 'ok', 'ok'), btn('k3', 'Drehknopf rechts (Info / ab)', rect(70, 172, 18, 48, 376, 700), 'info', 'down')],
       leds: Array.from({ length: 8 }, (_, i) => ({ ...circ(138 + i * 17.3, 431, 7.5, 376, 700) })), screen: (c) => lcdIms(c) },
-    mgmg: { img: IMG + 'mgmg.png', W: 284, H: 700, scr: rect(68, 336, 156, 158, 284, 700), css: { '--bg': '#bcd3a3', '--fg': '#17230f', '--off': '#8ea184' },
-      // Dräger X-am 8000: Bedienung über drei Tasten ▼ OK ▲ (Produktinformation); die Symbole ☰ 🔍 ★ am unteren Displayrand gehören zu den Tasten. OK halten = Ein/Aus, OK kurz = Alarm quittieren / Detail (Annahme)
+    mgmg: { img: IMG + 'mgmg.png', W: 284, H: 700, scr: rect(74, 338, 134, 154, 284, 700), css: { '--bg': '#bcd3a3', '--fg': '#17230f', '--off': '#8ea184' },
+      // Dräger X-am 8000: Bedienung über drei Tasten ▼ OK ▲ (Produktinformation); die Symbole am unteren Displayrand gehören zu den Tasten. OK halten = Ein/Aus, OK kurz = Alarm quittieren / Detail (Annahme)
       pw: { id: 'ok', onMs: 1000, offMs: 3000 }, snd: { alarm: { file: 'mgmg_alarm', loop: true }, warn: { file: 'mgmg_alarm', every: 5000 } },
-      btns: [btn('dn', '▼ ☰ Menü (im Menü: ab)', circ(85, 578, 24, 284, 700), 'menu', 'down'), btn('ok', 'OK 🔍 (Alarm quittieren / Detail · im Menü: Auswahl · halten: Ein/Aus)', circ(140, 578, 24, 284, 700), 'okack', 'ok'), btn('up', '▲ ★ Start / Stop (im Menü: auf)', circ(197, 578, 24, 284, 700), 'a', 'up')],
+      btns: [btn('dn', '▼ Menü (im Menü: ab)', circ(85, 578, 24, 284, 700), 'menu', 'down'), btn('ok', 'OK (Alarm quittieren / Detail · im Menü: Auswahl · halten: Ein/Aus)', circ(140, 578, 24, 284, 700), 'okack', 'ok'), btn('up', '▲ Start / Stop (im Menü: auf)', circ(197, 578, 24, 284, 700), 'a', 'up')],
       screen: (c) => lcdGas(c) },
   };
 
   // ---- Bildschirminhalte -------------------------------------------------------------------------------------------
   const fmt = (st) => (st.value == null ? '– – –' : st.over ? 'OVER' : num(st.value, st.dec));
   const phaseName = { OFF: 'AUS', BOOTING: 'INITIALISIERUNG', SELF_TEST: 'SELBSTTEST', READY: 'BEREIT', MEASURING: 'MESSUNG', ERROR: 'FEHLER' };
-  const batt = (st) => `<span class="ic">${st.batteryLow ? '⚠ ' : ''}BAT ${st.battery}%</span>`;
+  const batt = (st) => `<span class="ic">${st.batteryLow ? '! ' : ''}BAT ${st.battery}%</span>`;
   const pct = (p) => Math.round(p * 100);
   function common(c) { // Zustände außerhalb der Messanzeige: Boot, Selbsttest, Fehler, Nullung, Menü, Info
     const { st, def, ui } = c;
@@ -81,7 +81,7 @@
   }
   const flashOf = (st) => (st.flash ? `<div class="flash">${esc(st.flash)}</div>` : '');
   const lvl = (st) => (st.phase === 'MEASURING' || st.hasResult ? st.alert : 'NORMAL');
-  const alTxt = { WARNUNG: '⚠ WARNUNG', ALARM: 'ALARM', 'AUFFÄLLIG': 'AUFFÄLLIG' };
+  const alTxt = { WARNUNG: 'WARNUNG', ALARM: 'ALARM', 'AUFFÄLLIG': 'AUFFÄLLIG' };
   function barHtml(v, kind) { // Balken: logarithmisch über den Messbereich
     const lo = kind === 'log' ? 0.01 : kind === 'log2' ? 0.5 : 0.01, hi = kind === 'log' ? 250 : kind === 'log2' ? 20000 : 20000;
     const f = v == null || v <= lo ? 0 : Math.min(1, Math.log10(v / lo) / Math.log10(hi / lo)); return `<div class="bar"><i style="width:${(f * 100).toFixed(1)}%"></i></div>`;
@@ -99,7 +99,7 @@
       else if (v === 'MAX') { val = st.stats ? num(st.stats.max, st.dec) : '– – –'; label = 'Maximum'; }
     }
     const stat = stats ? `<div class="row sm"><span>MIN ${num(stats.min, st.dec)}</span><span>MAX ${num(stats.max, st.dec)}</span><span>Ø ${num(stats.avg, st.dec)}</span></div>` : '';
-    return `<div class="in"><div class="row">${batt(st)}<span class="ic">${st.muted ? '🔇' : '🔊'}${acked ? ' ⏸' : ''}</span><span class="ic ${a !== 'NORMAL' && !acked ? 'al-' + a : ''}">${head}</span></div>
+    return `<div class="in"><div class="row">${batt(st)}<span class="ic">${st.muted ? 'STUMM' : acked ? 'QUIT.' : 'TON'}</span><span class="ic ${a !== 'NORMAL' && !acked ? 'al-' + a : ''}">${head}</span></div>
       <div class="lbl" style="margin-top:1.5cqh">${esc(label)}</div>
       <div class="grow center"><div><div class="big ${(a === 'ALARM' || a === 'WARNUNG') && !acked ? 'al-' + a : ''}">${val}</div><div class="unit">${esc(unit)}</div></div></div>
       ${o.bar && !(o.dlm && c.ui.view === 'DOSE') ? barHtml(st.value, o.bar) : ''}${o.minmax || o.both ? stat : ''}</div>${flashOf(st)}`;
@@ -117,10 +117,10 @@
   function lcdGas(c) {
     const cm = common(c); if (cm) return cm + flashOf(c.st);
     const { st, def } = c; const ch = st.channels; const a = lvl(st);
-    const rows = (def.channels || []).map((d) => { const g = GASROWS[d.id]; const v = ch ? ch[d.id] : null; const bad = ch && judgeCh(d, v) !== 'NORMAL'; return `<div class="row ${bad ? 'inv' : ''}" style="padding:.4cqh 1cqw;font-size:8.4cqh"><span>${g[0]}</span><span style="font-weight:700">${v == null ? '–' : num(v, g[2])}</span><span style="width:19cqw;text-align:right">${g[1]}</span></div>`; }).join('');
+    const rows = (def.channels || []).map((d) => { const g = GASROWS[d.id]; const v = ch ? ch[d.id] : null; const bad = ch && judgeCh(d, v) !== 'NORMAL'; return `<div class="row ${bad ? 'inv' : ''}" style="padding:.4cqh 1cqw;font-size:8cqh"><span>${g[0]}</span><span style="font-weight:700">${v == null ? '–' : num(v, g[2])}</span><span style="width:19cqw;text-align:right">${g[1]}</span></div>`; }).join('');
     const stateTxt = st.phase === 'MEASURING' ? (a !== 'NORMAL' ? alTxt[a] : st.stable ? 'STABIL' : 'MESSUNG') : st.hasResult ? 'GESTOPPT' : 'BEREIT';
-    return `<div class="in" style="padding:1.5cqh 2cqw"><div class="row sm"><span>${batt(st)}</span><span class="${a !== 'NORMAL' ? 'al-' + a : ''}">${stateTxt}</span><span>${st.muted ? '🔇' : ''}</span></div>${rows}
-      <div class="row sm" style="margin-top:auto;border-top:.4cqh solid var(--fg);padding-top:.8cqh"><span>☰ Menü</span><span>🔍 Info</span><span>★ ${st.phase === 'MEASURING' ? 'Stop' : 'Start'}</span></div></div>${flashOf(st)}`;
+    return `<div class="in" style="padding:1.5cqh 2cqw"><div class="row sm" style="font-size:7cqh"><span>${batt(st)}</span><span class="${a !== 'NORMAL' ? 'al-' + a : ''}">${stateTxt}</span><span>${st.muted ? 'STUMM' : ''}</span></div>${rows}
+      <div class="row sm" style="margin-top:auto;border-top:.4cqh solid var(--fg);padding-top:.8cqh"><span>Menü</span><span>OK</span><span>${st.phase === 'MEASURING' ? 'Stop' : 'Start'}</span></div></div>${flashOf(st)}`;
   }
   const RANK = { NORMAL: 0, 'AUFFÄLLIG': 1, WARNUNG: 2, ALARM: 3 };
   function judgeCh(d, v) { const t = d.thr; if (!t || v == null) return 'NORMAL'; if ((t.alarm != null && v >= t.alarm) || (t.lowAlarm != null && v <= t.lowAlarm)) return 'ALARM'; if ((t.warning != null && v >= t.warning) || (t.lowWarning != null && v <= t.lowWarning)) return 'WARNUNG'; if (t.attention != null && v >= t.attention) return 'AUFFÄLLIG'; return 'NORMAL'; }
@@ -288,5 +288,23 @@
     if (e.code === 'Equal' || e.code === 'Backquote' || k === '´' || k === '`' || k === 'Dead' || k === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); setMouse(false); } // ´ schaltet den Mauszeiger wieder aus
   }, true);
   window.addEventListener('keyup', (e) => { if (e.key !== 'Enter' || !enterT) return; clearTimeout(enterT); enterT = 0; if (!enterFired && U.st && U.mouse && !U.save) handleKey('enter'); enterFired = false; }, true);
+  // ---- Auswahlmenü (Messgerätefach / Ausrüstung): gleicher Stil wie die Probenentnahme-Karte (schwarz, orange Akzent) -------------
+  const M = { el: null, items: [], sel: 0, open: false };
+  const menuClose = (id) => { if (!M.open) return; M.open = false; M.el.classList.remove('on'); post(id ? 'menuPick' : 'menuClose', { id: id || null }); };
+  const menuDraw = () => { M.el.querySelectorAll('.mi').forEach((e, i) => e.classList.toggle('sel', i === M.sel)); };
+  function menuShow(d) {
+    if (!M.el) { M.el = document.createElement('div'); M.el.id = 'dvmenu'; document.body.appendChild(M.el); }
+    M.items = d.items || []; M.sel = Math.max(0, M.items.findIndex((i) => !i.disabled)); M.open = true;
+    M.el.innerHTML = `<div class="mt">${esc(d.title || 'AUSWAHL')}</div>` + M.items.map((it, i) => `<div class="mi${it.disabled ? ' dis' : ''}" data-i="${i}"><span class="mk">${i + 1}</span><span class="ml"><b>${esc(it.label)}</b>${it.sub ? `<small>${esc(it.sub)}</small>` : ''}</span></div>`).join('') + `<div class="mh"><span class="mk">⏎</span> Auswählen &nbsp; <span class="mk">ESC</span> Schließen</div>`;
+    M.el.classList.add('on'); menuDraw();
+    M.el.querySelectorAll('.mi').forEach((e) => { const i = +e.dataset.i; e.onmouseenter = () => { if (!M.items[i].disabled) { M.sel = i; menuDraw(); } }; e.onclick = () => { if (!M.items[i].disabled) menuClose(M.items[i].id); }; });
+  }
+  window.addEventListener('keydown', (e) => {
+    if (!M.open) return; const k = e.key; e.preventDefault(); e.stopImmediatePropagation();
+    const move = (dir) => { let i = M.sel; for (let n = 0; n < M.items.length; n++) { i = (i + dir + M.items.length) % M.items.length; if (!M.items[i].disabled) break; } M.sel = i; menuDraw(); };
+    if (k === 'ArrowDown') move(1); else if (k === 'ArrowUp') move(-1); else if (k === 'Enter') { const it = M.items[M.sel]; if (it && !it.disabled) menuClose(it.id); } else if (k === 'Escape' || k === 'Backspace') menuClose(null);
+    else if (/^[1-9]$/.test(k)) { const it = M.items[+k - 1]; if (it && !it.disabled) menuClose(it.id); }
+  }, true);
+  window.addEventListener('message', (e) => { const d = e.data || {}; if (d.type === 'dev-menu') menuShow(d); });
   window.CBRN_DEV = { on, U, SKINS, handleSem, handleKey };
 })();

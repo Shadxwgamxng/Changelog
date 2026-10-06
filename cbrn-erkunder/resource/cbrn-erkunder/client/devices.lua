@@ -13,16 +13,27 @@ function CBRN.deviceAction(veh)
   return { text = 'Messgerät entnehmen', run = function() D.veh = VehToNet(veh); TriggerServerEvent('cbrn:dev:inventory', D.veh) end }
 end
 
+-- Auswahlmenü im Stil der Probenentnahme-Karte (NUI statt ox_lib-Kontextmenü). items = { {id, label, sub, disabled} }, cb(id)
+local menuCb
+function CBRN.choose(title, items, cb)
+  menuCb = cb; SetNuiFocus(true, true); SetNuiFocusKeepInput(false)
+  nui({ type = 'dev-menu', title = title, items = items })
+end
+local function menuDone(id)
+  SetNuiFocus(D.mouse, D.mouse); SetNuiFocusKeepInput(false) -- zurück zum vorherigen Fokus (Gerät: Mauszeiger an/aus)
+  local f = menuCb; menuCb = nil
+  if f and id then f(id) end
+end
+RegisterNUICallback('menuPick', function(d, cb) menuDone(d and d.id); cb('ok') end)
+RegisterNUICallback('menuClose', function(_, cb) menuDone(nil); cb('ok') end)
+
 local ICON = { dlm = 'radiation', como = 'hand-holding-droplet', pid = 'wind', ims = 'flask', mgmg = 'gauge-high' }
 RegisterNetEvent('cbrn:dev:inv', function(inv)
-  local opts = {}
+  local items = {}
   for _, d in ipairs(inv.devices or {}) do
-    local free = d.status == 'VERFÜGBAR'
-    opts[#opts + 1] = { title = d.label, description = ('%s · Akku %d %%%s'):format(d.status, d.battery, d.holder and (' · ' .. d.holder) or ''), icon = ICON[d.short:lower()] or 'gauge', disabled = not free,
-      onSelect = function() TriggerServerEvent('cbrn:dev:take', D.veh, d.type) end }
+    items[#items + 1] = { id = d.type, label = d.label, sub = ('%s · Akku %d %%%s'):format(d.status, d.battery, d.holder and (' · ' .. d.holder) or ''), disabled = d.status ~= 'VERFÜGBAR' }
   end
-  lib.registerContext({ id = 'cbrn_devices', title = 'MESSGERÄTE', options = opts })
-  lib.showContext('cbrn_devices')
+  CBRN.choose('MESSGERÄTE', items, function(id) TriggerServerEvent('cbrn:dev:take', D.veh, id) end)
 end)
 
 -- ---- Halten (Animation + optionales Prop) -----------------------------------------------------------

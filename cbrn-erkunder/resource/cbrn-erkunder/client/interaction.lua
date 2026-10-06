@@ -60,11 +60,9 @@ local function circleAction(veh, which)
     local da = CBRN.deviceAction(veh)
     if da and sa then
       return { text = 'Ausrüstung', run = function()
-        lib.registerContext({ id = 'cbrn_equipment', title = 'AUSRÜSTUNG', options = {
-          { title = sa.text, icon = 'vial', onSelect = function() sa.run() end },
-          { title = da.text, icon = 'gauge', onSelect = function() da.run() end },
-        } })
-        lib.showContext('cbrn_equipment')
+        CBRN.choose('AUSRÜSTUNG', { { id = 'sample', label = sa.text, sub = 'Probenentnahme' }, { id = 'device', label = da.text, sub = 'Handmessgeräte' } }, function(id)
+          if id == 'sample' then sa.run() else da.run() end
+        end)
       end }
     end
     return da or sa
