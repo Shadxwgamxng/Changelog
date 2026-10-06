@@ -5,7 +5,7 @@ import { FIRE_TYPES, smokeAt, hasFire, activeFires, GAS_BG, GAS_ALARM } from './
 import { offsetToLL, llToOffset, distM, bearing, compass, MODE, gameToLL } from './geo.js';
 
 // ---------------------------------------------------------------------------------------------
-// Simulationsengine. Stoffdaten stammen aus der (realen) Datenbank, Messereignisse sind SIMULIERT.
+// Messengine. Stoffdaten stammen aus der (realen) Datenbank, Messereignisse werden berechnet.
 // Der Arbeitsablauf: Messwert -> Gerätehinweis -> Stoffgruppe -> mögliche Stoffe -> weitere Messung/Probe -> Laborbefund.
 // ---------------------------------------------------------------------------------------------
 export const bus = new EventEmitter();
@@ -69,7 +69,7 @@ export const fivemConnected = (id?: string) => (id ? Date.now() - (state.seen[id
 
 // ---- Szenario & Ausbreitung
 export const activeIncident = () => list('incidents', "WHERE status = 'AKTIV' ORDER BY created_at DESC LIMIT 1")[0] ?? null;
-// Die Simulation rechnet mit dem verdeckten Wahrheitsstoff des aktiven Einsatzes (Quelle = Einsatzstelle).
+// Das System rechnet mit dem verdeckten Wahrheitsstoff des aktiven Einsatzes (Quelle = Einsatzstelle).
 export function activeScenario() {
   const inc = activeIncident(); if (!inc || inc.ref_type === 'fire') return null;
   const ref = inc.ref_type === 'substance' ? get('substances', inc.ref_id) : inc.ref_type === 'radionuclide' ? get('radionuclides', inc.ref_id) : get('biological_agents', inc.ref_id);
@@ -104,7 +104,7 @@ export function mgmgChannels(mode: string = 'CBRN'): string[] { return mode === 
 /** Kanäle des Mehrgasmessgeräts bei der Rauchgasmessung (Brandeinsatz). */
 export const BRAND_CHANNELS = ['O2', 'CO', 'CO2', 'HCN', 'HCl'];
 
-/** Rauchgasmessung am Brand: Gase aus der Rauchfahne der eingezeichneten Brandstellen (SIMULATION). */
+/** Rauchgasmessung am Brand: Gase aus der Rauchfahne der eingezeichneten Brandstellen (berechnet). */
 function brandReadings(x: number, y: number, speed: number, vid = '') {
   const { gases, density: d0 } = smokeAt(x, y, state.weather.wind_from, state.tick * 2); let density = d0;
   const zf = zSmokeFactor(vid); // z_fire-Rauch: Standardmischung Gebäudebrand, wirkt zusätzlich (größerer Wert gewinnt)
@@ -140,7 +140,7 @@ export function readingsAt(x: number, y: number, speed: number, mode: string = '
     CH4: 0,
   };
   const channels = Object.fromEntries(ch.map((k) => [k, mg[k] ?? null]));
-  // IMS (Simulationsannahme: ims_sim je Stoff)
+  // IMS (Annahme: ims_sim je Stoff)
   const ratio = chem ? c / sc.peak : 0;
   let ims: any = { state: 'ONLINE', mode: 'AKTIV', level: null, result: 'KEIN TREFFER', confidence: null, substance_id: null, group: null, candidates: [] };
   if (chem && ref.ims_sim && ratio > 0.03) {
@@ -156,7 +156,7 @@ export function readingsAt(x: number, y: number, speed: number, mode: string = '
     fmg: { speed_kmh: +(speed * 3.6).toFixed(0) } };
 }
 
-// ---- Gammaspektrum (simuliert) + Nuklidzuordnung aus Linienlage
+// ---- Gammaspektrum (berechnet) + Nuklidzuordnung aus Linienlage
 export function spectrumAt(x: number, y: number) {
   const r = readingsAt(x, y, 0); const A = activeScenario();
   const N = 512, keV = 4; const excess = Math.max(0, r.dose.value - BG.dose);
@@ -299,7 +299,7 @@ export function stopRun(userLabel: string, vehicleId: string) {
   saveRun(R); update('runs', R.id, { ended_at: now() }); delete state.runs[vehicleId];
   audit(userLabel, 'stop', 'run', R.id, { distance_m: Math.round(R.dist) }); emit('run.stopped', get('runs', R.id)); return { run: get('runs', R.id) };
 }
-// GTA-Wetterlagen -> abgeleitete Wetterwerte (GTA kennt keine Temperatur/Luftfeuchte; Werte sind Näherungen, SIMULIERT)
+// GTA-Wetterlagen -> abgeleitete Wetterwerte (GTA kennt keine Temperatur/Luftfeuchte; Werte sind Näherungen)
 const GTA_WX: Record<string, { t: number; rh: number; p: number; okta: number; rain: number }> = {
   EXTRASUNNY: { t: 31, rh: 35, p: 1018, okta: 0, rain: 0 }, CLEAR: { t: 26, rh: 45, p: 1016, okta: 1, rain: 0 }, CLOUDS: { t: 22, rh: 60, p: 1013, okta: 5, rain: 0 }, SMOG: { t: 24, rh: 55, p: 1012, okta: 4, rain: 0 },
   FOGGY: { t: 16, rh: 96, p: 1014, okta: 8, rain: 0 }, OVERCAST: { t: 19, rh: 75, p: 1010, okta: 8, rain: 0 }, RAIN: { t: 15, rh: 90, p: 1004, okta: 8, rain: 2.5 }, THUNDER: { t: 16, rh: 92, p: 1000, okta: 8, rain: 6 },

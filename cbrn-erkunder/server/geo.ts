@@ -1,7 +1,7 @@
 import { config } from './config.js';
 
 // Zwei Kartenmodi: "geo" (echte Koordinaten, Demo-Raum Kiel) und "gta5" (Spielkoordinaten x/y in Metern,
-// intern als Pseudo-lat/lon = y|x / 111320 geführt, damit MapLibre/Simulation unverändert funktionieren).
+// intern als Pseudo-lat/lon = y|x / 111320 geführt, damit MapLibre/Messengine unverändert funktionieren).
 export const MODE = config.mapMode;
 export const KIEL = { lat: 54.3233, lon: 10.1228 };
 export const CENTER = MODE === 'gta5'

@@ -118,7 +118,7 @@ const catOf = (t: string | undefined) => (t === 'substance' ? 'CHEMISCH' : t ===
 const typeCat: Record<string, string | null> = { CHEMICAL: 'CHEMISCH', RADIOLOGICAL: 'RADIOLOGISCH', BIOLOGICAL: 'BIOLOGISCH', GENERAL: null };
 const refName = (t: string, id: string) => (t === 'substance' ? get('substances', id)?.name : t === 'radionuclide' ? get('radionuclides', id)?.name : get('biological_agents', id)?.name) ?? id;
 
-/** Mehrstufiges, SIMULIERTES Analyseergebnis aus dem verdeckten Wahrheitsprofil der Entnahmestelle. */
+/** Mehrstufiges Analyseergebnis aus dem verdeckten Wahrheitsprofil der Entnahmestelle. */
 export function analysisResult(sample: any, type: AnalysisType) {
   const base = { simulated: true, outcome: 'NO_FINDING', outcome_text: 'KEIN BEFUND', category: null as string | null, group: null as string | null, ref_type: null as string | null, substance_id: null as string | null, candidates: [] as any[], confidence: null as number | null, description: 'Es wurde keine Auffälligkeit festgestellt.' };
   const truth = sample.truth_ref as { type: string; id: string } | null; const ratio = (sample.truth_ratio ?? 0) + (Math.random() - 0.5) * 0.06;
@@ -144,7 +144,7 @@ export function analysisResult(sample: any, type: AnalysisType) {
     if (Math.random() < 0.5) cands.reverse();
     return { ...res, outcome: 'SUSPECT', outcome_text: 'VERDACHT AUF BESTIMMTEN STOFF', candidates: cands, substance_id: cands[0].id, confidence: Math.round(35 + ratio * 60), description: `Verdacht auf ${cands.map((c) => c.name).join(' oder ')} (${group}). Bestätigung durch weitere Untersuchung erforderlich.` };
   }
-  return { ...res, outcome: 'IDENTIFIED', outcome_text: 'SIMULIERTE IDENTIFIKATION', substance_id: truth.id, candidates: [{ id: truth.id, name: refName(truth.type, truth.id) }], confidence: Math.min(95, Math.round(70 + ratio * 25)), description: `Möglicher Stoff: ${refName(truth.type, truth.id)} (${group}).` };
+  return { ...res, outcome: 'IDENTIFIED', outcome_text: 'IDENTIFIKATION', substance_id: truth.id, candidates: [{ id: truth.id, name: refName(truth.type, truth.id) }], confidence: Math.min(95, Math.round(70 + ratio * 25)), description: `Möglicher Stoff: ${refName(truth.type, truth.id)} (${group}).` };
 }
 
 function completeAnalysis(a: any) {

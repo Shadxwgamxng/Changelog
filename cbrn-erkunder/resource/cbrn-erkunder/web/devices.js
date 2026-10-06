@@ -77,7 +77,7 @@
   }
   function infoScreen(c) {
     const { st, def } = c; const thr = Object.entries(def.thresholds || {}).filter(([k]) => k === st.mode).map(([, t]) => `${t.attention != null ? 'A ' + t.attention + ' ' : ''}${t.warning != null ? 'W ' + t.warning + ' ' : ''}${t.alarm != null ? 'AL ' + t.alarm : ''}`).join('');
-    return `<div class="in"><div class="lbl">INFO</div><div class="sm" style="margin-top:2cqh">${esc(def.model.split(' (')[0])}</div><div class="sm">Akku ${st.battery} %</div><div class="sm">Bereich ${esc(def.range.min)}…${esc(def.range.max)} ${esc(def.range.unit)}</div>${thr ? `<div class="sm">${esc(thr)}</div>` : ''}<div class="sm">SIMULATION</div></div>`;
+    return `<div class="in"><div class="lbl">INFO</div><div class="sm" style="margin-top:2cqh">${esc(def.model.split(' (')[0])}</div><div class="sm">Akku ${st.battery} %</div><div class="sm">Bereich ${esc(def.range.min)}…${esc(def.range.max)} ${esc(def.range.unit)}</div>${thr ? `<div class="sm">${esc(thr)}</div>` : ''}</div>`;
   }
   const flashOf = (st) => (st.flash ? `<div class="flash">${esc(st.flash)}</div>` : '');
   const lvl = (st) => (st.phase === 'MEASURING' || st.hasResult ? st.alert : 'NORMAL');

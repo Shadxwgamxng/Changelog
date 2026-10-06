@@ -28,7 +28,7 @@ boot({ dbFile: dbPath, wasmFile: path.join(RES_DIR, 'server', 'sql-wasm.wasm') }
     const text = JSON.stringify(res.body === undefined ? {} : res.body); const total = Math.max(1, Math.ceil(text.length / CHUNK));
     for (let i = 0; i < total; i++) emitNet('cbrn:resp', src, id, i, total, res.status, text.slice(i * CHUNK, (i + 1) * CHUNK));
   });
-  // Telemetrie aus dem Spiel (Position/Kurs/Speed/Wetter) – Messwerte bleiben Simulation
+  // Telemetrie aus dem Spiel (Position/Kurs/Speed/Wetter) – Messwerte entstehen im Server
   onNet('cbrn:telemetry', (d: any) => {
     const src = source; if (!d || typeof d.vehicle !== 'string') return;
     ingestFivem({ ...d, player: GetPlayerName(src) ?? undefined });

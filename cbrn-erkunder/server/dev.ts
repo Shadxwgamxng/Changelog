@@ -1,5 +1,5 @@
 // Entwickler-Testserver (NICHT für den Spielbetrieb): bedient die NUI-Oberfläche im Browser, ohne FiveM.
-// Anfragen: POST /__api, Ereignisse: GET /__events (SSE). Optional DEV_SIM=1: simulierte FiveM-Telemetrie.
+// Anfragen: POST /__api, Ereignisse: GET /__events (SSE). Optional DEV_SIM=1: Test-Telemetrie.
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';

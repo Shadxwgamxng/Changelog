@@ -38,7 +38,7 @@ function AnalysisCard({ a, stamp }: { a: any; stamp: number }) {
           <div className="text-[16px] font-semibold">{r.outcome_text}</div>
           <div className="grid grid-cols-3 gap-3">
             <Field label="Kategorie" mono={false}>{r.category ?? NA}</Field><Field label="Stoffgruppe" mono={false}>{r.group ?? NA}</Field>
-            <Field label="Konfidenz" mono={false}>{r.confidence != null ? `${r.confidence} % · SIMULATION` : 'SIMULATION'}</Field>
+            <Field label="Konfidenz" mono={false}>{r.confidence != null ? `${r.confidence} %` : '–'}</Field>
           </div>
           {r.candidates?.length > 0 && <div><div className="lbl">{r.outcome === 'SUSPECT' ? 'Verdacht' : 'Möglicher Stoff'}</div>{r.candidates.map((c: any) => <div key={c.id}>{c.name}</div>)}</div>}
           <div className="whitespace-pre-line text-[13px]">{r.description}</div>

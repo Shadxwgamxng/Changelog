@@ -10,7 +10,7 @@ export const CAT: Record<string, { label: string; short: string; color: string }
   U: { label: 'UNBEKANNT', short: '?', color: '#817d78' }, UNKNOWN: { label: 'UNBEKANNT', short: '?', color: '#817d78' },
 };
 export const LEVELS: Record<string, string> = { hinweis: 'HINWEIS', verdacht: 'VERDACHT', moegliche_identifikation: 'MÖGLICHE IDENTIFIKATION', bestaetigt: 'BESTÄTIGTE IDENTIFIKATION' };
-export const DATA_SRC: Record<string, string> = { REAL: 'REAL DATA', SIMULATED: 'SIMULATED DATA', MANUAL: 'MANUAL ENTRY', DATABASE: 'DATABASE REFERENCE' };
+export const DATA_SRC: Record<string, string> = { REAL: 'REAL DATA', SIMULATED: 'MESSUNG', MANUAL: 'MANUAL ENTRY', DATABASE: 'DATABASE REFERENCE' };
 export const STATUS_COLOR = (s?: string | null) => {
   const t = (s ?? '').toUpperCase();
   if (/ALARM|HOCH|OFFLINE|OFFEN|ABGEBROCHEN/.test(t)) return '#e5534b';

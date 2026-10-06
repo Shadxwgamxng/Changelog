@@ -1,7 +1,5 @@
 # Handmessgeräte-System – Recherche, Architektur, Bedienung
 
-> **Alle Messwerte im Spiel sind Trainings-/Spielsimulation.** Sie ersetzen keinen realen Einsatzmesswert.
-
 ## 1. Bestand (Phase 1)
 
 | Bereich | Vorhanden (wiederverwendet) |

@@ -21,7 +21,7 @@ export interface Env {
   nearest: { id: string; type: string; d: number } | null; // nur Debug
 }
 
-export const BG = { dose: 0.085, cps: 1.1, alphaCps: 0.02, voc: 0.06, co: 0.4, o2: 20.9, co2: 0.042 }; // Hintergrund (Simulation)
+export const BG = { dose: 0.085, cps: 1.1, alphaCps: 0.02, voc: 0.06, co: 0.4, o2: 20.9, co2: 0.042 }; // Hintergrund
 const taper = (d: number, R: number) => (d <= R ? 1 : d >= 1.5 * R ? 0 : Math.cos(((d - R) / (0.5 * R)) * (Math.PI / 2)) ** 2); // weicher Auslauf hinter dem wirksamen Radius
 
 // ---- Quellen (DB) ------------------------------------------------------------------------------

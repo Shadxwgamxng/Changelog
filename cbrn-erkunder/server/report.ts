@@ -15,7 +15,7 @@ export function buildReport(missionId: string, author: string) {
   const devices = [...new Set(meas.map((x: any) => x.device))];
   const anomalies = meas.filter((x: any) => x.status !== 'NORMAL');
   return {
-    kind: 'EINSATZBERICHT', simulated: true, notice: 'SIMULATION – Messwerte, GPS, Einsatz und Identifikationen sind nicht real. Fachdaten ungeprüft (siehe Quellenstatus).',
+    kind: 'EINSATZBERICHT', simulated: true, notice: '',
     number: `E-${missionId}`, author, mission: { ...m, sector_name: SECTORS[m.sector]?.name ?? m.sector }, vehicle: v, crew: crewOf(m.vehicle_id),
     start: from, end: m.ended_at ?? null, devices, measurement_count: meas.length, measurements: meas, anomalies: anomalies.length, samples, weather: wx, alarms, substance_refs: refs,
     track: meas.map((x: any) => [x.lon, x.lat]), remarks: m.notes ?? '',

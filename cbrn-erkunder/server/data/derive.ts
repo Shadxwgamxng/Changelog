@@ -1,6 +1,6 @@
 // Ableitung von Eigenschaften ("Traits") und Handlungsempfehlungen aus den Stoffdatensätzen.
 // Handlungsempfehlungen sind klassenbasierte Richtwerte nach allgemeinen Einsatzgrundsätzen (z. B. GAMS-Regel, FwDV 500) –
-// NICHT stoffspezifisch geprüft (QUELLE ERFORDERLICH). Sie unterstützen Simulation/Rollenspiel und ersetzen keine Einsatzvorschrift.
+// NICHT stoffspezifisch geprüft (QUELLE ERFORDERLICH). Sie ersetzen keine Einsatzvorschrift.
 import type { SubstanceSeed } from './substances.js';
 
 export const ORIGIN_LABEL: Record<string, string> = {
@@ -162,7 +162,7 @@ export function buildResponse(s: SubstanceSeed, t: Traits): Response {
 
   // ---- Hinweise
   if (s.notes) N(s.notes);
-  N('Alle Angaben sind klassenbasierte Richtwerte aus allgemeinen Einsatzgrundsätzen (GAMS-Regel, FwDV 500) – nicht stoffspezifisch geprüft (QUELLE ERFORDERLICH). Maßgeblich: Sicherheitsdatenblatt, GESTIS, ERG/Einsatzleiter-Wiki, Fachberatung. Simulations-/Rollenspielhilfe.');
+  N('Alle Angaben sind klassenbasierte Richtwerte aus allgemeinen Einsatzgrundsätzen (GAMS-Regel, FwDV 500) – nicht stoffspezifisch geprüft (QUELLE ERFORDERLICH). Maßgeblich: Sicherheitsdatenblatt, GESTIS, ERG/Einsatzleiter-Wiki, Fachberatung.');
   return finish(R, s, t);
 }
 function finish(R: Response, _s: SubstanceSeed, _t: Traits): Response { for (const k of Object.keys(R) as (keyof Response)[]) R[k] = uniq(R[k]); return R; }
@@ -181,7 +181,7 @@ export function radResponse(n: { name: string; radiation: string[]; half_life: s
     dekon: ['Kontaminationskontrolle an Personen/Geräten (Kontaminationsmonitor), Kleidung ausziehen, Abduschen; Dekon-Abwasser auffangen; Dosisbuch führen.'],
     rettung: ['Eigenschutz vor Menschenrettung; Verletzte zuerst retten und medizinisch versorgen, Dekon nachrangig, sofern keine lebensbedrohliche Kontamination.', 'Rettungsdienst/Krankenhaus über mögliche Kontamination informieren.'],
     messen: ['Dosisleistung (FMG/Dosisleistungsmessgerät), Kontaminationsnachweis (Kontaminationsmonitor), Gammaspektrometrie zur Nuklidzuordnung; Messpunkte georeferenziert dokumentieren.'],
-    hinweise: [`Halbwertszeit ${n.half_life}.`, 'Richtwerte; QUELLE ERFORDERLICH – Strahlenschutz-Fachberatung/Einsatzvorschrift maßgeblich. Simulations-/Rollenspielhilfe.'],
+    hinweise: [`Halbwertszeit ${n.half_life}.`, 'Richtwerte; QUELLE ERFORDERLICH – Strahlenschutz-Fachberatung/Einsatzvorschrift maßgeblich.'],
   };
 }
 export function bioResponse(b: { name: string; kind: string; transmission: string }): Response {
@@ -194,6 +194,6 @@ export function bioResponse(b: { name: string; kind: string; transmission: strin
     dekon: ['Dekon von Personen/Geräten über Dekon-Strecke; Kleidung ablegen, Haut mit Wasser und Seife waschen; Desinfektion nach Vorgabe der Fachberatung; Abwasser auffangen.'],
     rettung: ['Eigenschutz vor Menschenrettung; Betroffene isoliert halten, Rettungsdienst/Gesundheitsamt informieren; Kontaktpersonen erfassen.'],
     messen: ['Probenahme und Transport nach BBK-/Landesvorgaben (Chain of Custody); Wetter und Position dokumentieren.'],
-    hinweise: ['Richtwerte; QUELLE ERFORDERLICH – Gesundheitsbehörden/RKI-Fachinformation maßgeblich. Simulations-/Rollenspielhilfe.'],
+    hinweise: ['Richtwerte; QUELLE ERFORDERLICH – Gesundheitsbehörden/RKI-Fachinformation maßgeblich.'],
   };
 }

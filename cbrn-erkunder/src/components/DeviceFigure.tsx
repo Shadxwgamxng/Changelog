@@ -187,7 +187,7 @@ function useSpots(id: string, ctx: any): Spot[] {
     P(...A('inlet'), 'l', 130, 'Probeneinlass', 'Gasprobe', 'Ansaugen der Probe', undefined, [['Funktion', 'Ansaugen der Probe in die Driftröhre']]);
     P(...A('cap'), 'r', 20, 'Detektor (Ionenmobilität)', 'Messprinzip', 'Ionen trennen nach Beweglichkeit', COL.acc, [['Prinzip', 'Ionenmobilitätsspektrometrie'], ['Ablauf', 'Ionisation → Gate → Driftregion → Kollektor']]);
     P(...A('brand'), 'r', 105, 'Status / Messmodus', i?.state ?? '–', `Modus ${i?.mode ?? '–'}`, COL.ok, [['Status', i?.state ?? '–'], ['Messmodus', i?.mode ?? '–']]);
-    P(g.x + g.w, g.y + g.h / 2, 'r', 190, 'Konfidenz / Bibliothek', i?.confidence != null ? `${i.confidence} %` : '–', 'Bibliothek: Stoffdatenbank (lokal)', undefined, [['Konfidenz (simuliert)', i?.confidence != null ? `${i.confidence} %` : '–'], ['Bibliothek', 'Stoffdatenbank (lokal)'], ['Mögliche Stoffgruppe', i?.group ?? '–']]);
+    P(g.x + g.w, g.y + g.h / 2, 'r', 190, 'Konfidenz / Bibliothek', i?.confidence != null ? `${i.confidence} %` : '–', 'Bibliothek: Stoffdatenbank (lokal)', undefined, [['Konfidenz', i?.confidence != null ? `${i.confidence} %` : '–'], ['Bibliothek', 'Stoffdatenbank (lokal)'], ['Mögliche Stoffgruppe', i?.group ?? '–']]);
     P(...A('leds'), 'l', 230, 'Alarm-LED-Balken', lv ? 'AKTIV' : 'AUS', lv ? lv.replace('_', ' ') : undefined, lv ? COL.warn : COL.ok, [['Alarm', lv ? 'Hinweis/Verdacht aktiv' : 'kein Treffer']]);
     common(...A('conn'), 290);
   }
@@ -226,7 +226,7 @@ function useSpots(id: string, ctx: any): Spot[] {
     P(262, 200, 'l', 40, 'Handpumpe (Balg)', 'Probenahme', 'definierte Hubzahl je Röhrchen', undefined, [['Funktion', 'Ansaugen eines definierten Luftvolumens']]);
     P(630, 242, 'r', 20, 'Prüfröhrchen', t?.product ?? '–', t?.analyte ?? '', COL.yellow, [['Produkt', t?.product ?? '–'], ['Hersteller', t?.manufacturer ?? '–'], ['Typ', t?.tube_type ?? '–'], ['Messstoff', `${t?.analyte ?? '–'} (CAS ${t?.cas ?? '–'})`]]);
     P(520, 226, 'r', 120, 'Skala / Messbereich', 'QUELLE ERFORDERL.', t ? `Einheit ${t.unit}` : '', COL.warn, [['Messbereich', 'QUELLE ERFORDERLICH (Herstellerdatenblatt)'], ['Einheit', t?.unit ?? '–'], ['Anwendung', t?.application ?? '–']]);
-    P(440, 242, 'r', 220, 'Lagerstatus / Charge', t?.storage_status ?? '–', t ? `Charge ${t.lot} · Verfall ${t.expiry}` : '', t?.storage_status === 'Verfügbar' ? COL.ok : COL.warn, [['Lagerstatus', t?.storage_status ?? '–'], ['Charge (simuliert)', t?.lot ?? '–'], ['Verfall (simuliert)', t?.expiry ?? '–']]);
+    P(440, 242, 'r', 220, 'Lagerstatus / Charge', t?.storage_status ?? '–', t ? `Charge ${t.lot} · Verfall ${t.expiry}` : '', t?.storage_status === 'Verfügbar' ? COL.ok : COL.warn, [['Lagerstatus', t?.storage_status ?? '–'], ['Charge', t?.lot ?? '–'], ['Verfall', t?.expiry ?? '–']]);
     common(330, 290, 320);
   }
   return L;

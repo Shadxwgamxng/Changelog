@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------------------------------
 // Atemschutzüberwachung: 4 Atemschutzgeräte je Fahrzeug (Fahrer, Beifahrer, 2× hinten). Anlegen/Ablegen am Computer.
-// Alle Werte sind SIMULIERT: 300 bar Fülldruck, Vorrat reicht bei Belastung je Flasche 10–15 min.
+// Werte: 300 bar Fülldruck, Vorrat reicht bei Belastung je Flasche 10–15 min.
 // ---------------------------------------------------------------------------------------------
 import { get, audit } from './db.js';
 import { emit, createAlarm } from './sim.js';
@@ -41,7 +41,7 @@ export function agsRefill(vid: string, slot: number, by: string) {
 }
 export function resetAgs() { for (const k of Object.keys(devs)) delete devs[k]; }
 
-/** Druckabbau der getragenen Geräte (alle 2 s aus dem Simulationstakt); Warnungen bei 100 bar, Pfeife (55 bar), leer. */
+/** Druckabbau der getragenen Geräte (alle 2 s aus dem Systemtakt); Warnungen bei 100 bar, Pfeife (55 bar), leer. */
 export function tickAgs(dt: number, n: number) {
   for (const [vid, list] of Object.entries(devs)) {
     let any = false;

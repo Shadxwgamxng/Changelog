@@ -8,7 +8,7 @@ import { App } from './router.js';
 import { tickAnalyses } from './samples.js';
 import { neutralizeBrands } from './brands.js';
 
-/** Startet Datenbank, Referenzdaten, Simulation und Router. Gemeinsam für FiveM-Server und Entwicklungs-Testserver. */
+/** Startet Datenbank, Referenzdaten, Messengine und Router. Gemeinsam für FiveM-Server und Entwicklungs-Testserver. */
 export async function boot(opts: { dbFile: string | null; wasmFile: string }) {
   await initDb(opts.dbFile, opts.wasmFile);
   // Kartenmodus gewechselt (geo <-> gta5)? Betriebsdaten sind modusgebunden -> frisch aufsetzen.

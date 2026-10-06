@@ -11,7 +11,7 @@ const CATS: [string, string][] = [['C', 'Chemisch (C)'], ['R', 'Radiologisch (R)
 const FIRE_TYPES: [string, string][] = [['GEBAEUDE', 'Gebäudebrand'], ['FAHRZEUG', 'Fahrzeugbrand'], ['INDUSTRIE', 'Industrie-/Lagerbrand (Kunststoffe)'], ['VEGETATION', 'Vegetations-/Flächenbrand']];
 const AMOUNTS: [string, string][] = [['gering', 'Gering'], ['mittel', 'Mittel'], ['groß', 'Groß']];
 
-/** Einsatz anlegen: Grunddaten, aus denen die Simulation eine realistische (verdeckte) Lage rechnet. Pflicht vor der ersten Messfahrt. */
+/** Einsatz anlegen: Grunddaten, aus denen das System eine realistische (verdeckte) Lage rechnet. Pflicht vor der ersten Messfahrt. */
 export default function IncidentSetup({ embedded, onDone }: { embedded?: boolean; onDone?: () => void }) {
   const { ownVehicle, session, status, logout } = useLive();
   const subs = useApi<any[]>('/substances?cat=C'); const nucs = useApi<any[]>('/radionuclides'); const bios = useApi<any[]>('/biological-agents');

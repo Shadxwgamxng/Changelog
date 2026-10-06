@@ -15,7 +15,7 @@ export default function Live() {
   const lvl = r?.ims?.level; const step = lvl === 'moegliche_identifikation' ? 3 : lvl === 'verdacht' ? 2 : lvl === 'hinweis' || r?.pid?.value >= 2 ? 1 : 0;
   if (!r) return <Page title="Live-Messung"><Empty>Warte auf Messdaten …</Empty></Page>;
   return (
-    <Page title="Live-Messung" sub={<>Datenquelle: {status?.data_source} · <Badge color="#f0500a">SIMULATED DATA</Badge></>}>
+    <Page title="Live-Messung" sub={<>Datenquelle: {status?.data_source}</>}>
       <RunCard />
       <Panel title="Arbeitsablauf" className="mb-3">
         <div className="flex items-center gap-2 flex-wrap">{STEPS.map((s, i) => (

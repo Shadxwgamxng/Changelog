@@ -33,7 +33,7 @@ export const methods = [
 ];
 
 // Prüfröhrchen-Inventar (generische Bezeichnungen); Messbereiche bewusst offen => QUELLE ERFORDERLICH.
-// Chargen/Verfall/Lagerstatus sind SIMULIERTE Inventardaten.
+// Chargen/Verfall/Lagerstatus sind Inventardaten des Spiels.
 export const tubes = [
   ['Standardsatz', 'Chlor 0,2 ppm', 'Kurzzeit', 'Chlor', '7782-50-5'],
   ['Standardsatz', 'Ammoniak 5 ppm', 'Kurzzeit', 'Ammoniak', '7664-41-7'],
@@ -60,7 +60,7 @@ export const vehicles = [
 
 
 
-// Szenarien: reale Stoff-/Nuklidreferenzen, simulierte Ereignisse. Zentrum = Einsatzzentrum aus config.json.
+// Szenarien: reale Stoff-/Nuklidreferenzen, erzeugte Ereignisse. Zentrum = Einsatzzentrum aus config.json.
 export const scenarios = [
   { id: 'sc-chlor', name: 'Industrieunfall Chlor', category: 'C', ref_type: 'substance', ref_id: 'chlor', radius_m: 500, devices: ['PID', 'IMS', 'MGMG'], weather: 'variabel', peak: 12, unit: 'ppm' },
   { id: 'sc-ammoniak', name: 'Industrieunfall Ammoniak', category: 'C', ref_type: 'substance', ref_id: 'ammoniak', radius_m: 600, devices: ['PID', 'IMS', 'MGMG'], weather: 'variabel', peak: 80, unit: 'ppm' },

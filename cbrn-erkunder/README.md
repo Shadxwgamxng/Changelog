@@ -1,8 +1,7 @@
-# CBRN Erkunder – FiveM-Script (Simulation)
+# CBRN Erkunder – FiveM-Script
 
-Bordcomputer für den CBRN-Erkundungswagen als **reine FiveM-Ressource**: Einsatz anlegen, Messfahrt mit GTA-Position, Messgeräte (PID, IMS, MGMG, Dosisleistung …), Probenanalyse, Stoff-/Nuklid-/Bio-Datenbank, Wetter, Aufträge, Berichte. Es läuft **kein Webserver und kein Port**: Die Oberfläche ist eine NUI, die Simulation läuft im Server-Skript der Ressource.
+Bordcomputer für den CBRN-Erkundungswagen als **reine FiveM-Ressource**: Einsatz anlegen, Messfahrt mit GTA-Position, Messgeräte (PID, IMS, MGMG, Dosisleistung …), Probenanalyse, Stoff-/Nuklid-/Bio-Datenbank, Wetter, Aufträge, Berichte. Es läuft **kein Webserver und kein Port**: Die Oberfläche ist eine NUI, die Messlogik läuft im Server-Skript der Ressource.
 
-> Stoffdaten (CAS, UN, GHS …) sind Referenzdaten, **Messwerte, Identifikationen, Laborergebnisse und Einsatzlagen sind Simulation**. Fachdaten sind ungeprüft (siehe Quellenstatus im Programm).
 
 ## Installation
 
@@ -18,7 +17,7 @@ Die Datenbank (`data/cbrn.db`) legt die Ressource beim ersten Start selbst an; z
 - In ein Fahrzeug aus `Config.Models` einsteigen und einen **Beifahrerplatz** nehmen (der Fahrer hat keinen Zugriff).
 - Hinweis „Drücke E um den Computer des CBRN-Erkunders zu öffnen“ → **E** öffnet den Computer im Monitor-Rahmen, **ESC** schließt ihn. Beim Aussteigen oder Wechsel auf den Fahrersitz schließt er sich selbst. Es gibt keinen Befehl.
 - **Anmeldung am Fahrzeug:** *Florian Falkenwalde 11-71-01* oder *01-71-01* wählen, Name und Funktion eingeben – danach voller Zugriff. Erst mit der Anmeldung startet die Telemetrie (Position, Kurs, Speed, GTA-Wetter) für dieses Fahrzeug.
-- **Einsatz anlegen (Pflicht):** Stichwort, Ort, Lage, Gefahrenart C/R/B/U, Menge und Einsatzstelle auf der Karte. Daraus rechnet die Simulation die Lage (Ausbreitung nach Wind). Der Wahrheitsstoff bleibt verdeckt, außer die Lage meldet ihn als bekannt; nach Einsatzende steht er unter System → Einsätze.
+- **Einsatz anlegen (Pflicht):** Stichwort, Ort, Lage, Gefahrenart C/R/B/U, Menge und Einsatzstelle auf der Karte. Daraus rechnet das System die Lage (Ausbreitung nach Wind). Der Wahrheitsstoff bleibt verdeckt, außer die Lage meldet ihn als bekannt; nach Einsatzende steht er unter System → Einsätze.
 - **Messfahrt starten:** den eigenen Standort auf der Karte markieren; danach kommt alles Weitere aus FiveM (bei > 150 m Abweichung erscheint ein Hinweis).
 - Berichte/Wetterdaten werden in die Zwischenablage kopiert (kein Datei-Download in der NUI).
 
@@ -27,11 +26,11 @@ Die Datenbank (`data/cbrn.db`) legt die Ressource beim ersten Start selbst an; z
 ```
 npm install
 npm run build        # Oberfläche (Vite) + Server-Skript (esbuild) -> resource/cbrn-erkunder
-npm run dev:sim      # Entwickler-Testserver im Browser (http://localhost:3001) mit simulierter FiveM-Telemetrie
+npm run dev:sim      # Entwickler-Testserver im Browser (http://localhost:3001) mit Test-Telemetrie
 npm run typecheck
 ```
 
-Aufbau: `src/` Oberfläche (React) · `server/` Simulation, Datenbank (sql.js), Routen · `resource/cbrn-erkunder/` die fertige Ressource (`client.lua`, `web/` Monitor-Hülle, `app/` Oberfläche, `server/main.js`).
+Aufbau: `src/` Oberfläche (React) · `server/` Messlogik, Datenbank (sql.js), Routen · `resource/cbrn-erkunder/` die fertige Ressource (`client.lua`, `web/` Monitor-Hülle, `app/` Oberfläche, `server/main.js`).
 
 Der Server-Teil ist ein Node-Skript (Standard-Node der FiveM-Laufzeit genügt, Ziel Node 16). Falls dein Server-Artifact eine neuere Laufzeit verlangt, `node_version '22'` in die `fxmanifest.lua` eintragen.
 
@@ -58,23 +57,23 @@ Ablauf: **Am Fahrzeug (Offset-Punkt) Probenentnahmeset nehmen → zum gewünscht
 - `server/sampleEvents.ts` – Server-Events `cbrn:sample:takeKit | startCollection | create | label | return | sync | get | getAll`, serverseitige Distanz-/Besitz-/Statusprüfung · `server/samples.ts` – **Sample Service** (Proben, Lager, Analysen, Historie; UI-unabhängig, auch für Messleitung/Berichte nutzbar) · API `GET /api/samples`, `GET /api/samples/:id`, `POST /api/samples/:id/analyses`, `POST /api/samples/:id/archive`
 - `web/index.html` – HUD unten rechts · `src/pages/Samples.tsx` – Computer-Modul „Proben“
 
-Analyse: Dauer je Art in `Config.Sample.AnalysisDurations`; das Ergebnis wird aus dem verdeckten Einsatzprofil an der Entnahmestelle simuliert und ist mehrstufig (KEIN BEFUND · UNBEKANNT · STOFFGRUPPE ERKANNT · VERDACHT · SIMULIERTE IDENTIFIKATION).
+Analyse: Dauer je Art in `Config.Sample.AnalysisDurations`; das Ergebnis wird aus dem verdeckten Einsatzprofil an der Entnahmestelle berechnet und ist mehrstufig (KEIN BEFUND · UNBEKANNT · STOFFGRUPPE ERKANNT · VERDACHT · IDENTIFIKATION).
 
 ## Brandeinsatz / Rauchgasmessung
 
 - **Einsatz anlegen:** Gefahrenart „Brand (Rauchgasmessung)“ wählen und Brandart festlegen. Die erste Brandstelle entsteht an der Einsatzstelle. Bei jedem Einsatz können auf der **Karte** (rechte Leiste → „Brandstellen“) weitere Brandstellen eingezeichnet (Brandart, Größe) und wieder entfernt werden. Die Karte zeigt Brandstelle und Rauchfahne in Windrichtung.
 - **Messfahrt starten:** Auswahl **CBRN-Einsatz** oder **Brandeinsatz**. Brandeinsatz braucht mindestens eine eingezeichnete Brandstelle; bei reinem Brandeinsatz ist nur der Brandmodus möglich.
-- **Brandmodus:** Das MGMG zeigt O₂, CO, CO₂, HCN, HCl, der PID VOC; Werte folgen der Rauchfahne (Wind). Schwellen sind Simulationswerte. Proben im Rauch liefern als Analyse nur die Stoffgruppe „Brandrauch“.
-- Alle Werte sind **simuliert**. Eine automatische Übernahme von z_fire-Bränden ist nicht eingebaut (die Brandstellen werden manuell eingezeichnet).
+- **Brandmodus:** Das MGMG zeigt O₂, CO, CO₂, HCN, HCl, der PID VOC; Werte folgen der Rauchfahne (Wind). Schwellen sind Richtwerte des Spiels. Proben im Rauch liefern als Analyse nur die Stoffgruppe „Brandrauch“.
+- Eine automatische Übernahme von z_fire-Bränden ist nicht eingebaut (die Brandstellen werden manuell eingezeichnet).
 
 ## Atemschutzüberwachung & Fahrer-Taste
 
 - Der **Fahrer** öffnet den Computer mit **J** (Key-Mapping `cbrn_open_pc`, in `config.lua` → `DriverKey`), Beifahrer weiter mit E.
-- Menü **Atemschutz**: 4 Geräte (Fahrer, Beifahrer, hinten links/rechts). Anlegen/Ablegen am Computer, 300 bar Fülldruck, je Flasche 10–15 min Vorrat (zufällig, Simulation). Warnung bei 100 bar, Pfeife bei 55 bar, Alarm bei leer; „Flasche wechseln“ füllt wieder auf. Eine Person kann nur ein Gerät tragen.
+- Menü **Atemschutz**: 4 Geräte (Fahrer, Beifahrer, hinten links/rechts). Anlegen/Ablegen am Computer, 300 bar Fülldruck, je Flasche 10–15 min Vorrat (zufällig). Warnung bei 100 bar, Pfeife bei 55 bar, Alarm bei leer; „Flasche wechseln“ füllt wieder auf. Eine Person kann nur ein Gerät tragen.
 
 ## Handmessgeräte (Messgeräte-System)
 
-Details, Recherchetabelle und Architektur: [`docs/MESSGERAETE.md`](docs/MESSGERAETE.md). Kurz: Gerät am Messgerätefach nehmen (J halten), E = Maus-Bedienmodus, Pfeile/Enter bedienen das Gerät, ⌫ blendet aus; Messungen werden serverseitig simuliert und als Messpunkt gespeichert. Admin: `/createcbrnsource`, `/clearcbrnsources`, `/debugdevice`, `/debugmeasurement`.
+Details, Recherchetabelle und Architektur: [`docs/MESSGERAETE.md`](docs/MESSGERAETE.md). Kurz: Gerät am Messgerätefach nehmen (J halten), E = Maus-Bedienmodus, Pfeile/Enter bedienen das Gerät, ⌫ blendet aus; Messungen werden serverseitig berechnet und als Messpunkt gespeichert. Admin: `/createcbrnsource`, `/clearcbrnsources`, `/debugdevice`, `/debugmeasurement`.
 
 ## Kartenabgleich (Position auf der Karte stimmt nicht)
 

@@ -7,11 +7,11 @@ const TEXT: [string, string][] = [
   ['Kontaminationsnachweisgerät ' + OLD_KM, 'Kontaminationsnachweisgerät KM 170'], [OLD_KM, 'KM 170'], [' (' + OLD_MFR + ')', ''], [OLD_MFR, 'Standardsatz'],
   ['Chlor 0,2/a', 'Chlor 0,2 ppm'], ['Ammoniak 5/a', 'Ammoniak 5 ppm'], ['Schwefelwasserstoff 0,2/a', 'Schwefelwasserstoff 0,2 ppm'], ['Kohlenmonoxid 2/a', 'Kohlenmonoxid 2 ppm'],
   ['Schwefeldioxid 0,5/a', 'Schwefeldioxid 0,5 ppm'], ['Blausäure 2/a', 'Blausäure 2 ppm'], ['Phosgen 0,05/a', 'Phosgen 0,05 ppm'], ['Benzol 0,5/a', 'Benzol 0,5 ppm'],
-  ['Toluol 50/a', 'Toluol 50 ppm'], ['Kohlendioxid 0,1%/a', 'Kohlendioxid 0,1 Vol%'],
+  [' Simulations-/Rollenspielhilfe.', ''], ['Simulations-/Rollenspielhilfe.', ''], ['SIMULIERTE IDENTIFIKATION', 'IDENTIFIKATION'], ['SIMULIERTE AUSWERTUNG', 'AUSWERTUNG'], ['Toluol 50/a', 'Toluol 50 ppm'], ['Kohlendioxid 0,1%/a', 'Kohlendioxid 0,1 Vol%'],
 ];
 const COLS: Record<string, string[]> = {
   measurement_devices: ['name', 'short', 'description'], scenarios: ['devices', 'name'], test_tubes: ['manufacturer', 'product'],
-  samples: ['lab_result', 'analysis', 'readings'], sample_analyses: ['result'], reports: ['data'], measurements: ['headline', 'remark'], alarms: ['description'],
+  samples: ['lab_result', 'analysis', 'readings'], sample_analyses: ['result'], reports: ['data'], substances: ['response', 'traits'], radionuclides: ['response'], biological_agents: ['response'], measurements: ['headline', 'remark'], alarms: ['description'],
 };
 export function neutralizeBrands() {
   try {

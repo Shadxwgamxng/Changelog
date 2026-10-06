@@ -1,5 +1,5 @@
 -- CBRN-Erkunder: Bordcomputer im Fahrzeug (Beifahrer: E, Fahrer: J) + Telemetrie an den Server-Teil.
--- Es werden KEINE Messwerte erzeugt – die bleiben Simulation des Backends.
+-- Es werden KEINE Messwerte im Client erzeugt – sie entstehen im Server-Teil.
 local open = false
 local currentVehicle = nil -- Fahrzeug-ID aus der Anmeldung in der Web-App (z. B. FFW-11-71-01)
 local WEATHER = { 'EXTRASUNNY', 'CLEAR', 'CLOUDS', 'SMOG', 'FOGGY', 'OVERCAST', 'RAIN', 'THUNDER', 'CLEARING', 'NEUTRAL', 'SNOW', 'BLIZZARD', 'SNOWLIGHT', 'XMAS', 'HALLOWEEN' }

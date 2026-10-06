@@ -3,7 +3,7 @@ game 'gta5'
 lua54 'yes'
 
 name 'cbrn-erkunder'
-description 'CBRN-Erkunder – Bordcomputer fuer den Erkundungswagen (Simulation): Einsatz, Messfahrt, Messgeraete, Stoffdatenbank'
+description 'CBRN-Erkunder – Bordcomputer fuer den Erkundungswagen: Einsatz, Messfahrt, Messgeraete, Stoffdatenbank'
 version '1.0.0'
 
 dependencies { 'ox_lib' }   -- optional zusätzlich: ox_inventory (Items)

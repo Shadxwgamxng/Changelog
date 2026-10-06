@@ -64,7 +64,7 @@ export function registerRoutes(app: FastifyInstance) {
     app: 'CBRN Erkunder Software', version: '0.1.0', sectors: Object.entries(SECTORS).map(([k, v]) => ({ key: k, name: v.name, polygon: sectorPolygon(k) })),
     center: CENTER, route: routeLL(),
     map: MODE === 'gta5' ? { mode: 'gta5', image: config.gta5.image, bounds: shiftedBounds(), offset: getSetting('gta_offset', { dx: 0, dy: 0 }), cal: calOf(), points: (getSetting('gta_calpts', []) as CalPt[]).length } : { mode: 'geo', tileUrl: config.geo.tileUrl, attribution: config.geo.attribution }, mgmg_channels: mgmgChannels(),
-    disclaimer: 'Fachdaten: öffentliche Quellen, ungeprüft (QUELLE ERFORDERLICH). Messwerte, GPS, Einsätze, Identifikationen und Laborergebnisse: SIMULIERT.',
+    disclaimer: '',
   }));
 
   // ---------- Anmeldung am Fahrzeug
@@ -153,7 +153,7 @@ export function registerRoutes(app: FastifyInstance) {
   app.get('/api/vehicles/:id', async (req) => { const v = get('vehicles', (req.params as any).id); if (!v) throw nf('Fahrzeug'); return { ...v, crew: crewOf(v.id) }; });
   app.get('/api/crew', async (req) => crewOf(q(req).vehicle));
   app.get('/api/live', async () => ({ vehicles: state.live, weather: weatherNow(), status: systemStatus() }));
-  app.get('/api/live/spectrum', async (req) => { const v = get('vehicles', q(req).vehicle ?? user(req).vehicle_id); if (!v) throw nf('Fahrzeug'); const { x, y } = llToOffset(v.lat, v.lon); return { ...spectrumAt(x, y), label: 'SIMULIERTE AUSWERTUNG', data_source: 'SIMULATED' }; });
+  app.get('/api/live/spectrum', async (req) => { const v = get('vehicles', q(req).vehicle ?? user(req).vehicle_id); if (!v) throw nf('Fahrzeug'); const { x, y } = llToOffset(v.lat, v.lon); return { ...spectrumAt(x, y), label: 'AUSWERTUNG', data_source: 'SIMULATED' }; });
   // ---------- Einsatz
   app.get('/api/hdev', async (req) => { need(req, 1); return allInst().map((i) => ({ id: i.id, type: i.type, label: DEVICES[i.type].label, short: DEVICES[i.type].short, model: DEVICES[i.type].model, vehicle_id: i.vehicleId ?? i.key, battery: Math.round(i.battery), status: i.holder ? 'IN VERWENDUNG' : i.battery <= 1 ? 'AKKU LEER' : 'VERFÜGBAR', holder: i.holder?.name ?? null, phase: i.phase })); });
   app.get('/api/ags', async (req) => agsList(need(req, 1).vehicle_id));

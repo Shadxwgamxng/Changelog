@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------------------------------
 // Brandeinsatz / Rauchgasmessung: Brandstellen (vom Einsatzteam auf der Karte eingezeichnet) erzeugen eine Rauchfahne,
-// die dem Wind folgt. Alle Konzentrationen sind SIMULIERT (plausible Größenordnungen, keine echten Messwerte).
+// die dem Wind folgt. Alle Konzentrationen sind berechnete, plausible Größenordnungen.
 // ---------------------------------------------------------------------------------------------
 import { db, get, list, insert, update, now, audit } from './db.js';
 import { emit } from './sim.js';
@@ -9,7 +9,7 @@ import { llToOffset } from './geo.js';
 export const FIRE_SIZES: Record<string, { f: number; r: number; label: string }> = {
   klein: { f: 0.5, r: 150, label: 'klein' }, mittel: { f: 1, r: 300, label: 'mittel' }, 'groß': { f: 2, r: 550, label: 'groß' },
 };
-/** Spitzenwerte (ppm) im Kern der Rauchfahne bei „mittel“ – je Brandart verschiedene Zusammensetzung (Simulationsannahme). */
+/** Spitzenwerte (ppm) im Kern der Rauchfahne bei „mittel“ – je Brandart verschiedene Zusammensetzung (Annahme). */
 export const FIRE_TYPES: Record<string, { label: string; gases: Record<string, number>; main: string }> = {
   GEBAEUDE: { label: 'Gebäudebrand', gases: { CO: 120, CO2: 3000, HCN: 6, NO2: 3, HCl: 8, SO2: 2, VOC: 60 }, main: 'Kohlenmonoxid, Kohlendioxid, Blausäure, Stickoxide und Chlorwasserstoff aus Einrichtung/Baustoffen' },
   FAHRZEUG: { label: 'Fahrzeugbrand', gases: { CO: 90, CO2: 2500, HCN: 8, NO2: 4, HCl: 25, SO2: 6, VOC: 120 }, main: 'Kohlenmonoxid, Chlorwasserstoff aus Kabeln/Kunststoffen, Schwefeldioxid und organische Verbrennungsprodukte' },
@@ -17,7 +17,7 @@ export const FIRE_TYPES: Record<string, { label: string; gases: Record<string, n
   VEGETATION: { label: 'Vegetations-/Flächenbrand', gases: { CO: 100, CO2: 2000, HCN: 1, NO2: 2, HCl: 0.5, SO2: 1, VOC: 50 }, main: 'Kohlenmonoxid, Kohlendioxid und organische Verbrennungsprodukte' },
 };
 export const GAS_BG: Record<string, number> = { CO: 0.5, CO2: 420, HCN: 0, NO2: 0, HCl: 0, SO2: 0, VOC: 0.1 };
-/** Alarmschwellen der Simulation (ppm, konfigurierbar/ohne amtlichen Anspruch). */
+/** Alarmschwellen (ppm, konfigurierbar/ohne amtlichen Anspruch). */
 export const GAS_ALARM: Record<string, number> = { CO: 30, CO2: 5000, HCN: 2, NO2: 0.5, HCl: 2, SO2: 0.5 };
 
 const err = (msg: string, code = 400) => Object.assign(new Error(msg), { statusCode: code });

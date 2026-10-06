@@ -8,7 +8,7 @@ export default function Weather() {
   const { weather } = useLive(); const h = useApi<any>('/weather?limit=200', ['weather.updated']);
   const data = (h.data?.history ?? []).map((w: any) => ({ ...w, t: Date.parse(w.ts) }));
   return (
-    <Page title="Wetter" right={<WeatherCopy />} sub={<><Badge color="#f0500a">SIMULATED DATA</Badge> Windrichtung meteorologisch: Wind KOMMT AUS</>}>
+    <Page title="Wetter" right={<WeatherCopy />} sub={"Windrichtung meteorologisch: Wind KOMMT AUS"}>
       {weather && (
         <div className="panel p-3 mb-3 grid grid-cols-8 gap-3">
           <Field label="Temperatur">{num(weather.temperature, 1)} °C</Field><Field label="Luftfeuchtigkeit">{num(weather.humidity, 0)} %</Field><Field label="Luftdruck">{num(weather.pressure, 0)} hPa</Field>

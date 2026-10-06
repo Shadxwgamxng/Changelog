@@ -16,7 +16,6 @@ function TrackSvg({ track }: { track: number[][] }) {
 export function ReportView({ r }: { r: any }) {
   return (
     <div className="space-y-3">
-      <div className="text-[11px] text-[#f0500a] border border-[#f0500a]/50 px-2 py-1">{r.notice}</div>
       <div className="grid grid-cols-4 gap-3"><Field label="Einsatznummer">{r.number}</Field><Field label="Fahrzeug">{r.vehicle?.name}</Field><Field label="Start">{dt(r.start)}</Field><Field label="Ende">{r.end ? dt(r.end) : 'laufend'}</Field>
         <Field label="Auftrag">#{r.mission.id} · {r.mission.priority}</Field><Field label="Gebiet">{r.mission.sector_name}</Field><Field label="Messprofil">{r.mission.profile}</Field><Field label="Erstellt von">{r.author}</Field></div>
       <div><div className="lbl">Besatzung</div>{r.crew.map((c: any) => `${c.role}: ${c.name}`).join(' · ')}</div>
@@ -47,7 +46,7 @@ export default function Reports() {
       <div className="grid grid-cols-12 gap-3">
         <Panel title="Berichte" className="col-span-3" body="!p-0"><table className="t"><tbody>{(reports.data ?? []).map((r) => <tr key={r.id} className="cursor-pointer" onClick={() => open(r.id)}><td className="font-mono">{r.id}{r.kind === 'EINSATZBERICHT_E' && <div className="text-dim text-[11px] font-sans">{r.title}</div>}</td><td>{dt(r.created_at)}</td></tr>)}
           {!(reports.data ?? []).length && <tr><td className="text-dim">Noch keine Berichte</td></tr>}</tbody></table></Panel>
-        <div className="col-span-9">{cur?.kind === 'EINSATZBERICHT_E' ? <Panel title={`Einsatzbericht ${cur.number}`}><IncidentReportView r={cur} /></Panel> : cur ? <Panel title={`Einsatzbericht ${cur.number}`} right={<span className="no-print flex gap-2"><Badge color="#f0500a">SIMULATION</Badge><Btn onClick={() => copyCsv(cur.id)}>CSV kopieren</Btn><Btn onClick={() => copy(JSON.stringify(cur, null, 2))}>JSON kopieren</Btn>{cmsg && <span className="text-ok text-[12px] self-center">{cmsg}</span>}</span>}><ReportView r={cur} /></Panel>
+        <div className="col-span-9">{cur?.kind === 'EINSATZBERICHT_E' ? <Panel title={`Einsatzbericht ${cur.number}`}><IncidentReportView r={cur} /></Panel> : cur ? <Panel title={`Einsatzbericht ${cur.number}`} right={<span className="no-print flex gap-2"><Btn onClick={() => copyCsv(cur.id)}>CSV kopieren</Btn><Btn onClick={() => copy(JSON.stringify(cur, null, 2))}>JSON kopieren</Btn>{cmsg && <span className="text-ok text-[12px] self-center">{cmsg}</span>}</span>}><ReportView r={cur} /></Panel>
           : <Panel><div className="text-dim py-8 text-center">Bericht auswählen oder erstellen</div></Panel>}</div>
       </div>
     </Page>

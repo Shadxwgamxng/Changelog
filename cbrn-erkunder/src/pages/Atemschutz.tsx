@@ -43,7 +43,7 @@ export default function Atemschutz() {
   const act = async (slot: number, what: 'don' | 'doff' | 'refill') => { try { setErr(''); await api(`/ags/${slot}/${what}`, { method: 'POST', body: {} }); } catch (e: any) { setErr(e.message); } };
   void rev;
   return (
-    <Page title="Atemschutzüberwachung" sub="4 Atemschutzgeräte der Besatzung – Anlegen/Ablegen am Computer. Fülldruck 300 bar, Vorrat je nach Belastung 10–15 min (Simulation).">
+    <Page title="Atemschutzüberwachung" sub="4 Atemschutzgeräte der Besatzung – Anlegen/Ablegen am Computer. Fülldruck 300 bar, Vorrat je nach Belastung 10–15 min.">
       {err && <div className="text-bad mb-2">{err}</div>}
       <div className="grid grid-cols-4 gap-3">
         {list.map((d) => (

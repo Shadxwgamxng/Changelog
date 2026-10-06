@@ -4043,7 +4043,7 @@ function buildResponse(s, t) {
   if (t.ph && t.ph !== "neutral" && s.state !== "Gas") M("pH-Messung vor Ort (Indikatorpapier/Messger\xE4t) zur Einordnung.");
   M("Messpunkt, Zeit, Position, Windrichtung (kommt aus \u2026) und Messger\xE4t dokumentieren; Probenahme f\xFCr Laborbest\xE4tigung.");
   if (s.notes) N(s.notes);
-  N("Alle Angaben sind klassenbasierte Richtwerte aus allgemeinen Einsatzgrunds\xE4tzen (GAMS-Regel, FwDV 500) \u2013 nicht stoffspezifisch gepr\xFCft (QUELLE ERFORDERLICH). Ma\xDFgeblich: Sicherheitsdatenblatt, GESTIS, ERG/Einsatzleiter-Wiki, Fachberatung. Simulations-/Rollenspielhilfe.");
+  N("Alle Angaben sind klassenbasierte Richtwerte aus allgemeinen Einsatzgrunds\xE4tzen (GAMS-Regel, FwDV 500) \u2013 nicht stoffspezifisch gepr\xFCft (QUELLE ERFORDERLICH). Ma\xDFgeblich: Sicherheitsdatenblatt, GESTIS, ERG/Einsatzleiter-Wiki, Fachberatung.");
   return finish(R2, s, t);
 }
 function finish(R2, _s, _t) {
@@ -4066,7 +4066,7 @@ function radResponse(n) {
     dekon: ["Kontaminationskontrolle an Personen/Ger\xE4ten (Kontaminationsmonitor), Kleidung ausziehen, Abduschen; Dekon-Abwasser auffangen; Dosisbuch f\xFChren."],
     rettung: ["Eigenschutz vor Menschenrettung; Verletzte zuerst retten und medizinisch versorgen, Dekon nachrangig, sofern keine lebensbedrohliche Kontamination.", "Rettungsdienst/Krankenhaus \xFCber m\xF6gliche Kontamination informieren."],
     messen: ["Dosisleistung (FMG/Dosisleistungsmessger\xE4t), Kontaminationsnachweis (Kontaminationsmonitor), Gammaspektrometrie zur Nuklidzuordnung; Messpunkte georeferenziert dokumentieren."],
-    hinweise: [`Halbwertszeit ${n.half_life}.`, "Richtwerte; QUELLE ERFORDERLICH \u2013 Strahlenschutz-Fachberatung/Einsatzvorschrift ma\xDFgeblich. Simulations-/Rollenspielhilfe."]
+    hinweise: [`Halbwertszeit ${n.half_life}.`, "Richtwerte; QUELLE ERFORDERLICH \u2013 Strahlenschutz-Fachberatung/Einsatzvorschrift ma\xDFgeblich."]
   };
 }
 function bioResponse(b) {
@@ -4079,7 +4079,7 @@ function bioResponse(b) {
     dekon: ["Dekon von Personen/Ger\xE4ten \xFCber Dekon-Strecke; Kleidung ablegen, Haut mit Wasser und Seife waschen; Desinfektion nach Vorgabe der Fachberatung; Abwasser auffangen."],
     rettung: ["Eigenschutz vor Menschenrettung; Betroffene isoliert halten, Rettungsdienst/Gesundheitsamt informieren; Kontaktpersonen erfassen."],
     messen: ["Probenahme und Transport nach BBK-/Landesvorgaben (Chain of Custody); Wetter und Position dokumentieren."],
-    hinweise: ["Richtwerte; QUELLE ERFORDERLICH \u2013 Gesundheitsbeh\xF6rden/RKI-Fachinformation ma\xDFgeblich. Simulations-/Rollenspielhilfe."]
+    hinweise: ["Richtwerte; QUELLE ERFORDERLICH \u2013 Gesundheitsbeh\xF6rden/RKI-Fachinformation ma\xDFgeblich."]
   };
 }
 
@@ -5362,7 +5362,7 @@ function buildReport(missionId, author) {
   return {
     kind: "EINSATZBERICHT",
     simulated: true,
-    notice: "SIMULATION \u2013 Messwerte, GPS, Einsatz und Identifikationen sind nicht real. Fachdaten ungepr\xFCft (siehe Quellenstatus).",
+    notice: "",
     number: `E-${missionId}`,
     author,
     mission: { ...m, sector_name: ((_a = SECTORS[m.sector]) == null ? void 0 : _a.name) ?? m.sector },
@@ -5658,7 +5658,7 @@ Eine eindeutige Identifikation ist nicht m\xF6glich.` };
     if (Math.random() < 0.5) cands.reverse();
     return { ...res3, outcome: "SUSPECT", outcome_text: "VERDACHT AUF BESTIMMTEN STOFF", candidates: cands, substance_id: cands[0].id, confidence: Math.round(35 + ratio * 60), description: `Verdacht auf ${cands.map((c) => c.name).join(" oder ")} (${group}). Best\xE4tigung durch weitere Untersuchung erforderlich.` };
   }
-  return { ...res3, outcome: "IDENTIFIED", outcome_text: "SIMULIERTE IDENTIFIKATION", substance_id: truth.id, candidates: [{ id: truth.id, name: refName(truth.type, truth.id) }], confidence: Math.min(95, Math.round(70 + ratio * 25)), description: `M\xF6glicher Stoff: ${refName(truth.type, truth.id)} (${group}).` };
+  return { ...res3, outcome: "IDENTIFIED", outcome_text: "IDENTIFIKATION", substance_id: truth.id, candidates: [{ id: truth.id, name: refName(truth.type, truth.id) }], confidence: Math.min(95, Math.round(70 + ratio * 25)), description: `M\xF6glicher Stoff: ${refName(truth.type, truth.id)} (${group}).` };
 }
 function completeAnalysis(a) {
   const s = get("samples", a.sample_id);
@@ -5700,19 +5700,19 @@ registerMeasurementDevice(dev2({
   defaultMode: "RATE",
   // Dosis (µSv) und Maximum zeigt das Gerät als weitere Anzeige (Taste Info)
   range: { min: 0.01, max: 250, unit: "\xB5Sv/h", src: "Herstellerangabe vergleichbarer Ger\xE4te: 10 nSv/h \u2013 250 \xB5Sv/h (Niedrigdosis-Detektor), bis 10 Sv/h mit Hochdosis-Detektor" },
-  resolution: { decimals: [[1, 3], [10, 2], [100, 1], [1e9, 0]], note: "SIM: Aufl\xF6sung nicht dokumentiert" },
+  resolution: { decimals: [[1, 3], [10, 2], [100, 1], [1e9, 0]], note: "ANNAHME: Aufl\xF6sung nicht dokumentiert" },
   tau_s: 3,
   durations: { quick: 4e3, normal: 1e4, precise: 3e4 },
   stability: { rel: 0.06, abs: 4e-3 },
   noise: { rel: 5e-3, abs: 2e-3, counting: true },
   battery: { start: 100, drainPerMin: 0.06, measureExtra: 0.02, alarmExtra: 0.05, chargePerMin: 1.5, low: 15 },
-  // SIM (Herstellerangabe: >170 h Betrieb mit Alkaline-Batterien)
+  // ANNAHME (Herstellerangabe: >170 h Betrieb mit Alkaline-Batterien)
   selfTest: { bootMs: 3500, testMs: 4500, failChance: 0, items: ["Sensor", "Speicher", "Batterie", "System"] },
   thresholds: {
     RATE: { attention: 0.3, warning: 1, alarm: 25 }
-    /* SIM */
+    /* ANNAHME */
   },
-  notes: ["Messbereich laut Herstellerangabe vergleichbarer Ger\xE4te. Alarmschwellen = SIMULATION.", "Bedienung laut Handbuch (Handdosisleistungsmesser): EIN = On-Taste \u2265 1 s halten; \u25B2/Info wechselt die Anzeigen; Menu-Taste w\xE4hlt im Men\xFC, Pfeile bl\xE4ttern; Mute quittiert Alarme."]
+  notes: ["Messbereich laut Herstellerangabe vergleichbarer Ger\xE4te. Alarmschwellen = Annahme.", "Bedienung laut Handbuch (Handdosisleistungsmesser): EIN = On-Taste \u2265 1 s halten; \u25B2/Info wechselt die Anzeigen; Menu-Taste w\xE4hlt im Men\xFC, Pfeile bl\xE4ttern; Mute quittiert Alarme."]
 }));
 registerMeasurementDevice(dev2({
   id: "como",
@@ -5727,7 +5727,7 @@ registerMeasurementDevice(dev2({
   modes: [{ id: "BETA_GAMMA", label: "\u03B2/\u03B3-Kanal", unit: "cps", continuous: true }, { id: "ALPHA", label: "\u03B1-Kanal", unit: "cps", continuous: true }],
   defaultMode: "BETA_GAMMA",
   range: { min: 0, max: 2e4, unit: "cps", src: "Herstellerangabe vergleichbarer Monitore: \u03B1-Kanal bis 2.500 Ip/s, \u03B2/\u03B3-Kanal bis 20.000 Ip/s; Anzeige in cps oder Bq / Bq/cm\xB2" },
-  resolution: { decimals: [[100, 1], [1e9, 0]], note: "SIM" },
+  resolution: { decimals: [[100, 1], [1e9, 0]], note: "ANNAHME" },
   tau_s: 1.6,
   durations: { quick: 3e3, normal: 8e3, precise: 2e4 },
   stability: { rel: 0.12, abs: 0.6 },
@@ -5737,11 +5737,11 @@ registerMeasurementDevice(dev2({
   thresholds: {
     BETA_GAMMA: { attention: 8, warning: 25, alarm: 200 },
     ALPHA: { attention: 1, warning: 3, alarm: 20 }
-    /* SIM */
+    /* ANNAHME */
   },
   zero: { label: "Nullrate messen", ms: 8e3 },
   // TODO: reale Bedienung (Nulleffekt-Messung) mit Herstellerhandbuch prüfen
-  notes: ["Bereiche laut Herstellerangabe vergleichbarer Monitore. Bedienung/Tastenbelegung: TODO Herstellerhandbuch pr\xFCfen (laut Hersteller 5 Funktionstasten).", "Nullrate-Messung = Simulationsannahme."]
+  notes: ["Bereiche laut Herstellerangabe vergleichbarer Monitore. Bedienung/Tastenbelegung: TODO Herstellerhandbuch pr\xFCfen (laut Hersteller 5 Funktionstasten).", "Nullrate-Messung = Annahme."]
 }));
 registerMeasurementDevice(dev2({
   id: "pid",
@@ -5756,7 +5756,7 @@ registerMeasurementDevice(dev2({
   modes: [{ id: "LIVE", label: "Momentanwert (VOC)", unit: "ppm", continuous: true }],
   defaultMode: "LIVE",
   range: { min: 1e-3, max: 2e4, unit: "ppm", src: "Herstellerangabe vergleichbarer PID: 1 ppb \u2013 20.000 ppm, Ansprechzeit ca. 2 s (genauer Bereich dieses Typs: TODO pr\xFCfen)" },
-  resolution: { decimals: [[10, 3], [100, 2], [1e3, 1], [1e9, 0]], note: "SIM" },
+  resolution: { decimals: [[10, 3], [100, 2], [1e3, 1], [1e9, 0]], note: "ANNAHME" },
   tau_s: 0.9,
   durations: { quick: 3e3, normal: 8e3, precise: 2e4 },
   stability: { rel: 0.04, abs: 0.02 },
@@ -5765,11 +5765,11 @@ registerMeasurementDevice(dev2({
   selfTest: { bootMs: 3500, testMs: 5500, failChance: 0, items: ["Lampe", "Sensor", "Batterie", "System"] },
   thresholds: {
     LIVE: { attention: 2, warning: 20, alarm: 100 }
-    /* SIM */
+    /* ANNAHME */
   },
   zero: { label: "Nullung (Frischluft)", ms: 6e3 },
   // TODO: Bedienablauf prüfen
-  notes: ["Ansprechzeit/Bereich laut Herstellerangabe vergleichbarer PID. Schwellen = SIMULATION.", "PID zeigt VOC-Summe \u2013 keine Stoffidentifikation."]
+  notes: ["Ansprechzeit/Bereich laut Herstellerangabe vergleichbarer PID. Schwellen = Annahme.", "PID zeigt VOC-Summe \u2013 keine Stoffidentifikation."]
 }));
 registerMeasurementDevice(dev2({
   id: "ims",
@@ -5794,7 +5794,7 @@ registerMeasurementDevice(dev2({
   // Hersteller: Kaltstart bis messbereit 1–5 min (hier untere Grenze: 60 s)
   thresholds: {
     DETECT: { attention: 1, warning: 3, alarm: 5 }
-    /* SIM */
+    /* ANNAHME */
   },
   zero: { label: "Reinigung (Auto-Purge)", ms: 12e3 },
   notes: ["Klassen G/H/T und 8 Balken laut Herstellerangabe. Bedienung (Drehknopf) laut Ger\xE4tebild; reale Men\xFCs: TODO Handbuch pr\xFCfen."]
@@ -5818,7 +5818,7 @@ registerMeasurementDevice(dev2({
   stability: { rel: 0.03, abs: 0.2 },
   noise: { rel: 0.01, abs: 0.1 },
   battery: { start: 100, drainPerMin: 0.05, measureExtra: 0.01, alarmExtra: 0.05, chargePerMin: 2, low: 15 },
-  // SIM (Herstellerangabe: >24 h Betrieb)
+  // ANNAHME (Herstellerangabe: >24 h Betrieb)
   selfTest: { bootMs: 4e3, testMs: 8e3, failChance: 0, items: ["Sensoren", "Pumpe", "Batterie", "System"] },
   thresholds: {},
   channels: [
@@ -5826,15 +5826,15 @@ registerMeasurementDevice(dev2({
     { id: "CO2", label: "CO\u2082", unit: "Vol%", decimals: 2, range: 5 },
     { id: "CH4", label: "CH\u2084", unit: "%UEG", decimals: 0, range: 100, thr: { attention: 5, warning: 10, alarm: 20 } },
     { id: "O2", label: "O\u2082", unit: "Vol%", decimals: 1, range: 25, thr: { lowWarning: 20, lowAlarm: 19, warning: 21.5, alarm: 23 } },
-    // SIM
+    // ANNAHME
     { id: "H2S", label: "H\u2082S", unit: "ppm", decimals: 1, range: 100, thr: { attention: 1, warning: 5, alarm: 10 } },
-    // SIM
+    // ANNAHME
     { id: "CO", label: "CO", unit: "ppm", decimals: 0, range: 2e3, thr: { warning: 20, alarm: 40 } },
     // A1 20 ppm / A2 40 ppm laut Herstellerunterlage (CO-Sensor)
     { id: "SO2", label: "SO\u2082", unit: "ppm", decimals: 1, range: 100, thr: { warning: 0.5, alarm: 2 } }
-    // SIM
+    // ANNAHME
   ],
-  notes: ["Messbereiche O2/CO/H2S/CH4 und 3-Tasten-Bedienung laut Herstellerangabe. Schwellen au\xDFer CO = SIMULATION. Sensorbest\xFCckung der BBK-Ger\xE4te: TODO pr\xFCfen."]
+  notes: ["Messbereiche O2/CO/H2S/CH4 und 3-Tasten-Bedienung laut Herstellerangabe. Schwellen au\xDFer CO = Annahme. Sensorbest\xFCckung der BBK-Ger\xE4te: TODO pr\xFCfen."]
 }));
 var publicDef = (d) => ({ id: d.id, label: d.label, short: d.short, model: d.model, ui: d.ui, skin: d.skin, category: d.category, modes: d.modes, defaultMode: d.defaultMode, range: d.range, durations: d.durations, zero: d.zero ?? null, channels: d.channels ?? null, resolution: d.resolution, battery: { low: d.battery.low }, selfTest: { items: d.selfTest.items }, thresholds: d.thresholds });
 
@@ -6582,7 +6582,7 @@ function endIncident(by, id, form = {}) {
     simulated: true,
     number: `EB-${inc.id}`,
     author: by,
-    notice: "SIMULATION \u2013 Messwerte, Identifikationen und Laborergebnisse sind nicht real. Fachdaten ungepr\xFCft.",
+    notice: "",
     incident: { id: inc.id, name: inc.name, category: inc.category, category_text: CATEGORIES[inc.category], amount: inc.amount, lat: inc.lat, lon: inc.lon, report: inc.report, created_by: inc.created_by },
     where: t(f.where),
     what: t(f.what),
@@ -6685,7 +6685,7 @@ function registerRoutes(app) {
     route: routeLL(),
     map: MODE === "gta5" ? { mode: "gta5", image: config.gta5.image, bounds: shiftedBounds(), offset: getSetting("gta_offset", { dx: 0, dy: 0 }), cal: calOf(), points: getSetting("gta_calpts", []).length } : { mode: "geo", tileUrl: config.geo.tileUrl, attribution: config.geo.attribution },
     mgmg_channels: mgmgChannels(),
-    disclaimer: "Fachdaten: \xF6ffentliche Quellen, ungepr\xFCft (QUELLE ERFORDERLICH). Messwerte, GPS, Eins\xE4tze, Identifikationen und Laborergebnisse: SIMULIERT."
+    disclaimer: ""
   }));
   app.get("/api/auth/vehicles", async () => ({
     vehicles: list("vehicles").map((v) => ({ id: v.id, name: v.name, connected: fivemConnected(v.id), crew: crewOf(v.id).map((c) => ({ name: c.name, funktion: c.role })) })),
@@ -6866,7 +6866,7 @@ function registerRoutes(app) {
     const v = get("vehicles", q(req).vehicle ?? user(req).vehicle_id);
     if (!v) throw nf("Fahrzeug");
     const { x, y } = llToOffset(v.lat, v.lon);
-    return { ...spectrumAt(x, y), label: "SIMULIERTE AUSWERTUNG", data_source: "SIMULATED" };
+    return { ...spectrumAt(x, y), label: "AUSWERTUNG", data_source: "SIMULATED" };
   });
   app.get("/api/hdev", async (req) => {
     need(req, 1);
@@ -7239,6 +7239,10 @@ var TEXT = [
   ["Blaus\xE4ure 2/a", "Blaus\xE4ure 2 ppm"],
   ["Phosgen 0,05/a", "Phosgen 0,05 ppm"],
   ["Benzol 0,5/a", "Benzol 0,5 ppm"],
+  [" Simulations-/Rollenspielhilfe.", ""],
+  ["Simulations-/Rollenspielhilfe.", ""],
+  ["SIMULIERTE IDENTIFIKATION", "IDENTIFIKATION"],
+  ["SIMULIERTE AUSWERTUNG", "AUSWERTUNG"],
   ["Toluol 50/a", "Toluol 50 ppm"],
   ["Kohlendioxid 0,1%/a", "Kohlendioxid 0,1 Vol%"]
 ];
@@ -7249,6 +7253,9 @@ var COLS = {
   samples: ["lab_result", "analysis", "readings"],
   sample_analyses: ["result"],
   reports: ["data"],
+  substances: ["response", "traits"],
+  radionuclides: ["response"],
+  biological_agents: ["response"],
   measurements: ["headline", "remark"],
   alarms: ["description"]
 };

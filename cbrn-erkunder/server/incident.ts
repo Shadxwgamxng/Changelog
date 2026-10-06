@@ -7,7 +7,7 @@ import { resetAgs } from './ags.js';
 import { addFire, listFires, FIRE_SIZES, FIRE_TYPES } from './fire.js';
 
 // ---------------------------------------------------------------------------------------------
-// Einsatz: Grunddaten, aus denen die Simulation ihre (verdeckte) Lage rechnet. Der Wahrheitsstoff wird dem
+// Einsatz: Grunddaten, aus denen das System seine (verdeckte) Lage rechnet. Der Wahrheitsstoff wird dem
 // Erkunder NICHT angezeigt, solange der Einsatz läuft – außer die Lage meldet den Stoff ausdrücklich als bekannt.
 // ---------------------------------------------------------------------------------------------
 export const CATEGORIES: Record<string, string> = { C: 'Chemisch', R: 'Radiologisch', B: 'Biologisch', U: 'Unbekannt', F: 'Brand (Rauchgas)' };
@@ -92,7 +92,7 @@ export function endIncident(by: string, id: string, form: any = {}) {
   const startMs = Date.parse(inc.created_at), endMs = Date.parse(ended);
   const data = {
     kind: 'EINSATZBERICHT_E', title: inc.name, simulated: true, number: `EB-${inc.id}`, author: by,
-    notice: 'SIMULATION – Messwerte, Identifikationen und Laborergebnisse sind nicht real. Fachdaten ungeprüft.',
+    notice: '',
     incident: { id: inc.id, name: inc.name, category: inc.category, category_text: CATEGORIES[inc.category], amount: inc.amount, lat: inc.lat, lon: inc.lon, report: inc.report, created_by: inc.created_by },
     where: t(f.where), what: t(f.what), measures: t(f.measures), result: t(f.result), handover: t(f.handover), remarks: t(f.remarks), other_forces: t(f.other_forces),
     injured: num(f.injured), evacuated: num(f.evacuated),
