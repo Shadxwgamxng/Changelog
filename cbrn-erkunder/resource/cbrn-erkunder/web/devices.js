@@ -295,7 +295,7 @@
   function menuShow(d) {
     if (!M.el) { M.el = document.createElement('div'); M.el.id = 'dvmenu'; document.body.appendChild(M.el); }
     M.items = d.items || []; M.sel = Math.max(0, M.items.findIndex((i) => !i.disabled)); M.open = true;
-    M.el.innerHTML = `<div class="mt">${esc(d.title || 'AUSWAHL')}</div>` + M.items.map((it, i) => `<div class="mi${it.disabled ? ' dis' : ''}" data-i="${i}"><span class="ml"><b>${esc(it.label)}</b>${it.sub ? `<small>${esc(it.sub)}</small>` : ''}</span></div>`).join('') + `<div class="mh"><span class="mk">Mausrad</span> Auswählen &nbsp; <span class="mk">Klick</span> Bestätigen &nbsp; <span class="mk">ESC</span> Schließen</div>`;
+    M.el.innerHTML = `<div class="mt">${esc(d.title || 'AUSWAHL')}</div>` + M.items.map((it, i) => `<div class="mi${it.disabled ? ' dis' : ''}" data-i="${i}"><span class="ml"><b>${esc(it.label)}</b>${it.sub ? `<small>${esc(it.sub)}</small>` : ''}</span></div>`).join('');
     M.el.classList.add('on'); menuDraw();
     M.el.querySelectorAll('.mi').forEach((e) => { const i = +e.dataset.i; e.onmouseenter = () => { if (!M.items[i].disabled) { M.sel = i; menuDraw(); } }; e.onclick = () => { if (!M.items[i].disabled) menuClose(M.items[i].id); }; });
   }
