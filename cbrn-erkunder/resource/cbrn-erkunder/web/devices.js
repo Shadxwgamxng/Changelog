@@ -30,30 +30,30 @@
   const btn = (id, label, g, main, menu) => ({ id, label, main, menu: menu || main, ...g });
   const SKINS = {
     dlm: { img: IMG + 'dlm.png', W: 435, H: 700, scr: rect(112, 167, 209, 170, 435, 700), css: { '--bg': '#b2bba2', '--fg': '#1a2418', '--off': '#8d958a' },
-      // Handbuch RadEye PRD-ER4 (DB-117 E): EIN = On-Taste ≥ 1 s; Info wechselt die Anzeigen; Menü: Pfeile blättern, Menu-Taste wählt; Mute quittiert den Alarm; On/Screen kurz = Display-Beleuchtung (Annahme)
+      // Handbuch Handdosisleistungsmesser: EIN = On-Taste ≥ 1 s; Info wechselt die Anzeigen; Menü: Pfeile blättern, Menu-Taste wählt; Mute quittiert den Alarm; On/Screen kurz = Display-Beleuchtung (Annahme)
       pw: { id: 'onoff', onMs: 1000, offMs: 3000 }, views: ['RATE', 'DOSE', 'MAX', 'INFO'], snd: { alarm: { file: 'dlm_alarm', every: 20000 }, warn: { synth: 'warn', every: 6000 } },
       btns: [btn('menu', 'Menu (Menü öffnen / im Menü: Auswahl)', circ(125, 497, 43, 435, 700), 'menu', 'ok'), btn('info', 'Info ▲ (Anzeige wechseln / im Menü: auf)', circ(216, 466, 28, 435, 700), 'info', 'up'),
         btn('mute', 'Mute (Alarm quittieren / im Menü: zurück)', circ(308, 497, 43, 435, 700), 'ack', 'back'), btn('onoff', 'On / Screen ▼ (halten: Ein 1 s · Aus 3 s · kurz: Beleuchtung · im Menü: ab)', circ(216, 534, 28, 435, 700), 'screen', 'down')],
       screen: (c) => lcdSingle(c, { bar: 'log', dlm: true }) },
     como: { img: IMG + 'como.png', W: 327, H: 700, scr: rect(78, 53, 169, 109, 327, 700), css: { '--bg': '#cdd870', '--fg': '#232a05', '--off': '#a9b25c' },
-      // Handbuch CoMo 170 ZS (Bedienungsanleitung): Taste oben links: kurz = Kurzmenü (u. a. Nulleffektmessung), lang = Aus; Taste oben rechts: Ton aus/quittieren; Pfeiltasten wählen im Menü, Enter öffnet
+      // Bedienungsanleitung Kontaminationsmonitor: Taste oben links: kurz = Kurzmenü (u. a. Nulleffektmessung), lang = Aus; Taste oben rechts: Ton aus/quittieren; Pfeiltasten wählen im Menü, Enter öffnet
       pw: { id: 'ul', onMs: 0, offMs: 1500 }, snd: { alarm: { synth: 'alarm', every: 1200 }, warn: { synth: 'warn', every: 4000 } },
       btns: [btn('ul', 'Oben links (kurz: Kurzmenü · lang: Aus)', circ(77, 226, 16, 327, 700), 'menu', 'back'), btn('ur', 'Oben rechts (Ton aus / quittieren)', circ(249, 226, 16, 327, 700), 'ack', 'back'),
         btn('t1', 'Pfeil links (Kanal α/β-γ · im Menü: auf)', circ(106, 271, 17, 327, 700), 'mode', 'up'), btn('c', 'Enter (Messung Start/Stop · im Menü: Auswahl)', circ(163, 268, 17, 327, 700), 'ok', 'ok'), btn('t2', 'Pfeil rechts (Kanal α/β-γ · im Menü: ab)', circ(221, 271, 17, 327, 700), 'mode', 'down')],
       screen: (c) => lcdSingle(c, { bar: 'log2', both: true }) },
     pid: { img: IMG + 'pid.png', W: 205, H: 700, scr: rect(40, 217, 125, 90, 205, 700), css: { '--bg': '#b9cfa8', '--fg': '#1b2a14', '--off': '#8fa383' },
-      // Handbuch TIGER: Tastenfeld = zwei Soft-Tasten A/B (frei belegbar), Auf/Ab, Esc, Enter/On/Off. EIN = Enter einmal drücken, AUS = Enter halten (3-s-Countdown). Zero = Soft-Taste
+      // Handbuch Photoionisationsdetektor: Tastenfeld = zwei Soft-Tasten A/B (frei belegbar), Auf/Ab, Esc, Enter/On/Off. EIN = Enter einmal drücken, AUS = Enter halten (3-s-Countdown). Zero = Soft-Taste
       pw: { id: 'en', onMs: 0, offMs: 3000 }, snd: { alarm: { synth: 'alarm', every: 1200 }, warn: { synth: 'warn', every: 4000 } },
       btns: [btn('a', 'A – Soft-Taste „Nullung“', circ(76, 372, 17, 205, 700), 'zero', 'back'), btn('b', 'B – Soft-Taste „Menü“', circ(131, 372, 17, 205, 700), 'menu', 'ok'), btn('up', '▲ (Anzeige wechseln / im Menü: auf)', circ(103, 398, 16, 205, 700), 'info', 'up'),
         btn('esc', 'Esc (abbrechen / zurück)', circ(92, 431, 13, 205, 700), 'back', 'back'), btn('en', 'Enter / On / Off (Start/Stop · Aus: halten)', circ(115, 450, 12, 205, 700), 'ok', 'ok'), btn('dn', '▼ (Anzeige wechseln / im Menü: ab)', circ(103, 484, 16, 205, 700), 'info', 'down')],
       screen: (c) => lcdSingle(c, { bar: 'log3', minmax: true }) },
     ims: { img: IMG + 'ims.png', W: 376, H: 700, scr: rect(100, 304, 191, 66, 376, 700), css: { '--bg': '#a9b39f', '--fg': '#1b2418', '--off': '#868f80' },
-      // TODO: Bedienung des RAID-M 100 (Drehknopf) mit Herstellerhandbuch prüfen – hier: Knopf links/rechts = Auf/Ab, drücken = OK (halten: Ein/Aus)
+      // TODO: Bedienung des IMS (Drehknopf) mit Herstellerhandbuch prüfen – hier: Knopf links/rechts = Auf/Ab, drücken = OK (halten: Ein/Aus)
       pw: { id: 'k2', onMs: 1000, offMs: 2500 }, snd: { alarm: { synth: 'alarm', every: 1200 }, warn: { synth: 'warn', every: 4000 } }, wheel: ['k1', 'k3', 'k2'],
       btns: [btn('k1', 'Drehknopf links (Menü / auf)', rect(36, 172, 18, 48, 376, 700), 'menu', 'up'), btn('k2', 'Drehknopf drücken (Start/Stop · halten: Ein/Aus · im Menü: Auswahl)', rect(54, 172, 16, 48, 376, 700), 'ok', 'ok'), btn('k3', 'Drehknopf rechts (Info / ab)', rect(70, 172, 18, 48, 376, 700), 'info', 'down')],
       leds: Array.from({ length: 8 }, (_, i) => ({ ...circ(138 + i * 17.3, 431, 7.5, 376, 700) })), screen: (c) => lcdIms(c) },
     mgmg: { img: IMG + 'mgmg.png', W: 284, H: 700, scr: rect(74, 338, 134, 154, 284, 700), css: { '--bg': '#bcd3a3', '--fg': '#17230f', '--off': '#8ea184' },
-      // Dräger X-am 8000: Bedienung über drei Tasten ▼ OK ▲ (Produktinformation); die Symbole am unteren Displayrand gehören zu den Tasten. OK halten = Ein/Aus, OK kurz = Alarm quittieren / Detail (Annahme)
+      // Mehrgasgerät: Bedienung über drei Tasten ▼ OK ▲ (Produktinformation); die Symbole am unteren Displayrand gehören zu den Tasten. OK halten = Ein/Aus, OK kurz = Alarm quittieren / Detail (Annahme)
       pw: { id: 'ok', onMs: 1000, offMs: 3000 }, snd: { alarm: { file: 'mgmg_alarm', loop: true }, warn: { file: 'mgmg_alarm', every: 5000 } },
       btns: [btn('dn', '▼ Menü (im Menü: ab)', circ(77.5, 551, 21, 284, 700), 'menu', 'down'), btn('ok', 'OK (Alarm quittieren / Detail · im Menü: Auswahl · halten: Ein/Aus)', circ(141.5, 551, 21, 284, 700), 'okack', 'ok'), btn('up', '▲ Start / Stop (im Menü: auf)', circ(202, 551, 21, 284, 700), 'a', 'up')],
       screen: (c) => lcdGas(c) },
@@ -92,7 +92,7 @@
     const a = lvl(st); const meas = st.phase === 'MEASURING'; const acked = c.ui.ack && a !== 'NORMAL';
     const head = st.err ? 'FEHLER' : meas ? (a !== 'NORMAL' ? alTxt[a] : st.stable ? 'STABIL' : 'MESSUNG …') : st.hasResult ? 'GESTOPPT' : 'BEREIT';
     let val = fmt(st), unit = st.unit, stats = st.stats, label = mode ? mode.label : '';
-    if (o.dlm) { // RadEye: Taste Info wechselt die Anzeige (Dosisleistung · Dosis · Maximum · Info)
+    if (o.dlm) { // Dosisleistungsmesser: Taste Info wechselt die Anzeige (Dosisleistung · Dosis · Maximum · Info)
       const v = c.ui.view || 'RATE';
       if (v === 'INFO') return infoScreen(c) + flashOf(st);
       if (v === 'DOSE') { val = st.dose == null ? '– – –' : num(st.dose, st.dose < 1 ? 3 : st.dose < 100 ? 2 : 1); unit = 'µSv'; label = 'Dosis'; }

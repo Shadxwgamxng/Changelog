@@ -14,22 +14,18 @@
 
 ## 2. Recherche (Phase 2) – Ausstattung CBRN-ErkW (neue Generation, BBK)
 
-Öffentlich belegt (BBK/Presse): FMG (fahrzeuggestütztes Gamma-Messsystem, fährt mit), **Ionenmobilitätsspektrometer Bruker RAID-M 100**, **PID Ion Science TIGER**, Mehrgasmessgeräte, Prüfröhrchen, Dosisleistungsmessgerät (Vorgängergeneration: FH 40 G), Kontaminationsnachweisgerät, Probenahmesätze; digital vernetzte Messdatenerfassung mit Ort/Zeit.
+Öffentlich belegt (BBK/Presse): FMG (fahrzeuggestütztes Gamma-Messsystem, fährt mit), **Ionenmobilitätsspektrometer (IMS)**, **Photoionisationsdetektor (PID)**, Mehrgasmessgeräte, Prüfröhrchen, Dosisleistungsmessgerät, Kontaminationsnachweisgerät, Probenahmesätze; digital vernetzte Messdatenerfassung mit Ort/Zeit.
 **Nicht öffentlich belegt:** exakte Typen/Bestückung jedes Handgeräts der BBK-Fahrzeuge – deshalb stehen die **Gerätetypen aus deinen Gerätebildern** in der Konfiguration (`model`) und sind jederzeit austauschbar.
 
-| Gerät (Bild) | Zweck | Messgröße / Einheit | Messbereich (belegt) | Bedienung | Quelle |
+| Gerät (im Spiel) | Zweck | Messgröße / Einheit | Messbereich (Herstellerangaben vergleichbarer Geräte) | Bedienung | Beleg |
 |---|---|---|---|---|---|
-| Thermo RadEye PRD-ER4 (DLM) | Ortsdosisleistung | µSv/h (nSv/h…Sv/h) | 10 nSv/h–250 µSv/h (Low-Rate-Detektor), bis 10 Sv/h (High-Rate) | Tasten Menu, Info, Mute, On/Screen | Thermo Fisher Produktseite RadEye PRD-ER4 |
-| (Vorgänger-Doku) FH 40 G | Dosisleistung | Sv/h, R/h, Gy/h wählbar | 10 nSv/h–1 Sv/h (Sv-Version) | – | Thermo Fisher FH 40 G |
-| Graetz CoMo 170 ZS (CoMo) | Oberflächenkontamination α und β/γ | cps (Ip/s), alternativ Bq, Bq/cm² | α bis 2.500 Ip/s, β/γ bis 20.000 Ip/s; 170 cm² Fläche | 5 Funktionstasten | Hersteller-/Händlerdatenblatt CoMo 170 |
-| Ion Science TIGER (XTL im Bild) | VOC-Screening | ppm | 1 ppb–20.000 ppm (TIGER XT), Ansprechzeit ~2 s | Tasten A, B, ▲, ▼, Esc | Ion Science Datenblatt (XTL-Bereich: TODO prüfen) |
-| Bruker RAID-M 100 (IMS) | Detektion CWA/TIC | Gefahrenstufe in 8 Balken je Klasse G, H, T | – | Alarm akustisch+LED, Auto-Purge | Bruker Produktseite |
-| Dräger X-am 8000 (MGMG) | Mehrgas | O₂ Vol%, CO/H₂S ppm, CH₄ %UEG … | O₂ 0–25 Vol%, CO 0–2000 ppm (LC), H₂S 0–100 ppm (LC), CH₄ 0–100 %UEG | 3 Tasten; CO-Alarm A1 20 / A2 40 ppm | Dräger Produktinformation X-am 8000 |
+| Dosisleistungsmessgerät DL-4 ER | Ortsdosisleistung | µSv/h (nSv/h…Sv/h) | 10 nSv/h–250 µSv/h (Niedrigdosis-Detektor), bis 10 Sv/h (Hochdosis-Detektor) | 4 Tasten: Menu, Info, Mute, On/Screen | Herstellerdatenblatt/Handbuch eines Handdosisleistungsmessers |
+| Kontaminationsmonitor KM 170 | Oberflächenkontamination α und β/γ | cps (Ip/s), alternativ Bq, Bq/cm² | α bis 2.500 Ip/s, β/γ bis 20.000 Ip/s; 170 cm² Fläche | 5 Funktionstasten | Herstellerdatenblatt/Bedienungsanleitung eines Kontaminationsmonitors |
+| Photoionisationsdetektor PID-XL | VOC-Screening | ppm | 1 ppb–20.000 ppm, Ansprechzeit ~2 s (genauer Bereich dieses Typs: TODO) | Soft-Tasten A/B, Auf/Ab, Esc, Enter/On/Off | Herstelleranleitung eines Handheld-PID |
+| Ionenmobilitätsspektrometer IMS-100 | Detektion Kampfstoffe/Industriechemikalien | Gefahrenstufe in 8 Balken je Klasse G, H, T | – | Alarm akustisch + LED, Auto-Purge, Kaltstart bis messbereit 1–5 min | Herstellerangabe eines Handheld-IMS |
+| Mehrgasmessgerät MG-8 | Mehrgas | O₂ Vol%, CO/H₂S ppm, CH₄ %UEG … | O₂ 0–25 Vol%, CO 0–2000 ppm (LC), H₂S 0–100 ppm (LC), CH₄ 0–100 %UEG | 3 Tasten; CO-Alarm A1 20 / A2 40 ppm | Produktinformation/Handbuch eines Mehrgasmessgeräts |
 
-**Quellenlinks** (WebSearch-Ergebnisse, im Entwicklungslauf abgerufen):
-BBK Pressemitteilung „Die neue Generation: CBRN-Erkundungswagen“ (bbk.bund.de), Feuerwehrmagazin/Rettungsdienst-Berichte zu den neuen ErkW,
-Thermo Fisher RadEye PRD-ER4 und FH 40 G, Graetz/Nuviatech/rapp-iso CoMo 170, Ion Science TIGER Datenblatt, Bruker RAID-M 100, Dräger X-am 8000.
-Die BBK-Seiten konnten im Sandbox-Netz **nicht direkt geöffnet** werden (nur Suchauszüge) – Details bitte gegenprüfen.
+**Quellen:** BBK (Pressemitteilungen zur neuen ErkW-Generation), Datenblätter und Bedienungsanleitungen der jeweiligen Gerätetypen (Herstellerangaben). Die BBK-Seiten konnten im Entwicklungsumfeld nicht direkt geöffnet werden (nur Suchauszüge) – Details bitte gegenprüfen. Die Gerätebilder sind neutralisiert (Fantasiebezeichnungen, keine realen Hersteller- oder Produktnamen).
 
 Alles, was nicht aus diesen Quellen stammt (Schwellen, Aufwärmzeiten, Messdauern, Auflösungen, Nullung, Tastenbelegung der Geräte, Rauschmodell), ist in `server/hdev/defs.ts` als **`SIM`/`TODO`** markiert.
 
@@ -73,25 +69,24 @@ Admin: `/offset` (Punktarten sample/storage/device/computer/equipment), `/create
 
 | Gerät | Belegung im Spiel | Beleg |
 |---|---|---|
-| RadEye PRD-ER4 | **On/Screen** ▼: ≥ 1 s halten = Ein, 3 s halten = Aus, kurz = Display-Beleuchtung · **Info** ▲: Anzeige wechseln (Dosisleistung → Dosis → Maximum → Info); im Menü auf · **Menu**: Menü öffnen, im Menü Auswahl · **Mute**: Alarm quittieren | Handbuch DB-117 E: EIN = On-Taste ≥ 1 s; ▲/Info kurz = weitere Anzeigen; Pfeile blättern im Menü, Menu-Taste wählt; Mute/Alarm-Quittierung. *Display-Beleuchtung und 3-s-Aus = Annahme* |
-| CoMo 170 ZS | **Oben links**: kurz = Kurzmenü (u. a. Nulleffekt-Messung), halten = Aus · **Oben rechts**: Ton aus / quittieren · **Pfeile**: im Menü auf/ab, im Hauptbild Kanal α ↔ β/γ · **Enter**: Messung Start/Stop, im Menü Auswahl | Bedienungsanleitung CoMo 170 ZS (BABS/Graetz): 5 Funktionstasten, Taste oben links Ein/Aus + Kurzmenü + Nulleffektmessung, oben rechts Ton unterdrücken, Pfeile + Enter im Menü. *Einschalten über die Taste oben links und Kanalumschaltung = Annahme* |
-| TIGER (XTL im Bild) | **A** Soft-Taste „Nullung“ · **B** Soft-Taste „Menü“ · **▲▼** Anzeige/Menü · **Esc** abbrechen · **Enter/On/Off** (unten rechts im Mittelkreis): kurz = Ein, im Betrieb Start/Stop, halten = Aus mit 3-s-Countdown | TIGER-Handbuch: Soft-Tasten A/B (frei belegbar), Auf/Ab, Esc, Enter/On/Off; EIN = einmal drücken, AUS = halten (3-s-Countdown); „Zero“-Soft-Taste. *Belegung A/B ist Annahme (laut Handbuch konfigurierbar)* |
-| X-am 8000 | **▼** = ☰ Menü (im Menü ab) · **OK** = 🔍 Alarm quittieren / Detail, im Menü Auswahl, halten = Ein (1 s) / Aus (3 s) · **▲** = ★ Start/Stop (im Menü auf) | Dräger-Produktinformation: Bedienung über drei Tasten. Die Symbole ☰ 🔍 ★ am Displayrand gehören laut Gerätebild zu den Tasten. *Haltezeiten und genaue Funktionen = Annahme, Technisches Handbuch X-am 3500/8000 bitte gegenprüfen* |
-| RAID-M 100 | Drehknopf: links = Menü/auf, drücken = Start/Stop (halten: Ein/Aus), rechts = Info/ab | **TODO**: Bedienung nicht öffentlich belegt (nur Hersteller: 1–5 min Kaltstart bis messbereit – hier 60 s Selbsttest) |
+| Dosisleistungsmessgerät DL-4 ER | **On/Screen** ▼: ≥ 1 s halten = Ein, 3 s halten = Aus, kurz = Display-Beleuchtung · **Info** ▲: Anzeige wechseln (Dosisleistung → Dosis → Maximum → Info); im Menü auf · **Menu**: Menü öffnen, im Menü Auswahl · **Mute**: Alarm quittieren | Handbuch des Handdosisleistungsmessers: EIN = On-Taste ≥ 1 s; ▲/Info kurz = weitere Anzeigen; Pfeile blättern im Menü, Menu-Taste wählt; Mute/Alarm-Quittierung. *Display-Beleuchtung und 3-s-Aus = Annahme* |
+| Kontaminationsmonitor KM 170 | **Oben links**: kurz = Kurzmenü (u. a. Nulleffekt-Messung), halten = Aus · **Oben rechts**: Ton aus / quittieren · **Pfeile**: im Menü auf/ab, im Hauptbild Kanal α ↔ β/γ · **Enter**: Messung Start/Stop, im Menü Auswahl | Bedienungsanleitung des Kontaminationsmonitors: 5 Funktionstasten, Taste oben links Ein/Aus + Kurzmenü + Nulleffektmessung, oben rechts Ton unterdrücken, Pfeile + Enter im Menü. *Einschalten über die Taste oben links und Kanalumschaltung = Annahme* |
+| Photoionisationsdetektor PID-XL | **A** Soft-Taste „Nullung“ · **B** Soft-Taste „Menü“ · **▲▼** Anzeige/Menü · **Esc** abbrechen · **Enter/On/Off** (unten rechts im Mittelkreis): kurz = Ein, im Betrieb Start/Stop, halten = Aus mit 3-s-Countdown | Handbuch des PID: Soft-Tasten A/B (frei belegbar), Auf/Ab, Esc, Enter/On/Off; EIN = einmal drücken, AUS = halten (3-s-Countdown); „Zero“-Soft-Taste. *Belegung A/B ist Annahme (laut Handbuch konfigurierbar)* |
+| Mehrgasmessgerät MG-8 | **▼** = ☰ Menü (im Menü ab) · **OK** = 🔍 Alarm quittieren / Detail, im Menü Auswahl, halten = Ein (1 s) / Aus (3 s) · **▲** = ★ Start/Stop (im Menü auf) | Produktinformation des Mehrgasgeräts: Bedienung über drei Tasten. Die Symbole ☰ 🔍 ★ am Displayrand gehören laut Gerätebild zu den Tasten. *Haltezeiten und genaue Funktionen = Annahme, technisches Handbuch des Geräts bitte gegenprüfen* |
+| Ionenmobilitätsspektrometer IMS-100 | Drehknopf: links = Menü/auf, drücken = Start/Stop (halten: Ein/Aus), rechts = Info/ab | **TODO**: Bedienung nicht öffentlich belegt (nur Hersteller: 1–5 min Kaltstart bis messbereit – hier 60 s Selbsttest) |
 
 Bei allen Geräten bedienen **Pfeiltasten + Enter** (Enter halten = Ein/Aus) die Tasten; **´** (Taste rechts neben ß, FiveM-Name `EQUALS`) schaltet den **Mauszeiger** ein, ´ oder ESC schaltet ihn aus. Rücktaste blendet das Gerät aus/ein.
 
 ## 5b. Sounds
 
-* Dräger (X-am/MGMG): Aufnahme `web/sounds/mgmg_alarm.ogg` – Alarm läuft als Schleife bis quittiert (OK) oder Wert wieder normal; Warnung = einzelner Zyklus alle 5 s.
-* RadEye: Aufnahme `web/sounds/dlm_alarm.ogg` – einmal bei Alarm, Wiederholung alle 20 s bis Mute.
+* Mehrgasgerät: Aufnahme `web/sounds/mgmg_alarm.ogg` – Alarm läuft als Schleife bis quittiert (OK) oder Wert wieder normal; Warnung = einzelner Zyklus alle 5 s.
+* Dosisleistungsmesser: Aufnahme `web/sounds/dlm_alarm.ogg` – einmal bei Alarm, Wiederholung alle 20 s bis Mute.
 * Atemschutz „Gerät leer“: Aufnahme `web/sounds/pa_leer.ogg` – im Computer einmal bei Pfeife (55 bar) und einmal bei leer.
-* CoMo, TIGER, RAID-M 100: keine Aufnahme vorhanden → neutrale WebAudio-Töne.
-* Die Datei `am-2500---alarms.mp3` enthält laut Spektralanalyse überwiegend Sprache/tieffrequentes Signal (kein klarer Alarmton) und wurde **nicht** verwendet.
+* Kontaminationsmonitor, PID, IMS: keine Aufnahme vorhanden → neutrale WebAudio-Töne.
 
 ## 6. Bekannte Grenzen / TODO
 
-* Reale Tastenbelegung und Menüs der Geräte (CoMo, TIGER, RAID-M 100) nicht aus Handbüchern übernommen → TODO.
+* Reale Tastenbelegung und Menüs der Geräte (Kontaminationsmonitor, PID, IMS) nicht aus Handbüchern übernommen → TODO.
 * Bestand und Batterie liegen im Arbeitsspeicher (Neustart der Ressource setzt auf 100 % zurück).
 * Biologische Quellen werden von den Handgeräten nicht gemessen (nur Proben/Analyse).
 * Kein 3D-Prop (optional über `Config.Devices.Props`).

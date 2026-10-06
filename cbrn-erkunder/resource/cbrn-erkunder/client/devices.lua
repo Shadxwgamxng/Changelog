@@ -45,7 +45,7 @@ end
 RegisterNUICallback('menuPick', function(d, cb) menuDone(d and d.id); cb('ok') end)
 RegisterNUICallback('menuClose', function(_, cb) menuDone(nil); cb('ok') end)
 
-local ICON = { dlm = 'radiation', como = 'hand-holding-droplet', pid = 'wind', ims = 'flask', mgmg = 'gauge-high' }
+local ICON = { dlm = 'radiation', km = 'hand-holding-droplet', pid = 'wind', ims = 'flask', mgmg = 'gauge-high' }
 RegisterNetEvent('cbrn:dev:inv', function(inv)
   local items = {}
   for _, d in ipairs(inv.devices or {}) do

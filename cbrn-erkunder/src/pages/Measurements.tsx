@@ -60,7 +60,7 @@ export default function Measurements() {
   return (
     <Page title="Messpunkte" sub="Georeferenzierte Messwerte – Korrekturen werden im Audit-Log protokolliert" right={<Btn onClick={() => setNw(true)} disabled={!can(1)}>+ Manueller Eintrag</Btn>}>
       <div className="panel p-2 mb-3 flex gap-2 items-center">
-        <Select value={f.device} onChange={(v) => setF({ ...f, device: v })} options={[['', 'Gerät: alle'], ['PID', 'PID'], ['IMS', 'IMS'], ['MGMG', 'MGMG'], ['DLM', 'Dosisleistung'], ['COMO', 'Kontamination (CoMo)'], ['FMG', 'FMG'], ['MANUELL', 'Manuell']]} />
+        <Select value={f.device} onChange={(v) => setF({ ...f, device: v })} options={[['', 'Gerät: alle'], ['PID', 'PID'], ['IMS', 'IMS'], ['MGMG', 'MGMG'], ['DLM', 'Dosisleistung'], ['KM', 'Kontamination (KM)'], ['FMG', 'FMG'], ['MANUELL', 'Manuell']]} />
         <Select value={f.vehicle_id} onChange={(v) => setF({ ...f, vehicle_id: v })} options={[['', 'Fahrzeug: alle'], ...(vehicles ?? []).map((v: any) => [v.id, v.name] as [string, string])]} />
         <label className="flex items-center gap-1"><input type="checkbox" checked={f.anomalies} onChange={(e) => setF({ ...f, anomalies: e.target.checked })} />nur Auffälligkeiten</label>
         <span className="ml-auto text-dim">{data?.length ?? 0} Einträge</span>

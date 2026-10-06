@@ -13,7 +13,7 @@ export const sources = [
 
 export const devices = [
   { id: 'ims', short: 'IMS', name: 'Ionenmobilitätsspektrometer', kind: 'chemisch', description: 'Chemisches Screening über Ionenmobilität; liefert Hinweise auf Stoffklassen/Stoffe.', unit: null, source_id: 'bbk' },
-  { id: 'como', short: 'CoMo 170 ZS-2', name: 'Kontaminationsnachweisgerät CoMo 170 ZS-2', kind: 'radiologisch', description: 'Radiologischer Kontaminationsnachweis.', unit: 'cps', source_id: 'bbk' },
+  { id: 'como', short: 'KM 170', name: 'Kontaminationsnachweisgerät KM 170', kind: 'radiologisch', description: 'Radiologischer Kontaminationsnachweis.', unit: 'cps', source_id: 'bbk' },
   { id: 'dlm', short: 'DLM', name: 'Dosisleistungsmessgerät', kind: 'radiologisch', description: 'Radiologische Messung der Dosisleistung.', unit: 'µSv/h', source_id: 'bbk' },
   { id: 'pid', short: 'PID', name: 'Photoionisationsdetektor', kind: 'chemisch', description: 'Summenanzeige flüchtiger organischer Verbindungen (VOC). Screening – keine sichere Stoffidentifikation.', unit: 'ppm', source_id: 'bbk' },
   { id: 'fmg', short: 'FMG', name: 'Fahrzeuggesteuertes Messsystem Gamma', kind: 'radiologisch', description: 'Kontinuierliche, georeferenzierte Gamma-Dosisleistungsmessung während der Fahrt.', unit: 'µSv/h', source_id: 'bbk' },
@@ -32,19 +32,19 @@ export const methods = [
   { id: 'm-lab', name: 'Laboranalytik', description: 'GC-MS, LC-MS, PCR, Immunoassay u. a. – im Labor.' },
 ];
 
-// Prüfröhrchen-Inventar: Produktbezeichnungen allgemein bekannt; Messbereiche bewusst offen => QUELLE ERFORDERLICH.
+// Prüfröhrchen-Inventar (generische Bezeichnungen); Messbereiche bewusst offen => QUELLE ERFORDERLICH.
 // Chargen/Verfall/Lagerstatus sind SIMULIERTE Inventardaten.
 export const tubes = [
-  ['Dräger', 'Chlor 0,2/a', 'Kurzzeit', 'Chlor', '7782-50-5'],
-  ['Dräger', 'Ammoniak 5/a', 'Kurzzeit', 'Ammoniak', '7664-41-7'],
-  ['Dräger', 'Schwefelwasserstoff 0,2/a', 'Kurzzeit', 'Schwefelwasserstoff', '7783-06-4'],
-  ['Dräger', 'Kohlenmonoxid 2/a', 'Kurzzeit', 'Kohlenmonoxid', '630-08-0'],
-  ['Dräger', 'Schwefeldioxid 0,5/a', 'Kurzzeit', 'Schwefeldioxid', '7446-09-5'],
-  ['Dräger', 'Blausäure 2/a', 'Kurzzeit', 'Cyanwasserstoff', '74-90-8'],
-  ['Dräger', 'Phosgen 0,05/a', 'Kurzzeit', 'Phosgen', '75-44-5'],
-  ['Dräger', 'Benzol 0,5/a', 'Kurzzeit', 'Benzol', '71-43-2'],
-  ['Dräger', 'Toluol 50/a', 'Kurzzeit', 'Toluol', '108-88-3'],
-  ['Dräger', 'Kohlendioxid 0,1%/a', 'Kurzzeit', 'Kohlendioxid', '124-38-9'],
+  ['Standardsatz', 'Chlor 0,2 ppm', 'Kurzzeit', 'Chlor', '7782-50-5'],
+  ['Standardsatz', 'Ammoniak 5 ppm', 'Kurzzeit', 'Ammoniak', '7664-41-7'],
+  ['Standardsatz', 'Schwefelwasserstoff 0,2 ppm', 'Kurzzeit', 'Schwefelwasserstoff', '7783-06-4'],
+  ['Standardsatz', 'Kohlenmonoxid 2 ppm', 'Kurzzeit', 'Kohlenmonoxid', '630-08-0'],
+  ['Standardsatz', 'Schwefeldioxid 0,5 ppm', 'Kurzzeit', 'Schwefeldioxid', '7446-09-5'],
+  ['Standardsatz', 'Blausäure 2 ppm', 'Kurzzeit', 'Cyanwasserstoff', '74-90-8'],
+  ['Standardsatz', 'Phosgen 0,05 ppm', 'Kurzzeit', 'Phosgen', '75-44-5'],
+  ['Standardsatz', 'Benzol 0,5 ppm', 'Kurzzeit', 'Benzol', '71-43-2'],
+  ['Standardsatz', 'Toluol 50 ppm', 'Kurzzeit', 'Toluol', '108-88-3'],
+  ['Standardsatz', 'Kohlendioxid 0,1 Vol%', 'Kurzzeit', 'Kohlendioxid', '124-38-9'],
 ].map(([manufacturer, product, tube_type, analyte, cas], i) => ({
   id: `T-${String(i + 1).padStart(3, '0')}`, manufacturer, product, tube_type, analyte, cas,
   range_text: null, unit: 'ppm', application: 'Orientierende Messung im Gasraum (Inventarfunktion)',
@@ -66,7 +66,7 @@ export const scenarios = [
   { id: 'sc-ammoniak', name: 'Industrieunfall Ammoniak', category: 'C', ref_type: 'substance', ref_id: 'ammoniak', radius_m: 600, devices: ['PID', 'IMS', 'MGMG'], weather: 'variabel', peak: 80, unit: 'ppm' },
   { id: 'sc-loesemittel', name: 'Lösemittelaustritt', category: 'C', ref_type: 'substance', ref_id: 'toluol', radius_m: 300, devices: ['PID', 'MGMG'], weather: 'variabel', peak: 120, unit: 'ppm' },
   { id: 'sc-unbekannt', name: 'Unbekannter Gefahrstoff', category: 'U', ref_type: 'substance', ref_id: 'aceton', radius_m: 250, devices: ['PID', 'IMS', 'MGMG'], weather: 'variabel', peak: 40, unit: 'ppm' },
-  { id: 'sc-rad', name: 'Radiologische Quelle', category: 'R', ref_type: 'radionuclide', ref_id: 'cs-137', radius_m: 200, devices: ['FMG', 'DLM', 'CoMo 170 ZS-2'], weather: 'variabel', peak: 85, unit: 'µSv/h' },
-  { id: 'sc-kontam', name: 'Kontaminierter Bereich', category: 'R', ref_type: 'radionuclide', ref_id: 'co-60', radius_m: 350, devices: ['FMG', 'DLM', 'CoMo 170 ZS-2'], weather: 'variabel', peak: 30, unit: 'µSv/h' },
+  { id: 'sc-rad', name: 'Radiologische Quelle', category: 'R', ref_type: 'radionuclide', ref_id: 'cs-137', radius_m: 200, devices: ['FMG', 'DLM', 'KM 170'], weather: 'variabel', peak: 85, unit: 'µSv/h' },
+  { id: 'sc-kontam', name: 'Kontaminierter Bereich', category: 'R', ref_type: 'radionuclide', ref_id: 'co-60', radius_m: 350, devices: ['FMG', 'DLM', 'KM 170'], weather: 'variabel', peak: 30, unit: 'µSv/h' },
   { id: 'sc-bio', name: 'Verdächtige biologische Probe', category: 'B', ref_type: 'biological', ref_id: 'b-anthracis', radius_m: 100, devices: ['Probenahme'], weather: 'variabel', peak: 0, unit: '' },
 ];

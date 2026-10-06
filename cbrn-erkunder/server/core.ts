@@ -6,6 +6,7 @@ import { startSim } from './sim.js';
 import { purgeSessions } from './auth.js';
 import { App } from './router.js';
 import { tickAnalyses } from './samples.js';
+import { neutralizeBrands } from './brands.js';
 
 /** Startet Datenbank, Referenzdaten, Simulation und Router. Gemeinsam für FiveM-Server und Entwicklungs-Testserver. */
 export async function boot(opts: { dbFile: string | null; wasmFile: string }) {
@@ -19,6 +20,7 @@ export async function boot(opts: { dbFile: string | null; wasmFile: string }) {
     db.exec('PRAGMA foreign_keys = ON');
   }
   seedIfEmpty();
+  neutralizeBrands(); // ältere Datenbanken: Herstellernamen in gespeicherten Texten ersetzen
   db.exec("UPDATE runs SET ended_at = COALESCE(ended_at, started_at) WHERE ended_at IS NULL"); // Reste einer unterbrochenen Messfahrt schließen
   setSetting('map_mode', config.mapMode);
   purgeSessions();

@@ -20,7 +20,7 @@ export default function Vehicle() {
         </Panel>
         <Panel title="Besatzung"><table className="t"><tbody>{(crew.data ?? []).map((c) => <tr key={c.id}><td className="text-dim uppercase text-[11px]">{c.role}</td><td>{c.name}</td></tr>)}</tbody></table></Panel>
         <Panel title="Aktuelle Anzeigen" className="col-span-2">
-          {r && <div className="grid grid-cols-6 gap-3"><Field label="PID">{num(r.pid.value, 1)} ppm</Field><Field label="IMS">{r.ims.level ? r.ims.result : 'KEIN TREFFER'}</Field><Field label="Dosisleistung">{num(r.dose.value, 3)} µSv/h</Field><Field label="CoMo">{num(r.como.value, 1)} cps</Field><Field label="O₂">{r.mgmg.channels.O2 ?? '–'} %</Field><Field label="CO">{r.mgmg.channels.CO ?? '–'} ppm</Field></div>}
+          {r && <div className="grid grid-cols-6 gap-3"><Field label="PID">{num(r.pid.value, 1)} ppm</Field><Field label="IMS">{r.ims.level ? r.ims.result : 'KEIN TREFFER'}</Field><Field label="Dosisleistung">{num(r.dose.value, 3)} µSv/h</Field><Field label="KM">{num(r.como.value, 1)} cps</Field><Field label="O₂">{r.mgmg.channels.O2 ?? '–'} %</Field><Field label="CO">{r.mgmg.channels.CO ?? '–'} ppm</Field></div>}
         </Panel>
       </div>
     </Page>

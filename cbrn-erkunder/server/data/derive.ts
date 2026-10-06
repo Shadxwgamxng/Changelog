@@ -178,9 +178,9 @@ export function radResponse(n: { name: string; radiation: string[]; half_life: s
     schutz: ['4A-Regel: Abstand halten, Abschirmung nutzen, Aufenthaltszeit minimieren, Aktivitätsaufnahme (Inkorporation) verhindern.', 'Persönliches Dosimeter und Dosisleistungswarngerät; Schutzkleidung/Handschuhe/Atemschutz (bei Staub/Aerosol) – Kontaminationsschutz.', gamma ? 'Abschirmung gegen Gamma: dichte Materialien (Blei, Beton, Stahl) – Wirkung begrenzt.' : ''].filter(Boolean),
     brand: ['Löschmittel auf Umgebungsbrand abstimmen; Brandrauch/Löschwasser können kontaminiert sein – Atemschutz, Löschwasser auffangen.'],
     freisetzung: ['Quelle nicht berühren; Bereich sichern; Strahlenschutz-Fachkräfte (z. B. ABC-Erkundung, Landesbehörde) anfordern.', 'Kontamination eingrenzen (abdecken, Staub binden), Abwasser auffangen.'],
-    dekon: ['Kontaminationskontrolle an Personen/Geräten (z. B. CoMo 170 ZS-2), Kleidung ausziehen, Abduschen; Dekon-Abwasser auffangen; Dosisbuch führen.'],
+    dekon: ['Kontaminationskontrolle an Personen/Geräten (Kontaminationsmonitor), Kleidung ausziehen, Abduschen; Dekon-Abwasser auffangen; Dosisbuch führen.'],
     rettung: ['Eigenschutz vor Menschenrettung; Verletzte zuerst retten und medizinisch versorgen, Dekon nachrangig, sofern keine lebensbedrohliche Kontamination.', 'Rettungsdienst/Krankenhaus über mögliche Kontamination informieren.'],
-    messen: ['Dosisleistung (FMG/Dosisleistungsmessgerät), Kontaminationsnachweis (CoMo 170 ZS-2), Gammaspektrometrie zur Nuklidzuordnung; Messpunkte georeferenziert dokumentieren.'],
+    messen: ['Dosisleistung (FMG/Dosisleistungsmessgerät), Kontaminationsnachweis (Kontaminationsmonitor), Gammaspektrometrie zur Nuklidzuordnung; Messpunkte georeferenziert dokumentieren.'],
     hinweise: [`Halbwertszeit ${n.half_life}.`, 'Richtwerte; QUELLE ERFORDERLICH – Strahlenschutz-Fachberatung/Einsatzvorschrift maßgeblich. Simulations-/Rollenspielhilfe.'],
   };
 }

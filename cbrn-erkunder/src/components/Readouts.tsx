@@ -68,7 +68,7 @@ function RadInner({ r, link = true }: { r: any; link?: boolean }) {
   return (
     <Panel title="Radiologische Messung" right={link && <Link className="text-accent" to="/geraete/dlm">Gerätepage →</Link>} className="h-full">
       <div className="flex items-end gap-2"><span className="text-[34px] font-mono leading-none" style={{ color: st === 'NORMAL' ? undefined : st === 'ALARM' ? '#e5534b' : '#d29922' }}>{num(r.dose.value, 3)}</span><span className="text-dim mb-1">µSv/h</span><span className="ml-auto"><StatusBadge s={st} /></span></div>
-      <div className="grid grid-cols-3 gap-3 mt-3"><Field label="CoMo 170 ZS-2">{num(r.como.value, 1)} cps</Field><Field label="GPS"><StatusBadge s="FIX" /></Field><Field label="Trend">{hist.length > 5 ? (hist.at(-1)!.dose > hist.at(-6)!.dose * 1.05 ? '▲ steigend' : hist.at(-1)!.dose < hist.at(-6)!.dose * 0.95 ? '▼ fallend' : '► stabil') : '–'}</Field></div>
+      <div className="grid grid-cols-3 gap-3 mt-3"><Field label="Kontaminationsmonitor">{num(r.como.value, 1)} cps</Field><Field label="GPS"><StatusBadge s="FIX" /></Field><Field label="Trend">{hist.length > 5 ? (hist.at(-1)!.dose > hist.at(-6)!.dose * 1.05 ? '▲ steigend' : hist.at(-1)!.dose < hist.at(-6)!.dose * 0.95 ? '▼ fallend' : '► stabil') : '–'}</Field></div>
     </Panel>
   );
 }

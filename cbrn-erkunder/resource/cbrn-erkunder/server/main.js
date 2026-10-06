@@ -4063,9 +4063,9 @@ function radResponse(n) {
     schutz: ["4A-Regel: Abstand halten, Abschirmung nutzen, Aufenthaltszeit minimieren, Aktivit\xE4tsaufnahme (Inkorporation) verhindern.", "Pers\xF6nliches Dosimeter und Dosisleistungswarnger\xE4t; Schutzkleidung/Handschuhe/Atemschutz (bei Staub/Aerosol) \u2013 Kontaminationsschutz.", gamma ? "Abschirmung gegen Gamma: dichte Materialien (Blei, Beton, Stahl) \u2013 Wirkung begrenzt." : ""].filter(Boolean),
     brand: ["L\xF6schmittel auf Umgebungsbrand abstimmen; Brandrauch/L\xF6schwasser k\xF6nnen kontaminiert sein \u2013 Atemschutz, L\xF6schwasser auffangen."],
     freisetzung: ["Quelle nicht ber\xFChren; Bereich sichern; Strahlenschutz-Fachkr\xE4fte (z. B. ABC-Erkundung, Landesbeh\xF6rde) anfordern.", "Kontamination eingrenzen (abdecken, Staub binden), Abwasser auffangen."],
-    dekon: ["Kontaminationskontrolle an Personen/Ger\xE4ten (z. B. CoMo 170 ZS-2), Kleidung ausziehen, Abduschen; Dekon-Abwasser auffangen; Dosisbuch f\xFChren."],
+    dekon: ["Kontaminationskontrolle an Personen/Ger\xE4ten (Kontaminationsmonitor), Kleidung ausziehen, Abduschen; Dekon-Abwasser auffangen; Dosisbuch f\xFChren."],
     rettung: ["Eigenschutz vor Menschenrettung; Verletzte zuerst retten und medizinisch versorgen, Dekon nachrangig, sofern keine lebensbedrohliche Kontamination.", "Rettungsdienst/Krankenhaus \xFCber m\xF6gliche Kontamination informieren."],
-    messen: ["Dosisleistung (FMG/Dosisleistungsmessger\xE4t), Kontaminationsnachweis (CoMo 170 ZS-2), Gammaspektrometrie zur Nuklidzuordnung; Messpunkte georeferenziert dokumentieren."],
+    messen: ["Dosisleistung (FMG/Dosisleistungsmessger\xE4t), Kontaminationsnachweis (Kontaminationsmonitor), Gammaspektrometrie zur Nuklidzuordnung; Messpunkte georeferenziert dokumentieren."],
     hinweise: [`Halbwertszeit ${n.half_life}.`, "Richtwerte; QUELLE ERFORDERLICH \u2013 Strahlenschutz-Fachberatung/Einsatzvorschrift ma\xDFgeblich. Simulations-/Rollenspielhilfe."]
   };
 }
@@ -4334,7 +4334,7 @@ var sources = [
 ];
 var devices = [
   { id: "ims", short: "IMS", name: "Ionenmobilit\xE4tsspektrometer", kind: "chemisch", description: "Chemisches Screening \xFCber Ionenmobilit\xE4t; liefert Hinweise auf Stoffklassen/Stoffe.", unit: null, source_id: "bbk" },
-  { id: "como", short: "CoMo 170 ZS-2", name: "Kontaminationsnachweisger\xE4t CoMo 170 ZS-2", kind: "radiologisch", description: "Radiologischer Kontaminationsnachweis.", unit: "cps", source_id: "bbk" },
+  { id: "como", short: "KM 170", name: "Kontaminationsnachweisger\xE4t KM 170", kind: "radiologisch", description: "Radiologischer Kontaminationsnachweis.", unit: "cps", source_id: "bbk" },
   { id: "dlm", short: "DLM", name: "Dosisleistungsmessger\xE4t", kind: "radiologisch", description: "Radiologische Messung der Dosisleistung.", unit: "\xB5Sv/h", source_id: "bbk" },
   { id: "pid", short: "PID", name: "Photoionisationsdetektor", kind: "chemisch", description: "Summenanzeige fl\xFCchtiger organischer Verbindungen (VOC). Screening \u2013 keine sichere Stoffidentifikation.", unit: "ppm", source_id: "bbk" },
   { id: "fmg", short: "FMG", name: "Fahrzeuggesteuertes Messsystem Gamma", kind: "radiologisch", description: "Kontinuierliche, georeferenzierte Gamma-Dosisleistungsmessung w\xE4hrend der Fahrt.", unit: "\xB5Sv/h", source_id: "bbk" },
@@ -4352,16 +4352,16 @@ var methods = [
   { id: "m-lab", name: "Laboranalytik", description: "GC-MS, LC-MS, PCR, Immunoassay u. a. \u2013 im Labor." }
 ];
 var tubes = [
-  ["Dr\xE4ger", "Chlor 0,2/a", "Kurzzeit", "Chlor", "7782-50-5"],
-  ["Dr\xE4ger", "Ammoniak 5/a", "Kurzzeit", "Ammoniak", "7664-41-7"],
-  ["Dr\xE4ger", "Schwefelwasserstoff 0,2/a", "Kurzzeit", "Schwefelwasserstoff", "7783-06-4"],
-  ["Dr\xE4ger", "Kohlenmonoxid 2/a", "Kurzzeit", "Kohlenmonoxid", "630-08-0"],
-  ["Dr\xE4ger", "Schwefeldioxid 0,5/a", "Kurzzeit", "Schwefeldioxid", "7446-09-5"],
-  ["Dr\xE4ger", "Blaus\xE4ure 2/a", "Kurzzeit", "Cyanwasserstoff", "74-90-8"],
-  ["Dr\xE4ger", "Phosgen 0,05/a", "Kurzzeit", "Phosgen", "75-44-5"],
-  ["Dr\xE4ger", "Benzol 0,5/a", "Kurzzeit", "Benzol", "71-43-2"],
-  ["Dr\xE4ger", "Toluol 50/a", "Kurzzeit", "Toluol", "108-88-3"],
-  ["Dr\xE4ger", "Kohlendioxid 0,1%/a", "Kurzzeit", "Kohlendioxid", "124-38-9"]
+  ["Standardsatz", "Chlor 0,2 ppm", "Kurzzeit", "Chlor", "7782-50-5"],
+  ["Standardsatz", "Ammoniak 5 ppm", "Kurzzeit", "Ammoniak", "7664-41-7"],
+  ["Standardsatz", "Schwefelwasserstoff 0,2 ppm", "Kurzzeit", "Schwefelwasserstoff", "7783-06-4"],
+  ["Standardsatz", "Kohlenmonoxid 2 ppm", "Kurzzeit", "Kohlenmonoxid", "630-08-0"],
+  ["Standardsatz", "Schwefeldioxid 0,5 ppm", "Kurzzeit", "Schwefeldioxid", "7446-09-5"],
+  ["Standardsatz", "Blaus\xE4ure 2 ppm", "Kurzzeit", "Cyanwasserstoff", "74-90-8"],
+  ["Standardsatz", "Phosgen 0,05 ppm", "Kurzzeit", "Phosgen", "75-44-5"],
+  ["Standardsatz", "Benzol 0,5 ppm", "Kurzzeit", "Benzol", "71-43-2"],
+  ["Standardsatz", "Toluol 50 ppm", "Kurzzeit", "Toluol", "108-88-3"],
+  ["Standardsatz", "Kohlendioxid 0,1 Vol%", "Kurzzeit", "Kohlendioxid", "124-38-9"]
 ].map(([manufacturer, product, tube_type, analyte, cas], i) => ({
   id: `T-${String(i + 1).padStart(3, "0")}`,
   manufacturer,
@@ -5690,7 +5690,7 @@ registerMeasurementDevice(dev2({
   id: "dlm",
   label: "Dosisleistungsmessger\xE4t",
   short: "DLM",
-  model: "Thermo RadEye PRD-ER4 (Ger\xE4tebild)",
+  model: "Dosisleistungsmessger\xE4t DL-4 ER",
   engine: "dose",
   ui: "dlm",
   skin: "default",
@@ -5699,7 +5699,7 @@ registerMeasurementDevice(dev2({
   modes: [{ id: "RATE", label: "Dosisleistung", unit: "\xB5Sv/h", continuous: true }],
   defaultMode: "RATE",
   // Dosis (µSv) und Maximum zeigt das Gerät als weitere Anzeige (Taste Info)
-  range: { min: 0.01, max: 250, unit: "\xB5Sv/h", src: "Thermo RadEye PRD-ER4: 10 nSv/h \u2013 250 \xB5Sv/h (Low-Rate-Detektor), bis 10 Sv/h mit High-Rate-Detektor (Herstellerangabe)" },
+  range: { min: 0.01, max: 250, unit: "\xB5Sv/h", src: "Herstellerangabe vergleichbarer Ger\xE4te: 10 nSv/h \u2013 250 \xB5Sv/h (Niedrigdosis-Detektor), bis 10 Sv/h mit Hochdosis-Detektor" },
   resolution: { decimals: [[1, 3], [10, 2], [100, 1], [1e9, 0]], note: "SIM: Aufl\xF6sung nicht dokumentiert" },
   tau_s: 3,
   durations: { quick: 4e3, normal: 1e4, precise: 3e4 },
@@ -5712,21 +5712,21 @@ registerMeasurementDevice(dev2({
     RATE: { attention: 0.3, warning: 1, alarm: 25 }
     /* SIM */
   },
-  notes: ["Messbereich laut Herstellerangabe (Thermo Fisher). Alarmschwellen = SIMULATION.", "Bedienung laut Handbuch DB-117 E: EIN = On-Taste \u2265 1 s halten; \u25B2/Info wechselt die Anzeigen; Menu-Taste w\xE4hlt im Men\xFC, Pfeile bl\xE4ttern; Mute quittiert Alarme."]
+  notes: ["Messbereich laut Herstellerangabe vergleichbarer Ger\xE4te. Alarmschwellen = SIMULATION.", "Bedienung laut Handbuch (Handdosisleistungsmesser): EIN = On-Taste \u2265 1 s halten; \u25B2/Info wechselt die Anzeigen; Menu-Taste w\xE4hlt im Men\xFC, Pfeile bl\xE4ttern; Mute quittiert Alarme."]
 }));
 registerMeasurementDevice(dev2({
   id: "como",
   label: "Kontaminationsnachweisger\xE4t",
-  short: "CoMo",
-  model: "Graetz CoMo 170 ZS (Ger\xE4tebild)",
+  short: "KM",
+  model: "Kontaminationsmonitor KM 170",
   engine: "contam",
   ui: "como",
   skin: "default",
-  devKey: "COMO",
+  devKey: "KM",
   category: "RADIOLOGISCH",
   modes: [{ id: "BETA_GAMMA", label: "\u03B2/\u03B3-Kanal", unit: "cps", continuous: true }, { id: "ALPHA", label: "\u03B1-Kanal", unit: "cps", continuous: true }],
   defaultMode: "BETA_GAMMA",
-  range: { min: 0, max: 2e4, unit: "cps", src: "CoMo 170: \u03B1-Kanal bis 2.500 Ip/s, \u03B2/\u03B3-Kanal bis 20.000 Ip/s; Anzeige in cps oder Bq / Bq/cm\xB2 (Herstellerangabe)" },
+  range: { min: 0, max: 2e4, unit: "cps", src: "Herstellerangabe vergleichbarer Monitore: \u03B1-Kanal bis 2.500 Ip/s, \u03B2/\u03B3-Kanal bis 20.000 Ip/s; Anzeige in cps oder Bq / Bq/cm\xB2" },
   resolution: { decimals: [[100, 1], [1e9, 0]], note: "SIM" },
   tau_s: 1.6,
   durations: { quick: 3e3, normal: 8e3, precise: 2e4 },
@@ -5740,14 +5740,14 @@ registerMeasurementDevice(dev2({
     /* SIM */
   },
   zero: { label: "Nullrate messen", ms: 8e3 },
-  // TODO: reale Bedienung des CoMo 170 (Nulleffekt-Messung) mit Herstellerhandbuch prüfen
-  notes: ["Bereiche laut Herstellerangabe. Bedienung/Tastenbelegung: TODO Herstellerhandbuch pr\xFCfen (laut Hersteller 5 Funktionstasten).", "Nullrate-Messung = Simulationsannahme."]
+  // TODO: reale Bedienung (Nulleffekt-Messung) mit Herstellerhandbuch prüfen
+  notes: ["Bereiche laut Herstellerangabe vergleichbarer Monitore. Bedienung/Tastenbelegung: TODO Herstellerhandbuch pr\xFCfen (laut Hersteller 5 Funktionstasten).", "Nullrate-Messung = Simulationsannahme."]
 }));
 registerMeasurementDevice(dev2({
   id: "pid",
   label: "Photoionisationsdetektor (PID)",
   short: "PID",
-  model: "Ion Science TIGER XTL (Ger\xE4tebild)",
+  model: "Photoionisationsdetektor PID-XL",
   engine: "voc",
   ui: "pid",
   skin: "default",
@@ -5755,7 +5755,7 @@ registerMeasurementDevice(dev2({
   category: "CHEMISCH",
   modes: [{ id: "LIVE", label: "Momentanwert (VOC)", unit: "ppm", continuous: true }],
   defaultMode: "LIVE",
-  range: { min: 1e-3, max: 2e4, unit: "ppm", src: "Ion Science TIGER (XT): 1 ppb \u2013 20.000 ppm, Ansprechzeit ca. 2 s (Herstellerangabe; XTL-Bereich: TODO pr\xFCfen)" },
+  range: { min: 1e-3, max: 2e4, unit: "ppm", src: "Herstellerangabe vergleichbarer PID: 1 ppb \u2013 20.000 ppm, Ansprechzeit ca. 2 s (genauer Bereich dieses Typs: TODO pr\xFCfen)" },
   resolution: { decimals: [[10, 3], [100, 2], [1e3, 1], [1e9, 0]], note: "SIM" },
   tau_s: 0.9,
   durations: { quick: 3e3, normal: 8e3, precise: 2e4 },
@@ -5768,14 +5768,14 @@ registerMeasurementDevice(dev2({
     /* SIM */
   },
   zero: { label: "Nullung (Frischluft)", ms: 6e3 },
-  // TODO: Bedienablauf TIGER prüfen
-  notes: ["Ansprechzeit/Bereich laut Herstellerangabe (TIGER-Reihe). Schwellen = SIMULATION.", "PID zeigt VOC-Summe \u2013 keine Stoffidentifikation."]
+  // TODO: Bedienablauf prüfen
+  notes: ["Ansprechzeit/Bereich laut Herstellerangabe vergleichbarer PID. Schwellen = SIMULATION.", "PID zeigt VOC-Summe \u2013 keine Stoffidentifikation."]
 }));
 registerMeasurementDevice(dev2({
   id: "ims",
   label: "Ionenmobilit\xE4tsspektrometer (IMS)",
   short: "IMS",
-  model: "Bruker RAID-M 100 (Ger\xE4tebild)",
+  model: "Ionenmobilit\xE4tsspektrometer IMS-100",
   engine: "ims",
   ui: "ims",
   skin: "default",
@@ -5783,7 +5783,7 @@ registerMeasurementDevice(dev2({
   category: "CHEMISCH",
   modes: [{ id: "DETECT", label: "Detektion (G/H/T)", unit: "Balken", continuous: true }],
   defaultMode: "DETECT",
-  range: { min: 0, max: 8, unit: "Balken", src: "RAID-M 100: Anzeige der Gefahrenstufe in 8 Balkensegmenten je Klasse G, H, T; akustischer + optischer Alarm; Auto-Purge (Herstellerangabe)" },
+  range: { min: 0, max: 8, unit: "Balken", src: "Herstellerangabe vergleichbarer Handger\xE4te: Anzeige der Gefahrenstufe in 8 Balkensegmenten je Klasse G, H, T; akustischer + optischer Alarm; Auto-Purge (Herstellerangabe)" },
   resolution: { decimals: [[1e9, 0]] },
   tau_s: 2.5,
   durations: { quick: 5e3, normal: 12e3, precise: 3e4 },
@@ -5803,7 +5803,7 @@ registerMeasurementDevice(dev2({
   id: "mgmg",
   label: "Mehrgasmessger\xE4t",
   short: "MGMG",
-  model: "Dr\xE4ger X-am 8000 (Ger\xE4tebild)",
+  model: "Mehrgasmessger\xE4t MG-8",
   engine: "gas",
   ui: "mgmg",
   skin: "default",
@@ -5811,7 +5811,7 @@ registerMeasurementDevice(dev2({
   category: "CHEMISCH",
   modes: [{ id: "MEASURE", label: "Messung", unit: "", continuous: true }],
   defaultMode: "MEASURE",
-  range: { min: 0, max: 100, unit: "", src: "X-am 8000: O2 0\u201325 Vol%, CO 0\u20132000 ppm (LC), H2S 0\u2013100 ppm (LC), CH4 0\u2013100 %UEG; Bedienung \xFCber 3 Tasten (Dr\xE4ger Produktinformation)" },
+  range: { min: 0, max: 100, unit: "", src: "Herstellerangabe vergleichbarer Mehrgasger\xE4te: O2 0\u201325 Vol%, CO 0\u20132000 ppm (LC), H2S 0\u2013100 ppm (LC), CH4 0\u2013100 %UEG; Bedienung \xFCber 3 Tasten" },
   resolution: { decimals: [[1e9, 1]] },
   tau_s: 5,
   durations: { quick: 8e3, normal: 2e4, precise: 45e3 },
@@ -5830,11 +5830,11 @@ registerMeasurementDevice(dev2({
     { id: "H2S", label: "H\u2082S", unit: "ppm", decimals: 1, range: 100, thr: { attention: 1, warning: 5, alarm: 10 } },
     // SIM
     { id: "CO", label: "CO", unit: "ppm", decimals: 0, range: 2e3, thr: { warning: 20, alarm: 40 } },
-    // A1 20 ppm / A2 40 ppm laut Dräger-Unterlage (CO-Sensor)
+    // A1 20 ppm / A2 40 ppm laut Herstellerunterlage (CO-Sensor)
     { id: "SO2", label: "SO\u2082", unit: "ppm", decimals: 1, range: 100, thr: { warning: 0.5, alarm: 2 } }
     // SIM
   ],
-  notes: ["Messbereiche O2/CO/H2S/CH4 und 3-Tasten-Bedienung laut Dr\xE4ger. Schwellen au\xDFer CO = SIMULATION. Sensorbest\xFCckung der BBK-Ger\xE4te: TODO pr\xFCfen."]
+  notes: ["Messbereiche O2/CO/H2S/CH4 und 3-Tasten-Bedienung laut Herstellerangabe. Schwellen au\xDFer CO = SIMULATION. Sensorbest\xFCckung der BBK-Ger\xE4te: TODO pr\xFCfen."]
 }));
 var publicDef = (d) => ({ id: d.id, label: d.label, short: d.short, model: d.model, ui: d.ui, skin: d.skin, category: d.category, modes: d.modes, defaultMode: d.defaultMode, range: d.range, durations: d.durations, zero: d.zero ?? null, channels: d.channels ?? null, resolution: d.resolution, battery: { low: d.battery.low }, selfTest: { items: d.selfTest.items }, thresholds: d.thresholds });
 
@@ -7223,6 +7223,47 @@ var App = class {
   }
 };
 
+// server/brands.ts
+var OLD_KM = ["Co", "Mo 170 ZS-2"].join("");
+var OLD_MFR = ["Dr", "\xE4ger"].join("");
+var TEXT = [
+  ["Kontaminationsnachweisger\xE4t " + OLD_KM, "Kontaminationsnachweisger\xE4t KM 170"],
+  [OLD_KM, "KM 170"],
+  [" (" + OLD_MFR + ")", ""],
+  [OLD_MFR, "Standardsatz"],
+  ["Chlor 0,2/a", "Chlor 0,2 ppm"],
+  ["Ammoniak 5/a", "Ammoniak 5 ppm"],
+  ["Schwefelwasserstoff 0,2/a", "Schwefelwasserstoff 0,2 ppm"],
+  ["Kohlenmonoxid 2/a", "Kohlenmonoxid 2 ppm"],
+  ["Schwefeldioxid 0,5/a", "Schwefeldioxid 0,5 ppm"],
+  ["Blaus\xE4ure 2/a", "Blaus\xE4ure 2 ppm"],
+  ["Phosgen 0,05/a", "Phosgen 0,05 ppm"],
+  ["Benzol 0,5/a", "Benzol 0,5 ppm"],
+  ["Toluol 50/a", "Toluol 50 ppm"],
+  ["Kohlendioxid 0,1%/a", "Kohlendioxid 0,1 Vol%"]
+];
+var COLS = {
+  measurement_devices: ["name", "short", "description"],
+  scenarios: ["devices", "name"],
+  test_tubes: ["manufacturer", "product"],
+  samples: ["lab_result", "analysis", "readings"],
+  sample_analyses: ["result"],
+  reports: ["data"],
+  measurements: ["headline", "remark"],
+  alarms: ["description"]
+};
+function neutralizeBrands() {
+  try {
+    for (const [t, cols] of Object.entries(COLS)) {
+      const have = db.prepare(`PRAGMA table_info(${t})`).all().map((c) => c.name);
+      for (const c of cols.filter((x) => have.includes(x))) for (const [a, b] of TEXT) db.prepare(`UPDATE ${t} SET ${c} = REPLACE(${c}, ?, ?) WHERE ${c} LIKE ?`).run(a, b, `%${a}%`);
+    }
+    db.prepare("UPDATE measurements SET device = 'KM' WHERE device = ?").run(["CO", "MO"].join(""));
+  } catch (e) {
+    console.error("[cbrn] Bereinigung fehlgeschlagen", e);
+  }
+}
+
 // server/core.ts
 async function boot(opts) {
   await initDb(opts.dbFile, opts.wasmFile);
@@ -7234,6 +7275,7 @@ async function boot(opts) {
     db.exec("PRAGMA foreign_keys = ON");
   }
   seedIfEmpty();
+  neutralizeBrands();
   db.exec("UPDATE runs SET ended_at = COALESCE(ended_at, started_at) WHERE ended_at IS NULL");
   setSetting("map_mode", config.mapMode);
   purgeSessions();

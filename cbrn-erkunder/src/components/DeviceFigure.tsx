@@ -209,7 +209,7 @@ function useSpots(id: string, ctx: any): Spot[] {
   }
   if (id === 'como') { const v = r?.como.value ?? 0;
     P(...C(), 'l', 40, 'Anzeige · Zählrate', `${num(v, 1)} cps`, 'Kontaminationsnachweis', undefined, [['Messwert', num(v, 1)], ['Einheit', 'cps (Zählrate)'], ['Hinweis', 'Umrechnung in Bq/cm² benötigt Kalibrierdaten – NICHT VERFÜGBAR']]);
-    P(...A('plate'), 'r', 150, 'Messfläche (Sonde)', 'Kontamination', 'Abstand zur Oberfläche beachten', COL.acc, [['Funktion', 'Nachweis von Oberflächenkontamination'], ['Gerät', 'CoMo 170 ZS-2 (Bezeichnung nach BBK)']]);
+    P(...A('plate'), 'r', 150, 'Messfläche (Sonde)', 'Kontamination', 'Abstand zur Oberfläche beachten', COL.acc, [['Funktion', 'Nachweis von Oberflächenkontamination'], ['Gerät', 'Kontaminationsnachweisgerät']]);
     P(...A('keypad'), 'l', 150, 'Tasten · Status', 'ONLINE', undefined, COL.ok, [['Status', 'ONLINE'], ['Bedienung', 'Nullpunkt, Lautstärke, Messbereich']]);
     P(...A('speaker'), 'r', 40, 'Akustik (Zählrate)', 'Lautsprecher', undefined, undefined, [['Funktion', 'Hörbare Zählrate / Alarmton']]);
     common(...A('handle'), 260, 'l');
