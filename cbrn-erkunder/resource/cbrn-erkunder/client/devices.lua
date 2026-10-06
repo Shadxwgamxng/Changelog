@@ -13,14 +13,30 @@ function CBRN.deviceAction(veh)
   return { text = 'Messgerät entnehmen', run = function() D.veh = VehToNet(veh); TriggerServerEvent('cbrn:dev:inventory', D.veh) end }
 end
 
--- Auswahlmenü im Stil der Probenentnahme-Karte (NUI statt ox_lib-Kontextmenü). items = { {id, label, sub, disabled} }, cb(id)
-local menuCb
+-- Auswahlmenü im Stil der Probenentnahme-Karte (NUI, unten rechts, OHNE Mauszeiger). Bedienung über das Spiel:
+-- Mausrad wählt, Enter oder Linksklick bestätigt, Rücktaste schließt (auch automatisch beim Entfernen/Einsteigen).
+-- items = { {id, label, sub, disabled} }, cb(id)
+local menuCb, menuOpen
 function CBRN.choose(title, items, cb)
-  menuCb = cb; SetNuiFocus(true, true); SetNuiFocusKeepInput(false)
+  menuCb, menuOpen = cb, true
   nui({ type = 'dev-menu', title = title, items = items })
+  local p0 = GetEntityCoords(PlayerPedId())
+  CreateThread(function()
+    local t0 = GetGameTimer()
+    while menuOpen do
+      for _, c in ipairs({ 14, 15, 16, 17, 99, 100, 24, 25, 37, 140, 141, 142, 257 }) do DisableControlAction(0, c, true) end -- kein Waffenrad/Schlagen/Waffenwechsel
+      local inv = Config.Devices.MenuInvertScroll
+      if IsDisabledControlJustPressed(0, 14) or IsDisabledControlJustPressed(0, 16) or IsDisabledControlJustPressed(0, 99) then nui({ type = 'dev-menu-nav', dir = inv and 'up' or 'down' }) end
+      if IsDisabledControlJustPressed(0, 15) or IsDisabledControlJustPressed(0, 17) or IsDisabledControlJustPressed(0, 100) then nui({ type = 'dev-menu-nav', dir = inv and 'down' or 'up' }) end
+      if GetGameTimer() - t0 > 300 and (IsDisabledControlJustPressed(0, 191) or IsDisabledControlJustPressed(0, 201) or IsDisabledControlJustPressed(0, 24)) then nui({ type = 'dev-menu-pick' }) end
+      if IsControlJustPressed(0, 177) or IsPedInAnyVehicle(PlayerPedId(), false) or #(GetEntityCoords(PlayerPedId()) - p0) > 4.0 or IsEntityDead(PlayerPedId()) then nui({ type = 'dev-menu-close' }) end
+      Wait(0)
+    end
+  end)
 end
+function CBRN.menuIsOpen() return menuOpen end
 local function menuDone(id)
-  SetNuiFocus(D.mouse, D.mouse); SetNuiFocusKeepInput(false) -- zurück zum vorherigen Fokus (Gerät: Mauszeiger an/aus)
+  menuOpen = false
   local f = menuCb; menuCb = nil
   if f and id then f(id) end
 end

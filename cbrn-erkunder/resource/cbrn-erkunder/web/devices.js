@@ -310,6 +310,12 @@
     for (let n = 0; n < M.items.length; n++) { i = (i + dir + M.items.length) % M.items.length; if (!M.items[i].disabled) break; }
     M.sel = i; menuDraw(); const el = M.el.querySelectorAll('.mi')[i]; if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' });
   }, { passive: false });
-  window.addEventListener('message', (e) => { const d = e.data || {}; if (d.type === 'dev-menu') menuShow(d); });
+  // Steuerung ohne Mauszeiger: der Lua-Client liest Mausrad/Enter/Rücktaste aus dem Spiel und schickt nav/pick/close
+  window.addEventListener('message', (e) => {
+    const d = e.data || {}; if (d.type === 'dev-menu') menuShow(d);
+    else if (d.type === 'dev-menu-nav' && M.open) { const dir = d.dir === 'down' ? 1 : -1; let i = M.sel; for (let n = 0; n < M.items.length; n++) { i = (i + dir + M.items.length) % M.items.length; if (!M.items[i].disabled) break; } M.sel = i; menuDraw(); }
+    else if (d.type === 'dev-menu-pick' && M.open) { const it = M.items[M.sel]; if (it && !it.disabled) menuClose(it.id); }
+    else if (d.type === 'dev-menu-close' && M.open) menuClose(null);
+  });
   window.CBRN_DEV = { on, U, SKINS, handleSem, handleKey };
 })();

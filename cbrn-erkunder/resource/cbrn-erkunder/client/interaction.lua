@@ -53,6 +53,7 @@ end
 --- Ohne eigenen Messgerätepunkt (deviceShared) teilen sich Probenset und Messgeräte einen Kreis: dann öffnet sich ein kleines Auswahlmenü.
 local function circleAction(veh, which)
   if S.busy or S.phase == 'collecting' then return nil end
+  if CBRN.menuIsOpen and CBRN.menuIsOpen() then return nil end
   if which == 'device' then return CBRN.deviceAction and CBRN.deviceAction(veh) or nil end
   local sa = sampleAction(veh)
   local e = CBRN.Points[modelOf(veh)]

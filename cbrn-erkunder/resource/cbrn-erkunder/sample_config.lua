@@ -26,6 +26,7 @@ Config.Devices = {
   ForceReturnOnVehicle = true,    -- Gerät wird automatisch ins Fahrzeug zurückgelegt, wenn man in ein Fahrzeug steigt
   Keys = { cursor = 'EQUALS', hide = 'BACK' },   -- cursor: Mauszeiger ein (EQUALS = Taste ´ auf deutscher Tastatur; jeder Spieler kann sie unter Einstellungen > Tastenbelegung > FiveM ändern) · Rücktaste: Gerät ein-/ausblenden · Pfeiltasten + Enter bedienen das Gerät (Enter halten: Ein/Aus)
   Anim = { dict = 'cellphone@', clip = 'cellphone_text_read_base', flag = 49 },   -- Haltepose: Handy halten (nil = keine Animation)
+  MenuInvertScroll = false,       -- true: Mausrad-Richtung im Auswahlmenü umkehren
   Props = {},                     -- optional je Geraet: Props = { dlm = { model = 'prop_...', bone = 28422, pos = vec3(0,0,0), rot = vec3(0,0,0) } }
 }
 
