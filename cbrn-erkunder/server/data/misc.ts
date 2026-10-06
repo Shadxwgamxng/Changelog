@@ -48,7 +48,7 @@ export const tubes = [
 ].map(([manufacturer, product, tube_type, analyte, cas], i) => ({
   id: `T-${String(i + 1).padStart(3, '0')}`, manufacturer, product, tube_type, analyte, cas,
   range_text: null, unit: 'ppm', application: 'Orientierende Messung im Gasraum (Inventarfunktion)',
-  storage_status: i === 6 ? 'Nachbestellen' : 'Verfügbar', lot: `SIM-${2400 + i * 7}`, expiry: `${2027 + (i % 3)}-0${1 + (i % 9)}-30`,
+  storage_status: i === 6 ? 'Nachbestellen' : 'Verfügbar', lot: `CH-${2400 + i * 7}`, expiry: `${2027 + (i % 3)}-0${1 + (i % 9)}-30`,
 }));
 
 

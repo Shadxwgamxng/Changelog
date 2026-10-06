@@ -19,6 +19,7 @@ export function neutralizeBrands() {
       const have = (db.prepare(`PRAGMA table_info(${t})`).all() as { name: string }[]).map((c) => c.name);
       for (const c of cols.filter((x) => have.includes(x))) for (const [a, b] of TEXT) db.prepare(`UPDATE ${t} SET ${c} = REPLACE(${c}, ?, ?) WHERE ${c} LIKE ?`).run(a, b, `%${a}%`);
     }
+    db.prepare("UPDATE test_tubes SET lot = REPLACE(lot, 'SIM-', 'CH-') WHERE lot LIKE 'SIM-%'").run();
     db.prepare("UPDATE measurements SET device = 'KM' WHERE device = ?").run(['CO', 'MO'].join(''));
   } catch (e) { console.error('[cbrn] Bereinigung fehlgeschlagen', e); }
 }

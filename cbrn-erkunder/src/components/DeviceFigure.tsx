@@ -109,19 +109,11 @@ function FmgArt({ r, now }: { r: any; drive: boolean; now: number }) {
   return (<g><g filter="url(#shadow)"><image href={imgUrl('fmg')} x={FMG_BOX.x} y={FMG_BOX.y} width={FMG_BOX.w} height={FMG_BOX.h} preserveAspectRatio="xMidYMid meet" /></g>
     {c.state !== 'ready' && <g><BootScreen L={S} c={c} bg="#10140f" /><text x={S.x + S.w / 2} y={S.y - 5} fontSize={9} textAnchor="middle" fill={COL.dim}>FMG-DISPLAY</text></g>}</g>);
 }
+/** Prüfröhrchen mit Balgpumpe: berechnetes Realbild (public/devices/tubes.png, 1520×880 = 2× der Zeichenfläche). Eigenes Foto: Datei gleichen Namens ersetzen. */
 function TubesArt({ tube }: { tube: any }) {
-  return (<g filter="url(#shadow)">
-    {/* Balgpumpe */}
-    <rect x={220} y={186} width={190} height={112} rx={34} fill="url(#gBody)" stroke={COL.edge} strokeWidth={2} />
-    {[0, 1, 2, 3, 4, 5].map((k) => <line key={k} x1={246 + k * 26} y1={190} x2={246 + k * 26} y2={294} stroke="#4a4a4a" strokeWidth={3} opacity=".7" />)}
-    <rect x={410} y={214} width={60} height={56} rx={8} fill="url(#gMetal)" stroke={COL.edge} /><rect x={412} y={236} width={56} height={12} fill="#d29922" opacity=".9" />
-    <circle cx={440} cy={192} r={12} fill="#d29922" stroke={COL.edge} />
-    {/* Röhrchen mit Anzeigezone */}
-    <rect x={470} y={233} width={176} height={18} rx={9} fill="#ebe9e6" opacity=".12" stroke="#ebe9e6" />
-    <rect x={486} y={237} width={78} height={10} fill="#e9d36a" opacity=".85" /><rect x={564} y={237} width={34} height={10} fill="#a9772a" opacity=".9" /><rect x={598} y={237} width={42} height={10} fill="#ebe9e6" opacity=".35" />
-    {[0, 1, 2, 3, 4, 5, 6].map((k) => <line key={k} x1={500 + k * 20} y1={225} x2={500 + k * 20} y2={k % 2 ? 231 : 229} stroke={COL.dim} />)}
-    <T x={558} y={216} s={9} c={COL.dim} a="middle">Skala</T>
-    <T x={315} y={248} s={11} c={COL.txt} a="middle">{tube?.product ?? '–'}</T>
+  return (<g>
+    <image href={imgUrl('tubes')} x={0} y={0} width={760} height={440} preserveAspectRatio="xMidYMid meet" />
+    <T x={590} y={292} s={12} c={COL.txt} a="middle">{tube?.product ?? '–'}</T>
   </g>);
 }
 
@@ -223,11 +215,11 @@ function useSpots(id: string, ctx: any): Spot[] {
     common(...fmgPt(0.925, 0.532), 230);
   }
   if (id === 'tubes') { const t = tube;
-    P(262, 200, 'l', 40, 'Handpumpe (Balg)', 'Probenahme', 'definierte Hubzahl je Röhrchen', undefined, [['Funktion', 'Ansaugen eines definierten Luftvolumens']]);
-    P(630, 242, 'r', 20, 'Prüfröhrchen', t?.product ?? '–', t?.analyte ?? '', COL.yellow, [['Produkt', t?.product ?? '–'], ['Hersteller', t?.manufacturer ?? '–'], ['Typ', t?.tube_type ?? '–'], ['Messstoff', `${t?.analyte ?? '–'} (CAS ${t?.cas ?? '–'})`]]);
-    P(520, 226, 'r', 120, 'Skala / Messbereich', 'QUELLE ERFORDERL.', t ? `Einheit ${t.unit}` : '', COL.warn, [['Messbereich', 'QUELLE ERFORDERLICH (Herstellerdatenblatt)'], ['Einheit', t?.unit ?? '–'], ['Anwendung', t?.application ?? '–']]);
-    P(440, 242, 'r', 220, 'Lagerstatus / Charge', t?.storage_status ?? '–', t ? `Charge ${t.lot} · Verfall ${t.expiry}` : '', t?.storage_status === 'Verfügbar' ? COL.ok : COL.warn, [['Lagerstatus', t?.storage_status ?? '–'], ['Charge', t?.lot ?? '–'], ['Verfall', t?.expiry ?? '–']]);
-    common(330, 290, 320);
+    P(200, 205, 'l', 40, 'Handpumpe (Balg)', 'Probenahme', 'definierte Hubzahl je Röhrchen', undefined, [['Funktion', 'Ansaugen eines definierten Luftvolumens']]);
+    P(715, 250, 'r', 20, 'Prüfröhrchen', t?.product ?? '–', t?.analyte ?? '', COL.yellow, [['Produkt', t?.product ?? '–'], ['Hersteller', t?.manufacturer ?? '–'], ['Typ', t?.tube_type ?? '–'], ['Messstoff', `${t?.analyte ?? '–'} (CAS ${t?.cas ?? '–'})`]]);
+    P(600, 240, 'r', 120, 'Skala / Messbereich', 'QUELLE ERFORDERL.', t ? `Einheit ${t.unit}` : '', COL.warn, [['Messbereich', 'QUELLE ERFORDERLICH (Herstellerdatenblatt)'], ['Einheit', t?.unit ?? '–'], ['Anwendung', t?.application ?? '–']]);
+    P(444, 250, 'r', 300, 'Lagerstatus / Charge', t?.storage_status ?? '–', t ? `Charge ${t.lot} · Verfall ${t.expiry}` : '', t?.storage_status === 'Verfügbar' ? COL.ok : COL.warn, [['Lagerstatus', t?.storage_status ?? '–'], ['Charge', t?.lot ?? '–'], ['Verfall', t?.expiry ?? '–']]);
+    common(330, 290, 385);
   }
   return L;
 }
@@ -253,7 +245,7 @@ function useCtx(tubeId?: string) {
 
 export function DeviceThumb({ id }: { id: string }) {
   const ctx = useCtx();
-  return (<svg viewBox={IMG[id] ? `${380 - BOX_H * IMG[id].aspect / 2 - 10} ${BOX_Y - 6} ${BOX_H * IMG[id].aspect + 20} ${BOX_H + 12}` : '100 0 560 440'} className="w-full h-44"><Defs /><Art id={id} ctx={ctx} /></svg>);
+  return (<svg viewBox={IMG[id] ? `${380 - BOX_H * IMG[id].aspect / 2 - 10} ${BOX_Y - 6} ${BOX_H * IMG[id].aspect + 20} ${BOX_H + 12}` : (id === 'tubes' ? '20 170 740 180' : '100 0 560 440')} className="w-full h-44"><Defs /><Art id={id} ctx={ctx} /></svg>);
 }
 
 export function DeviceFigure({ id }: { id: string }) {
