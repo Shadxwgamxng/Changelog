@@ -6631,10 +6631,39 @@ function endIncident(by, id, form = {}) {
 var ADMIN_TABLES = ["substances", "radionuclides", "biological_agents", "measurement_devices", "measurement_methods", "sources", "test_tubes", "vehicles"];
 var FUNKTIONEN = ROLES;
 var PUBLIC = [/^\/api\/meta$/, /^\/api\/auth\/(vehicles|login)$/];
+function calOf() {
+  const c = getSetting("gta_cal", null);
+  if (c) return c;
+  const o = getSetting("gta_offset", { dx: 0, dy: 0 });
+  return { ax: 1, bx: o.dx, ay: 1, by: o.dy };
+}
 function shiftedBounds() {
   const b = config.gta5.bounds;
-  const o = getSetting("gta_offset", { dx: 0, dy: 0 });
-  return { minX: b.minX + o.dx, maxX: b.maxX + o.dx, minY: b.minY + o.dy, maxY: b.maxY + o.dy };
+  const c = calOf();
+  return { minX: c.ax * b.minX + c.bx, maxX: c.ax * b.maxX + c.bx, minY: c.ay * b.minY + c.by, maxY: c.ay * b.maxY + c.by };
+}
+function solveCal(pts) {
+  const axis = (bs, gs) => {
+    const n = bs.length, mb = bs.reduce((x2, y2) => x2 + y2, 0) / n, mg = gs.reduce((x2, y2) => x2 + y2, 0) / n;
+    const v = bs.reduce((x2, y2) => x2 + (y2 - mb) ** 2, 0), c = bs.reduce((x2, y2, i) => x2 + (y2 - mb) * (gs[i] - mg), 0);
+    let a = n >= 2 && Math.sqrt(v / n) > 150 ? c / v : 1;
+    a = Math.min(1.25, Math.max(0.8, a));
+    return { a, b: mg - a * mb };
+  };
+  const x = axis(pts.map((p) => p.bx), pts.map((p) => p.gx)), y = axis(pts.map((p) => p.by), pts.map((p) => p.gy));
+  return { ax: x.a, bx: x.b, ay: y.a, by: y.b };
+}
+function addCalPoint(dispX, dispY, gx, gy) {
+  const c = calOf();
+  const pts = getSetting("gta_calpts", []).slice(-5);
+  const base = { bx: (dispX - c.bx) / c.ax, by: (dispY - c.by) / c.ay };
+  const kept = pts.filter((p) => Math.hypot(p.bx - base.bx, p.by - base.by) > 60);
+  kept.push({ ...base, gx, gy });
+  setSetting("gta_calpts", kept);
+  const n = solveCal(kept);
+  setSetting("gta_cal", n);
+  const err5 = Math.round(kept.reduce((m, p) => Math.max(m, Math.hypot(n.ax * p.bx + n.bx - p.gx, n.ay * p.by + n.by - p.gy)), 0));
+  return { cal: n, points: kept.length, max_error_m: err5 };
 }
 function registerRoutes(app) {
   app.addHook("onRequest", async (req) => {
@@ -6652,7 +6681,7 @@ function registerRoutes(app) {
     sectors: Object.entries(SECTORS).map(([k, v]) => ({ key: k, name: v.name, polygon: sectorPolygon(k) })),
     center: CENTER,
     route: routeLL(),
-    map: MODE === "gta5" ? { mode: "gta5", image: config.gta5.image, bounds: shiftedBounds(), offset: getSetting("gta_offset", { dx: 0, dy: 0 }) } : { mode: "geo", tileUrl: config.geo.tileUrl, attribution: config.geo.attribution },
+    map: MODE === "gta5" ? { mode: "gta5", image: config.gta5.image, bounds: shiftedBounds(), offset: getSetting("gta_offset", { dx: 0, dy: 0 }), cal: calOf(), points: getSetting("gta_calpts", []).length } : { mode: "geo", tileUrl: config.geo.tileUrl, attribution: config.geo.attribution },
     mgmg_channels: mgmgChannels(),
     disclaimer: "Fachdaten: \xF6ffentliche Quellen, ungepr\xFCft (QUELLE ERFORDERLICH). Messwerte, GPS, Eins\xE4tze, Identifikationen und Laborergebnisse: SIMULIERT."
   }));
@@ -6691,20 +6720,40 @@ function registerRoutes(app) {
     return { ok: true };
   });
   app.get("/api/system/status", async () => ({ ...systemStatus(), drive: state.drive, fivem_origin: getSetting("fivem_origin"), gta_offset: getSetting("gta_offset", { dx: 0, dy: 0 }), mgmg_channels: mgmgChannels(), now: now(), uptime_s: Math.round(process.uptime()) }));
+  const mapPayload = () => ({ offset: getSetting("gta_offset", { dx: 0, dy: 0 }), cal: calOf(), points: getSetting("gta_calpts", []).length, bounds: shiftedBounds() });
+  app.post("/api/system/calibrate-point", async (req) => {
+    const u = need(req);
+    const b = req.body ?? {};
+    const x = Number(b.x), y = Number(b.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) throw Object.assign(new Error("Ung\xFCltige Position"), { statusCode: 400 });
+    if (!fivemConnected(u.vehicle_id)) throw Object.assign(new Error("Keine FiveM-Verbindung \u2013 der Abgleich braucht die echte Spielposition (im Fahrzeug sitzen und Computer anmelden)."), { statusCode: 409 });
+    const v = get("vehicles", u.vehicle_id);
+    const gx = v.lon * 111320, gy = v.lat * 111320;
+    if (Math.hypot(x - gx, y - gy) > 4e3) throw Object.assign(new Error("Markierte Stelle liegt zu weit von der Fahrzeugposition entfernt"), { statusCode: 400 });
+    const r = addCalPoint(x, y, gx, gy);
+    audit(u.id, "calibrate", "map", "gta_cal", r);
+    const map = mapPayload();
+    emit2("map.changed", map);
+    return { ...map, ...r };
+  });
   app.post("/api/system/calibrate", async (req) => {
     const u = need(req);
     const b = req.body ?? {};
-    const o = getSetting("gta_offset", { dx: 0, dy: 0 });
-    let n = o;
-    if (b.reset) n = { dx: 0, dy: 0 };
-    else {
-      const dx = Number(b.dx), dy = Number(b.dy);
-      if (!Number.isFinite(dx) || !Number.isFinite(dy) || Math.abs(dx) > 5e3 || Math.abs(dy) > 5e3) throw Object.assign(new Error("Ung\xFCltiger Versatz"), { statusCode: 400 });
-      n = { dx: o.dx - dx, dy: o.dy - dy };
+    if (b.reset) {
+      setSetting("gta_offset", { dx: 0, dy: 0 });
+      setSetting("gta_cal", null);
+      setSetting("gta_calpts", []);
+      audit(u.id, "calibrate", "map", "reset");
+      const map2 = mapPayload();
+      emit2("map.changed", map2);
+      return map2;
     }
-    setSetting("gta_offset", n);
-    audit(u.id, "calibrate", "map", "gta_offset", { from: o, to: n });
-    const map = { offset: n, bounds: shiftedBounds() };
+    const dx = Number(b.dx), dy = Number(b.dy);
+    if (!Number.isFinite(dx) || !Number.isFinite(dy) || Math.abs(dx) > 5e3 || Math.abs(dy) > 5e3) throw Object.assign(new Error("Ung\xFCltiger Versatz"), { statusCode: 400 });
+    const v = get("vehicles", u.vehicle_id);
+    const gx = v.lon * 111320, gy = v.lat * 111320;
+    addCalPoint(gx + dx, gy + dy, gx, gy);
+    const map = mapPayload();
     emit2("map.changed", map);
     return map;
   });
@@ -6713,7 +6762,11 @@ function registerRoutes(app) {
     const b = req.body;
     if (b.mgmg_channels) setSetting("mgmg_channels", b.mgmg_channels);
     if (b.fivem_origin) setSetting("fivem_origin", b.fivem_origin);
-    if (b.gta_offset) setSetting("gta_offset", { dx: Number(b.gta_offset.dx) || 0, dy: Number(b.gta_offset.dy) || 0 });
+    if (b.gta_offset) {
+      setSetting("gta_offset", { dx: Number(b.gta_offset.dx) || 0, dy: Number(b.gta_offset.dy) || 0 });
+      setSetting("gta_cal", null);
+      setSetting("gta_calpts", []);
+    }
     audit(u.id, "config", "system", "config", b);
     return { ok: true };
   });

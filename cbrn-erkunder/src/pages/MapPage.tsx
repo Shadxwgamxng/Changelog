@@ -13,11 +13,14 @@ export default function MapPage() {
   const [layers, setLayers] = useState(DEFAULT_LAYERS); const [sel, setSel] = useState<{ type: string; id: string } | null>(null); const [follow, setFollow] = useState(true);
   const { weather, meta, incident } = useLive(); const fires = useApi<any[]>('/fires', ['fires.changed', 'incident.changed']);
   const [draw, setDraw] = useState(false); const [fsize, setFsize] = useState('mittel'); const [ftype, setFtype] = useState('GEBAEUDE'); const [ferr, setFerr] = useState('');
+  const [cal, setCal] = useState(false); const [calMsg, setCalMsg] = useState(''); const { status, ownVehicle } = useLive();
+  const gta = meta?.map?.mode === 'gta5'; const fivemOn = status?.fivem === 'CONNECTED' && !!ownVehicle?.gps_fix;
+  const doCal = async (p: { lat: number; lon: number }) => { try { setCalMsg(''); const r = await api('/system/calibrate-point', { method: 'POST', body: { x: p.lon * 111320, y: p.lat * 111320 } }); setCalMsg(`Abgleich ${r.points} Punkt${r.points === 1 ? '' : 'e'} · größte Restabweichung ${r.max_error_m} m${r.points < 2 ? ' – für den Maßstab bitte an einer zweiten, weit entfernten Stelle wiederholen' : ''}`); setCal(false); } catch (e: any) { setCalMsg(e.message); } };
   const place = async (p: { lat: number; lon: number }) => { try { setFerr(''); await api('/fires', { method: 'POST', body: { ...p, size: fsize, type: ftype } }); setDraw(false); } catch (e: any) { setFerr(e.message); } };
   return (
     <div className="h-full flex">
       <div className="flex-1 min-w-0 relative">
-        <MapView layers={layers} onSelect={setSel} follow={follow} onMapClick={draw ? place : undefined} />
+        <MapView layers={layers} onSelect={setSel} follow={follow} onMapClick={draw ? place : cal ? doCal : undefined} />
       </div>
       <aside className="w-72 shrink-0 border-l border-line bg-panel overflow-auto p-3 space-y-3">
         <RunCard compact />
@@ -25,10 +28,16 @@ export default function MapPage() {
           <div className="space-y-1">
             <Select className="w-full" value={ftype} onChange={setFtype} options={[['GEBAEUDE', 'Gebäudebrand'], ['FAHRZEUG', 'Fahrzeugbrand'], ['INDUSTRIE', 'Industrie-/Lagerbrand'], ['VEGETATION', 'Vegetations-/Flächenbrand']]} />
             <Select className="w-full" value={fsize} onChange={setFsize} options={[['klein', 'Klein'], ['mittel', 'Mittel'], ['groß', 'Groß']]} />
-            <Btn kind={draw ? 'danger' : 'primary'} onClick={() => setDraw(!draw)}>{draw ? 'Abbrechen – Karte anklicken …' : '🔥 Brandstelle einzeichnen'}</Btn>
+            <Btn kind={draw ? 'danger' : 'primary'} onClick={() => { setDraw(!draw); setCal(false); }}>{draw ? 'Abbrechen – Karte anklicken …' : '🔥 Brandstelle einzeichnen'}</Btn>
             {ferr && <div className="text-bad text-[12px]">{ferr}</div>}
             {(fires.data ?? []).map((f) => <div key={f.id} className="flex items-center gap-2 text-[12px]"><span className="flex-1">{f.id} · {f.type_text} · {f.size}</span><button className="text-bad" title="Gelöscht / abgelöscht" onClick={() => api('/fires/' + f.id, { method: 'DELETE' })}>✕</button></div>)}
           </div></div>}
+        {gta && <div><div className="lbl mb-1">Kartenabgleich</div>
+          <div className="text-[12px] text-dim mb-1">Stimmt der Fahrzeugpfeil nicht mit deiner echten Position überein: Klicke „Hier stehe ich“ und dann auf die Karte an die Stelle, an der du wirklich bist. Mit einem zweiten Punkt an einem anderen Ort wird auch der Maßstab korrigiert.</div>
+          <div className="flex gap-2 flex-wrap"><Btn kind={cal ? 'danger' : 'primary'} onClick={() => { setCal(!cal); setDraw(false); setCalMsg(''); }} disabled={!fivemOn}>{cal ? 'Abbrechen – Karte anklicken …' : 'Hier stehe ich'}</Btn>
+            <Btn onClick={async () => { await api('/system/calibrate', { method: 'POST', body: { reset: true } }); setCalMsg('Abgleich zurückgesetzt'); }}>Zurücksetzen</Btn></div>
+          {!fivemOn && <div className="text-warn text-[12px] mt-1">Nur mit FiveM-Verbindung (im Fahrzeug, Computer angemeldet).</div>}
+          {calMsg && <div className="text-[12px] mt-1">{calMsg}</div>}</div>}
         <div><div className="lbl mb-1">Layer</div>
           {LAYER_LABELS.map(([k, l]) => <label key={k} className="flex items-center gap-2 py-[3px] cursor-pointer"><input type="checkbox" checked={!!layers[k]} onChange={(e) => setLayers({ ...layers, [k]: e.target.checked })} />{l}</label>)}
           <label className="flex items-center gap-2 py-[3px] cursor-pointer"><input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} />Fahrzeug folgen</label>

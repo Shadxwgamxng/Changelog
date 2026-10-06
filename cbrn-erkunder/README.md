@@ -75,3 +75,7 @@ Analyse: Dauer je Art in `Config.Sample.AnalysisDurations`; das Ergebnis wird au
 ## Handmessgeräte (Messgeräte-System)
 
 Details, Recherchetabelle und Architektur: [`docs/MESSGERAETE.md`](docs/MESSGERAETE.md). Kurz: Gerät am Messgerätefach nehmen (J halten), E = Maus-Bedienmodus, Pfeile/Enter bedienen das Gerät, ⌫ blendet aus; Messungen werden serverseitig simuliert und als Messpunkt gespeichert. Admin: `/createcbrnsource`, `/clearcbrnsources`, `/debugdevice`, `/debugmeasurement`.
+
+## Kartenabgleich (Position auf der Karte stimmt nicht)
+
+Einsatzkarte → rechte Leiste → **Kartenabgleich → „Hier stehe ich“**, dann auf die Karte an die Stelle klicken, an der du wirklich bist (nur mit FiveM-Verbindung). Ein Punkt korrigiert den Versatz. Ein **zweiter Punkt an einer weit entfernten Stelle** (mind. ca. 300 m Abstand je Achse) korrigiert zusätzlich den Maßstab; bis zu 6 Punkte werden ausgeglichen. „Zurücksetzen“ stellt die Standardkarte wieder her.

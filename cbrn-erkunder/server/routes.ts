@@ -21,9 +21,33 @@ import { ROLES, noteCrew } from './incident.js';
 const FUNKTIONEN = ROLES;
 const PUBLIC = [/^\/api\/meta$/, /^\/api\/auth\/(vehicles|login)$/];
 
+type Cal = { ax: number; bx: number; ay: number; by: number };
+type CalPt = { bx: number; by: number; gx: number; gy: number };
+const CAL0: Cal = { ax: 1, bx: 0, ay: 1, by: 0 };
+/** Kartenbild-Grenzen nach Abgleich: Spielkoordinate = a · Bildkoordinate + b (je Achse: Maßstab und Versatz). Ohne Abgleich gilt der alte Kartenversatz. */
+function calOf(): Cal { const c = getSetting('gta_cal', null) as Cal | null; if (c) return c; const o = getSetting('gta_offset', { dx: 0, dy: 0 }) as { dx: number; dy: number }; return { ax: 1, bx: o.dx, ay: 1, by: o.dy }; }
 function shiftedBounds() {
-  const b = config.gta5.bounds; const o = getSetting('gta_offset', { dx: 0, dy: 0 }) as { dx: number; dy: number };
-  return { minX: b.minX + o.dx, maxX: b.maxX + o.dx, minY: b.minY + o.dy, maxY: b.maxY + o.dy };
+  const b = config.gta5.bounds; const c = calOf();
+  return { minX: c.ax * b.minX + c.bx, maxX: c.ax * b.maxX + c.bx, minY: c.ay * b.minY + c.by, maxY: c.ay * b.maxY + c.by };
+}
+/** Löst je Achse game = a · base + b aus allen Abgleichpunkten (1 Punkt: nur Versatz; ab 2 Punkten mit genügend Abstand: auch Maßstab, begrenzt auf ±25 %). */
+function solveCal(pts: CalPt[]): Cal {
+  const axis = (bs: number[], gs: number[]) => {
+    const n = bs.length, mb = bs.reduce((x, y) => x + y, 0) / n, mg = gs.reduce((x, y) => x + y, 0) / n;
+    const v = bs.reduce((x, y) => x + (y - mb) ** 2, 0), c = bs.reduce((x, y, i) => x + (y - mb) * (gs[i] - mg), 0);
+    let a = n >= 2 && Math.sqrt(v / n) > 150 ? c / v : 1; a = Math.min(1.25, Math.max(0.8, a)); return { a, b: mg - a * mb };
+  };
+  const x = axis(pts.map((p) => p.bx), pts.map((p) => p.gx)), y = axis(pts.map((p) => p.by), pts.map((p) => p.gy));
+  return { ax: x.a, bx: x.b, ay: y.a, by: y.b };
+}
+/** Punkt hinzufügen: angezeigte Kartenposition (Meter) + wahre Spielposition. Der angezeigte Punkt wird mit der aktuellen Karte zurück auf Bildkoordinaten gerechnet. */
+function addCalPoint(dispX: number, dispY: number, gx: number, gy: number) {
+  const c = calOf(); const pts = (getSetting('gta_calpts', []) as CalPt[]).slice(-5);
+  const base = { bx: (dispX - c.bx) / c.ax, by: (dispY - c.by) / c.ay };
+  const kept = pts.filter((p) => Math.hypot(p.bx - base.bx, p.by - base.by) > 60); // fast gleiche Stelle ersetzt den alten Punkt
+  kept.push({ ...base, gx, gy }); setSetting('gta_calpts', kept); const n = solveCal(kept); setSetting('gta_cal', n);
+  const err = Math.round(kept.reduce((m, p) => Math.max(m, Math.hypot(n.ax * p.bx + n.bx - p.gx, n.ay * p.by + n.by - p.gy)), 0));
+  return { cal: n, points: kept.length, max_error_m: err };
 }
 export function registerRoutes(app: FastifyInstance) {
   // Zugriffsschutz: alles unter /api außer Anmeldung, Metadaten und FiveM-Adapter braucht eine gültige Anmeldung am Fahrzeug.
@@ -39,7 +63,7 @@ export function registerRoutes(app: FastifyInstance) {
   app.get('/api/meta', async () => ({
     app: 'CBRN Erkunder Software', version: '0.1.0', sectors: Object.entries(SECTORS).map(([k, v]) => ({ key: k, name: v.name, polygon: sectorPolygon(k) })),
     center: CENTER, route: routeLL(),
-    map: MODE === 'gta5' ? { mode: 'gta5', image: config.gta5.image, bounds: shiftedBounds(), offset: getSetting('gta_offset', { dx: 0, dy: 0 }) } : { mode: 'geo', tileUrl: config.geo.tileUrl, attribution: config.geo.attribution }, mgmg_channels: mgmgChannels(),
+    map: MODE === 'gta5' ? { mode: 'gta5', image: config.gta5.image, bounds: shiftedBounds(), offset: getSetting('gta_offset', { dx: 0, dy: 0 }), cal: calOf(), points: (getSetting('gta_calpts', []) as CalPt[]).length } : { mode: 'geo', tileUrl: config.geo.tileUrl, attribution: config.geo.attribution }, mgmg_channels: mgmgChannels(),
     disclaimer: 'Fachdaten: öffentliche Quellen, ungeprüft (QUELLE ERFORDERLICH). Messwerte, GPS, Einsätze, Identifikationen und Laborergebnisse: SIMULIERT.',
   }));
 
@@ -63,19 +87,28 @@ export function registerRoutes(app: FastifyInstance) {
   // ---------- System
   app.get('/api/system/status', async () => ({ ...systemStatus(), drive: state.drive, fivem_origin: getSetting('fivem_origin'), gta_offset: getSetting('gta_offset', { dx: 0, dy: 0 }), mgmg_channels: mgmgChannels(), now: now(), uptime_s: Math.round(process.uptime()) }));
   // Karte kalibrieren: dx/dy = Strecke (m, Ost/Nord) vom angezeigten Fahrzeugpunkt zur tatsächlich markierten Stelle. Das Kartenbild wird um diese Strecke zurückgeschoben.
-  app.post('/api/system/calibrate', async (req) => {
-    const u = need(req); const b = (req.body ?? {}) as any; const o = getSetting('gta_offset', { dx: 0, dy: 0 }) as { dx: number; dy: number };
-    let n = o;
-    if (b.reset) n = { dx: 0, dy: 0 };
-    else { const dx = Number(b.dx), dy = Number(b.dy); if (!Number.isFinite(dx) || !Number.isFinite(dy) || Math.abs(dx) > 5000 || Math.abs(dy) > 5000) throw Object.assign(new Error('Ungültiger Versatz'), { statusCode: 400 }); n = { dx: o.dx - dx, dy: o.dy - dy }; }
-    setSetting('gta_offset', n); audit(u.id, 'calibrate', 'map', 'gta_offset', { from: o, to: n });
-    const map = { offset: n, bounds: shiftedBounds() }; emit('map.changed', map); return map;
+  const mapPayload = () => ({ offset: getSetting('gta_offset', { dx: 0, dy: 0 }), cal: calOf(), points: (getSetting('gta_calpts', []) as CalPt[]).length, bounds: shiftedBounds() });
+  // Kartenabgleich: x/y = Stelle auf der Karte (Meter, x = Ost, y = Nord), an der man tatsächlich steht. Vergleich mit der echten FiveM-Position des Fahrzeugs.
+  app.post('/api/system/calibrate-point', async (req) => {
+    const u = need(req); const b = (req.body ?? {}) as any; const x = Number(b.x), y = Number(b.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) throw Object.assign(new Error('Ungültige Position'), { statusCode: 400 });
+    if (!fivemConnected(u.vehicle_id)) throw Object.assign(new Error('Keine FiveM-Verbindung – der Abgleich braucht die echte Spielposition (im Fahrzeug sitzen und Computer anmelden).'), { statusCode: 409 });
+    const v = get('vehicles', u.vehicle_id); const gx = v.lon * 111320, gy = v.lat * 111320;
+    if (Math.hypot(x - gx, y - gy) > 4000) throw Object.assign(new Error('Markierte Stelle liegt zu weit von der Fahrzeugposition entfernt'), { statusCode: 400 });
+    const r = addCalPoint(x, y, gx, gy); audit(u.id, 'calibrate', 'map', 'gta_cal', r); const map = mapPayload(); emit('map.changed', map); return { ...map, ...r };
+  });
+  app.post('/api/system/calibrate', async (req) => { // älterer Einzelpunkt-Abgleich (dx/dy = markiert − Fahrzeug) bzw. reset
+    const u = need(req); const b = (req.body ?? {}) as any;
+    if (b.reset) { setSetting('gta_offset', { dx: 0, dy: 0 }); setSetting('gta_cal', null); setSetting('gta_calpts', []); audit(u.id, 'calibrate', 'map', 'reset'); const map = mapPayload(); emit('map.changed', map); return map; }
+    const dx = Number(b.dx), dy = Number(b.dy); if (!Number.isFinite(dx) || !Number.isFinite(dy) || Math.abs(dx) > 5000 || Math.abs(dy) > 5000) throw Object.assign(new Error('Ungültiger Versatz'), { statusCode: 400 });
+    const v = get('vehicles', u.vehicle_id); const gx = v.lon * 111320, gy = v.lat * 111320; addCalPoint(gx + dx, gy + dy, gx, gy);
+    const map = mapPayload(); emit('map.changed', map); return map;
   });
   app.post('/api/system/config', async (req) => {
     const u = need(req, 4); const b = req.body as any;
     if (b.mgmg_channels) setSetting('mgmg_channels', b.mgmg_channels);
     if (b.fivem_origin) setSetting('fivem_origin', b.fivem_origin);
-    if (b.gta_offset) setSetting('gta_offset', { dx: Number(b.gta_offset.dx) || 0, dy: Number(b.gta_offset.dy) || 0 });
+    if (b.gta_offset) { setSetting('gta_offset', { dx: Number(b.gta_offset.dx) || 0, dy: Number(b.gta_offset.dy) || 0 }); setSetting('gta_cal', null); setSetting('gta_calpts', []); } // manueller Versatz ersetzt den Punkt-Abgleich
     audit(u.id, 'config', 'system', 'config', b); return { ok: true };
   });
 
