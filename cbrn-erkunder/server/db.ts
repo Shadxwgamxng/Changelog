@@ -27,7 +27,7 @@ class Db {
   }
   save() {
     if (!this.dirty || !this.file) return; this.dirty = false;
-    try { const data = this.inner.export(); this.inner.exec('PRAGMA foreign_keys = ON'); const tmp = this.file + '.tmp'; fs.writeFileSync(tmp, Buffer.from(data)); fs.renameSync(tmp, this.file); }
+    try { const data = this.inner.export(); this.inner.exec('PRAGMA foreign_keys = ON'); const tmp = this.file + '.tmp'; fs.mkdirSync(path.dirname(this.file), { recursive: true }); fs.writeFileSync(tmp, Buffer.from(data)); fs.renameSync(tmp, this.file); }
     catch (e) { console.error('[cbrn] Datenbank konnte nicht gespeichert werden:', e); this.dirty = true; }
   }
 }

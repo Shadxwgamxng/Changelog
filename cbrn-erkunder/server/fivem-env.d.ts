@@ -20,3 +20,4 @@ declare function GetNumPlayerIdentifiers(src: number | string): number;
 declare function GetPlayerIdentifier(src: number | string, idx: number): string;
 declare function GetResourceState(name: string): string;
 declare function GetEntityHealth(ent: number): number;
+declare function GetConvar(name: string, def: string): string;

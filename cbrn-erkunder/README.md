@@ -79,3 +79,7 @@ Details, Recherchetabelle und Architektur: [`docs/MESSGERAETE.md`](docs/MESSGERA
 ## Kartenabgleich (Position auf der Karte stimmt nicht)
 
 Einsatzkarte → rechte Leiste → **Kartenabgleich → „Hier stehe ich“**, dann auf die Karte an die Stelle klicken, an der du wirklich bist (nur mit FiveM-Verbindung). Ein Punkt korrigiert den Versatz. Ein **zweiter Punkt an einer weit entfernten Stelle** (mind. ca. 300 m Abstand je Achse) korrigiert zusätzlich den Maßstab; bis zu 6 Punkte werden ausgeglichen. „Zurücksetzen“ stellt die Standardkarte wieder her.
+
+## Datenbank-Ablage
+
+Die Datenbank liegt jetzt **außerhalb** der Ressource: Ordner `cbrn-erkunder-data` neben `cbrn-erkunder` (Datei `cbrn.db`). So gehen Proben, Messpunkte und Kartenabgleich beim Austauschen der Ressource nicht verloren. Anderer Ort: `set cbrn_data_dir "/pfad"` in der server.cfg. Eine alte `data/cbrn.db` im Ressourcenordner wird beim ersten Start übernommen. Die Ressource nicht bei laufendem Server austauschen – erst `stop cbrn-erkunder`, dann ersetzen, dann `ensure cbrn-erkunder`.
