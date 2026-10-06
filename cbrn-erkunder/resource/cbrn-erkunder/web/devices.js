@@ -295,7 +295,7 @@
   function menuShow(d) {
     if (!M.el) { M.el = document.createElement('div'); M.el.id = 'dvmenu'; document.body.appendChild(M.el); }
     M.items = d.items || []; M.sel = Math.max(0, M.items.findIndex((i) => !i.disabled)); M.open = true;
-    M.el.innerHTML = `<div class="mt">${esc(d.title || 'AUSWAHL')}</div>` + M.items.map((it, i) => `<div class="mi${it.disabled ? ' dis' : ''}" data-i="${i}"><span class="mk">${i + 1}</span><span class="ml"><b>${esc(it.label)}</b>${it.sub ? `<small>${esc(it.sub)}</small>` : ''}</span></div>`).join('') + `<div class="mh"><span class="mk">⏎</span> Auswählen &nbsp; <span class="mk">ESC</span> Schließen</div>`;
+    M.el.innerHTML = `<div class="mt">${esc(d.title || 'AUSWAHL')}</div>` + M.items.map((it, i) => `<div class="mi${it.disabled ? ' dis' : ''}" data-i="${i}"><span class="ml"><b>${esc(it.label)}</b>${it.sub ? `<small>${esc(it.sub)}</small>` : ''}</span></div>`).join('') + `<div class="mh"><span class="mk">Mausrad</span> Auswählen &nbsp; <span class="mk">Klick</span> Bestätigen &nbsp; <span class="mk">ESC</span> Schließen</div>`;
     M.el.classList.add('on'); menuDraw();
     M.el.querySelectorAll('.mi').forEach((e) => { const i = +e.dataset.i; e.onmouseenter = () => { if (!M.items[i].disabled) { M.sel = i; menuDraw(); } }; e.onclick = () => { if (!M.items[i].disabled) menuClose(M.items[i].id); }; });
   }
@@ -303,8 +303,13 @@
     if (!M.open) return; const k = e.key; e.preventDefault(); e.stopImmediatePropagation();
     const move = (dir) => { let i = M.sel; for (let n = 0; n < M.items.length; n++) { i = (i + dir + M.items.length) % M.items.length; if (!M.items[i].disabled) break; } M.sel = i; menuDraw(); };
     if (k === 'ArrowDown') move(1); else if (k === 'ArrowUp') move(-1); else if (k === 'Enter') { const it = M.items[M.sel]; if (it && !it.disabled) menuClose(it.id); } else if (k === 'Escape' || k === 'Backspace') menuClose(null);
-    else if (/^[1-9]$/.test(k)) { const it = M.items[+k - 1]; if (it && !it.disabled) menuClose(it.id); }
   }, true);
+  // Mausrad wählt den Eintrag (Rad nach unten = nächster, nach oben = vorheriger); Klick oder Enter bestätigt
+  window.addEventListener('wheel', (e) => {
+    if (!M.open) return; e.preventDefault(); const dir = e.deltaY > 0 ? 1 : -1; let i = M.sel;
+    for (let n = 0; n < M.items.length; n++) { i = (i + dir + M.items.length) % M.items.length; if (!M.items[i].disabled) break; }
+    M.sel = i; menuDraw(); const el = M.el.querySelectorAll('.mi')[i]; if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' });
+  }, { passive: false });
   window.addEventListener('message', (e) => { const d = e.data || {}; if (d.type === 'dev-menu') menuShow(d); });
   window.CBRN_DEV = { on, U, SKINS, handleSem, handleKey };
 })();

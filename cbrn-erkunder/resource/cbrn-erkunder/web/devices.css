@@ -67,6 +67,6 @@
 #dvmenu .ml{display:flex;flex-direction:column;gap:2px}
 #dvmenu .ml b{font-weight:600}
 #dvmenu .ml small{color:#9a9792;font-size:11.5px}
-#dvmenu .mk{flex:none;min-width:20px;text-align:center;padding:1px 6px;border:1px solid #5a5a5a;border-bottom-width:2px;border-radius:4px;font-family:Consolas,monospace;font-weight:700;font-size:12px;background:#1c1c1c;color:#ebe9e6}
+#dvmenu .mk{flex:none;min-width:20px;white-space:nowrap;text-align:center;padding:1px 6px;border:1px solid #5a5a5a;border-bottom-width:2px;border-radius:4px;font-family:Consolas,monospace;font-weight:700;font-size:12px;background:#1c1c1c;color:#ebe9e6}
 #dvmenu .mi.sel .mk{border-color:#f0500a;color:#ff8a52}
 #dvmenu .mh{margin-top:12px;color:#9a9792;font-size:11.5px;display:flex;align-items:center;gap:6px}
