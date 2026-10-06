@@ -1,6 +1,5 @@
 // Einstieg im FiveM-Server: keine Netzwerk-Ports – die NUI spricht über Events (Client -> Server) mit dem Router.
 import path from 'node:path';
-import fs from 'node:fs';
 import { boot } from './core.js';
 import { bus, ingestFivem, systemStatus } from './sim.js';
 import { db } from './db.js';
@@ -12,11 +11,9 @@ const CHUNK = 12000; // Zeichen je Antwort-Event (große Listen werden in Teilen
 const subs = new Set<number>(); // Spieler mit gültiger Anmeldung -> erhalten Live-Ereignisse
 const live = (src: number) => { try { return GetPlayerName(src) != null; } catch { return false; } };
 
-// Datenbank LIEGT AUSSERHALB des Ressourcenordners (Ordner „cbrn-erkunder-data“ neben der Ressource), damit ein Update/Austausch der Ressource
-// keine Daten löscht. Anderer Ort: server.cfg -> set cbrn_data_dir "/pfad/zum/ordner". Frühere Datenbank im Ressourcenordner wird einmal übernommen.
-const dataDir = (typeof GetConvar === 'function' && GetConvar('cbrn_data_dir', '')) || path.join(RES_DIR, '..', 'cbrn-erkunder-data');
-const dbPath = path.join(dataDir, 'cbrn.db'), oldDb = path.join(RES_DIR, 'data', 'cbrn.db');
-try { fs.mkdirSync(dataDir, { recursive: true }); if (!fs.existsSync(dbPath) && fs.existsSync(oldDb)) fs.copyFileSync(oldDb, dbPath); } catch (e) { console.error('[cbrn] Datenordner konnte nicht angelegt werden:', dataDir, e); }
+// Datenbank im Ordner „data“ der Ressource (FiveM erlaubt dem Server-Skript nur Schreibzugriffe innerhalb des Ressourcenordners).
+// Beim Aktualisieren der Ressource den Ordner „data“ NICHT löschen/überschreiben (dort liegt cbrn.db).
+const dbPath = path.join(RES_DIR, 'data', 'cbrn.db');
 console.log('[cbrn] Datenbank:', dbPath);
 boot({ dbFile: dbPath, wasmFile: path.join(RES_DIR, 'server', 'sql-wasm.wasm') }).then((app) => {
   onNet('cbrn:req', async (id: number, method: string, url: string, body: any, token: string) => {

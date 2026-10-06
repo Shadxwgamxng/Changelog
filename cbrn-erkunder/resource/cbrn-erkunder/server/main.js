@@ -550,15 +550,15 @@ var require_sql_wasm = __commonJS({
         "undefined" != typeof __filename ? za = __filename : ba && (za = self.location.href);
         var Aa = "", Ba, Ca;
         if (ca) {
-          var fs4 = require("node:fs");
+          var fs3 = require("node:fs");
           Aa = __dirname + "/";
           Ca = (a) => {
             a = Da(a) ? new URL(a) : a;
-            return fs4.readFileSync(a);
+            return fs3.readFileSync(a);
           };
           Ba = async (a) => {
             a = Da(a) ? new URL(a) : a;
-            return fs4.readFileSync(a, void 0);
+            return fs3.readFileSync(a, void 0);
           };
           1 < process.argv.length && (xa = process.argv[1].replace(/\\/g, "/"));
           process.argv.slice(2);
@@ -842,7 +842,7 @@ var require_sql_wasm = __commonJS({
               if (ca) {
                 var b = Buffer.alloc(256), c = 0, d = process.stdin.fd;
                 try {
-                  c = fs4.readSync(d, b, 0, 256);
+                  c = fs3.readSync(d, b, 0, 256);
                 } catch (e) {
                   if (e.toString().includes("EOF")) c = 0;
                   else throw e;
@@ -2187,7 +2187,6 @@ var require_sql_wasm = __commonJS({
 
 // server/fivem.ts
 var import_node_path3 = __toESM(require("node:path"), 1);
-var import_node_fs3 = __toESM(require("node:fs"), 1);
 
 // server/db.ts
 var import_node_fs = __toESM(require("node:fs"), 1);
@@ -2274,8 +2273,13 @@ async function initDb(file, wasmFile) {
   const SQL = await (0, import_sql.default)({ wasmBinary: import_node_fs.default.readFileSync(wasmFile) });
   let data;
   if (file) {
-    import_node_fs.default.mkdirSync(import_node_path.default.dirname(file), { recursive: true });
-    if (import_node_fs.default.existsSync(file)) data = import_node_fs.default.readFileSync(file);
+    try {
+      import_node_fs.default.mkdirSync(import_node_path.default.dirname(file), { recursive: true });
+      if (import_node_fs.default.existsSync(file)) data = import_node_fs.default.readFileSync(file);
+    } catch (e) {
+      console.error("[cbrn] Datenordner nicht nutzbar \u2013 es wird OHNE Speicherung auf Datei gearbeitet (Daten gehen beim Neustart verloren):", import_node_path.default.dirname(file), e);
+      file = null;
+    }
   }
   db.inner = new SQL.Database(data);
   db.file = file ?? "";
@@ -7680,15 +7684,7 @@ var live = (src) => {
     return false;
   }
 };
-var dataDir = typeof GetConvar === "function" && GetConvar("cbrn_data_dir", "") || import_node_path3.default.join(RES_DIR, "..", "cbrn-erkunder-data");
-var dbPath = import_node_path3.default.join(dataDir, "cbrn.db");
-var oldDb = import_node_path3.default.join(RES_DIR, "data", "cbrn.db");
-try {
-  import_node_fs3.default.mkdirSync(dataDir, { recursive: true });
-  if (!import_node_fs3.default.existsSync(dbPath) && import_node_fs3.default.existsSync(oldDb)) import_node_fs3.default.copyFileSync(oldDb, dbPath);
-} catch (e) {
-  console.error("[cbrn] Datenordner konnte nicht angelegt werden:", dataDir, e);
-}
+var dbPath = import_node_path3.default.join(RES_DIR, "data", "cbrn.db");
 console.log("[cbrn] Datenbank:", dbPath);
 boot({ dbFile: dbPath, wasmFile: import_node_path3.default.join(RES_DIR, "server", "sql-wasm.wasm") }).then((app) => {
   onNet("cbrn:req", async (id, method, url, body, token) => {

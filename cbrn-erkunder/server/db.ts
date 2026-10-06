@@ -37,7 +37,10 @@ export const db = new Db();
 export async function initDb(file: string | null, wasmFile: string) {
   const SQL = await initSqlJs({ wasmBinary: fs.readFileSync(wasmFile) as any });
   let data: Uint8Array | undefined;
-  if (file) { fs.mkdirSync(path.dirname(file), { recursive: true }); if (fs.existsSync(file)) data = fs.readFileSync(file); }
+  if (file) {
+    try { fs.mkdirSync(path.dirname(file), { recursive: true }); if (fs.existsSync(file)) data = fs.readFileSync(file); }
+    catch (e) { console.error('[cbrn] Datenordner nicht nutzbar – es wird OHNE Speicherung auf Datei gearbeitet (Daten gehen beim Neustart verloren):', path.dirname(file), e); file = null; }
+  }
   db.inner = new SQL.Database(data); db.file = file ?? '';
   db.inner.exec('PRAGMA foreign_keys = ON;');
   setupSchema(); db.dirty = true; db.save();

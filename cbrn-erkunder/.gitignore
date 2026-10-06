@@ -5,4 +5,5 @@ data/*.db*
 public/maps/*.jpg
 public/maps/*.webp
 resource/cbrn-erkunder/app/maps/
-resource/cbrn-erkunder/data/
+resource/cbrn-erkunder/data/*
+!resource/cbrn-erkunder/data/LIESMICH.txt

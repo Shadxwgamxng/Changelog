@@ -1,0 +1,3 @@
+In diesem Ordner legt das Script seine Datenbank (cbrn.db) ab.
+Beim Aktualisieren der Ressource diesen Ordner NICHT löschen oder überschreiben – sonst gehen Einsätze, Proben, Messpunkte und der Kartenabgleich verloren.
+Update-Ablauf: stop cbrn-erkunder -> neue Dateien über den Ordner kopieren (data/ bleibt) -> ensure cbrn-erkunder.

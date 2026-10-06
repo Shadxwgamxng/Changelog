@@ -81,4 +81,4 @@ Einsatzkarte → rechte Leiste → **Kartenabgleich → „Hier stehe ich“**, 
 
 ## Datenbank-Ablage
 
-Die Datenbank liegt jetzt **außerhalb** der Ressource: Ordner `cbrn-erkunder-data` neben `cbrn-erkunder` (Datei `cbrn.db`). So gehen Proben, Messpunkte und Kartenabgleich beim Austauschen der Ressource nicht verloren. Anderer Ort: `set cbrn_data_dir "/pfad"` in der server.cfg. Eine alte `data/cbrn.db` im Ressourcenordner wird beim ersten Start übernommen. Die Ressource nicht bei laufendem Server austauschen – erst `stop cbrn-erkunder`, dann ersetzen, dann `ensure cbrn-erkunder`.
+Die Datenbank liegt im Ordner `data` der Ressource (`data/cbrn.db`) – FiveM erlaubt dem Server-Skript nur dort Schreibzugriffe. **Beim Aktualisieren den Ordner `data` nicht löschen oder überschreiben.** Ablauf: `stop cbrn-erkunder` → neue Dateien über den Ressourcenordner kopieren (nicht den Ordner ersetzen) → `ensure cbrn-erkunder`. Lässt sich der Ordner nicht beschreiben, arbeitet das Script ohne Speicherung weiter und meldet das in der Konsole.
