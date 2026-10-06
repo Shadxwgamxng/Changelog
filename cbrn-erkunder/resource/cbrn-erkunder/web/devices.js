@@ -55,7 +55,7 @@
     mgmg: { img: IMG + 'mgmg.png', W: 284, H: 700, scr: rect(74, 338, 134, 154, 284, 700), css: { '--bg': '#bcd3a3', '--fg': '#17230f', '--off': '#8ea184' },
       // Dräger X-am 8000: Bedienung über drei Tasten ▼ OK ▲ (Produktinformation); die Symbole am unteren Displayrand gehören zu den Tasten. OK halten = Ein/Aus, OK kurz = Alarm quittieren / Detail (Annahme)
       pw: { id: 'ok', onMs: 1000, offMs: 3000 }, snd: { alarm: { file: 'mgmg_alarm', loop: true }, warn: { file: 'mgmg_alarm', every: 5000 } },
-      btns: [btn('dn', '▼ Menü (im Menü: ab)', circ(85, 578, 24, 284, 700), 'menu', 'down'), btn('ok', 'OK (Alarm quittieren / Detail · im Menü: Auswahl · halten: Ein/Aus)', circ(140, 578, 24, 284, 700), 'okack', 'ok'), btn('up', '▲ Start / Stop (im Menü: auf)', circ(197, 578, 24, 284, 700), 'a', 'up')],
+      btns: [btn('dn', '▼ Menü (im Menü: ab)', circ(77.5, 551, 21, 284, 700), 'menu', 'down'), btn('ok', 'OK (Alarm quittieren / Detail · im Menü: Auswahl · halten: Ein/Aus)', circ(141.5, 551, 21, 284, 700), 'okack', 'ok'), btn('up', '▲ Start / Stop (im Menü: auf)', circ(202, 551, 21, 284, 700), 'a', 'up')],
       screen: (c) => lcdGas(c) },
   };
 
