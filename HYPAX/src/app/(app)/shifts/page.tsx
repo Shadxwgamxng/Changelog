@@ -3,10 +3,10 @@ import { Plus } from "lucide-react";
 import { requireCtx } from "@/server/session";
 import { hasAnywhere, visibleUnits } from "@/server/context";
 import { listShifts } from "@/server/services/shifts";
-import { Badge, Card, Empty, LinkButton, PageHeader, ProgressBar } from "@/components/ui";
+import { Badge, Empty, LinkButton, PageHeader, ProgressBar } from "@/components/ui";
 import { SHIFT_KIND_LABEL, SHIFT_STATUS_LABEL, ASSIGNMENT_STATUS_LABEL } from "@/lib/constants";
 import { assignmentTone, shiftStatusTone } from "@/lib/ui-maps";
-import { fmtLong, fmtRange, berlinDateKey, parseBerlinLocal } from "@/lib/dates";
+import { fmtLong, fmtRange, berlinDateKey } from "@/lib/dates";
 import { AutoSubmitSelect } from "@/components/forms";
 
 export const metadata = { title: "Dienste" };
@@ -63,7 +63,6 @@ export default async function ShiftsPage({ searchParams }: { searchParams: Promi
           ))}
         </div>
       )}
-      <span hidden><Card>{null}</Card>{String(parseBerlinLocal("2027-01-01T00:00"))}</span>
     </>
   );
 }

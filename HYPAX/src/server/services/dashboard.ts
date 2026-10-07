@@ -13,7 +13,6 @@ import { listEvents } from "./events";
 import { berlinParts, parseDateOnly, startOfBerlinMonth } from "@/lib/dates";
 import { evaluate } from "@/lib/matching";
 import { buildCandidates, toRequirement } from "./staffing";
-import { qualState } from "@/lib/qualification";
 
 const FIELD_KINDS = new Set(["SANITAETSDIENST", "EINSATZ", "UEBUNG", "SONSTIGES"]);
 
@@ -97,8 +96,6 @@ async function leaderSection(ctx: Ctx) {
   ]);
 
   const vehicles = hasAnywhere(ctx, "vehicle.view") ? await prisma.vehicle.groupBy({ by: ["status"], where: scopeWhere(ctx, "vehicle.view") as Prisma.VehicleWhereInput, _count: { _all: true } }) : [];
-  const vReady = vehicles.find((v) => v.status === "EINGESCHRAENKT")?._count._all ?? 0 + (vehicles.find((v) => v.status === "EINSATZBEREIT")?._count._all ?? 0);
-  void vReady;
   const count = (s: string) => vehicles.find((v) => v.status === s)?._count._all ?? 0;
 
   return {
@@ -119,4 +116,3 @@ export async function myFitForShift(ctx: Ctx, shift: { id: string; unitId: strin
   if (!candidates[0] || !shiftCtx) return null;
   return shift.requirements.map((r) => ({ requirementId: r.id, label: r.label, ...evaluate({ ...candidates[0], alreadyOnShift: false }, toRequirement(r), shiftCtx) }));
 }
-void qualState;

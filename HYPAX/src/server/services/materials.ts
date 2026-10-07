@@ -22,7 +22,6 @@ function decorate(m: Row) {
   if (exp === "UEBERFAELLIG") flags.push("ABGELAUFEN"); else if (exp === "BALD") flags.push("ABLAUF_BALD");
   if (mnt === "UEBERFAELLIG") flags.push("WARTUNG_FAELLIG"); else if (mnt === "BALD") flags.push("WARTUNG_BALD");
   const { issues: _i, unit: _u, responsible, ...rest } = m;
-  void _i; void _u;
   return { ...rest, unitName: m.unit.name, responsibleName: responsible ? `${responsible.firstName} ${responsible.lastName}` : null, issuedOut: out, available: m.quantity - out, flags };
 }
 

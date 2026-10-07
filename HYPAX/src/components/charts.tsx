@@ -3,7 +3,6 @@ import type { ReactNode } from "react";
 
 export function BarChart({ data, unit = "h", height = 180, format }: { data: { label: string; value: number }[]; unit?: string; height?: number; format?: (v: number) => string }) {
   const max = Math.max(...data.map((d) => d.value), 1);
-  const w = 100 / Math.max(data.length, 1);
   const fmt = format ?? ((v: number) => v.toLocaleString("de-DE", { maximumFractionDigits: 1 }));
   const total = data.reduce((s, d) => s + d.value, 0);
   return (
@@ -23,7 +22,6 @@ export function BarChart({ data, unit = "h", height = 180, format }: { data: { l
         })}
       </svg>
       <figcaption className="sr-only">{data.map((d) => `${d.label}: ${fmt(d.value)} ${unit}`).join("; ")}</figcaption>
-      <span hidden>{w}</span>
     </figure>
   );
 }

@@ -4,7 +4,7 @@ import { requireCtx } from "@/server/session";
 import { hasAnywhere, unitsWith } from "@/server/context";
 import { listAlertGroups, listAlerts } from "@/server/services/alerts";
 import { helperOptions } from "@/server/services/helpers";
-import { Badge, Card, Empty, LinkButton, PageHeader } from "@/components/ui";
+import { Badge, Empty, LinkButton, PageHeader } from "@/components/ui";
 import { ActionButton, ActionForm, Collapse, SubmitButton } from "@/components/forms";
 import { ALERT_RESPONSE_EMOJI, ALERT_RESPONSE_LABEL } from "@/lib/constants";
 import { alertResponseTone } from "@/lib/ui-maps";
@@ -42,7 +42,6 @@ export default async function AlertsPage() {
           </div>
         </div>
       )}
-      <span hidden><Card>{null}</Card></span>
     </>
   );
 }

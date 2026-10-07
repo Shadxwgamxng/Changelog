@@ -3,7 +3,6 @@ import { forbidden, badRequest } from "../errors";
 import { hasAnywhere, type Ctx } from "../context";
 import { audit } from "../audit";
 import { loadUnits } from "../units";
-import { prisma } from "../db";
 import { exportTable, FORMATS, type ExportFormat, type Table } from "../export";
 import { helperStats, hoursReport, qualificationStats, shiftStats } from "./stats";
 import { expiringQualifications } from "./qualifications";
@@ -43,7 +42,7 @@ export async function buildReport(ctx: Ctx, key: ReportKey, p: ReportParams): Pr
         rows: [
           ["GESAMT", "", s.valid, s.expiring, s.expired],
           ...s.perType.map((t) => [t.name, t.category, t.valid, t.expiring, t.expired] as (string | number)[]),
-          ...expiring.filter((e) => !p.unitId || true).map((e) => [`⚠ ${e.helperName} – ${e.typeName}`, e.unitName, fmtDate(e.validUntil), QUAL_STATE_LABEL[e.state], e.daysLeft < 0 ? `seit ${-e.daysLeft} Tagen` : `in ${e.daysLeft} Tagen`] as (string | number)[]),
+          ...expiring.map((e) => [`⚠ ${e.helperName} – ${e.typeName}`, e.unitName, fmtDate(e.validUntil), QUAL_STATE_LABEL[e.state], e.daysLeft < 0 ? `seit ${-e.daysLeft} Tagen` : `in ${e.daysLeft} Tagen`] as (string | number)[]),
           ...s.gaps.map((g) => [`Lücke: ${g.shiftName} – ${g.position}`, fmtDate(g.startsAt), `benötigt ${g.needed}`, `qualifiziert ${g.qualified}`, ""] as (string | number)[]),
         ],
       };
@@ -68,4 +67,3 @@ export async function exportReport(ctx: Ctx, key: ReportKey, p: ReportParams, fo
   return { buffer, mime: FORMATS[format].mime, filename: `${key}-${p.from.toISOString().slice(0, 10)}_${p.to.toISOString().slice(0, 10)}.${FORMATS[format].ext}` };
 }
 
-void prisma;

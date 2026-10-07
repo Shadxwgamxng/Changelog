@@ -23,7 +23,7 @@ export default async function NewShift({ searchParams }: { searchParams: Promise
   return (
     <>
       <PageHeader title="Dienst erstellen" back={{ href: "/shifts", label: "Dienste" }} subtitle="Neue Dienste starten als Entwurf. Erst nach dem Veröffentlichen können sich Helfer anmelden." />
-      <ShiftForm action={createShiftAction} submit="Dienst als Entwurf anlegen" units={units} qualTypes={qualTypes} events={events} helpers={helpers.filter((h) => !unitId || true)}
+      <ShiftForm action={createShiftAction} submit="Dienst als Entwurf anlegen" units={units} qualTypes={qualTypes} events={events} helpers={helpers}
         defaults={{ unitId, eventId: ev?.id ?? null, startsAt: ev?.startsAt ?? parseBerlinLocal(`${tomorrow}T18:00`)!, endsAt: ev?.endsAt ?? parseBerlinLocal(`${tomorrow}T22:00`)!, name: ev ? `Sanitätsdienst ${ev.name}` : "", kind: "SANITAETSDIENST" }} />
     </>
   );

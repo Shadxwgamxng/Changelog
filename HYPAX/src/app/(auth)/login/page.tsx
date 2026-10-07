@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCtx } from "@/server/session";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { loginAction } from "./actions";
+import { BrandFooter, EfMark } from "@/components/brand";
 
 export const metadata = { title: "Anmelden" };
 
@@ -10,9 +11,7 @@ export default async function LoginPage() {
   return (
     <main id="main" className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-4 py-10">
       <div className="mb-8 flex items-center gap-3">
-        <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-brand-600 text-white shadow-card" aria-hidden>
-          <svg viewBox="0 0 64 64" className="h-7 w-7"><path fill="currentColor" d="M25 12h14v13h13v14H39v13H25V39H12V25h13z" /></svg>
-        </span>
+        <EfMark className="h-12 w-[5.1rem] text-brand-600" label="EmergencyForge" />
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">HYPAX</h1>
           <p className="text-sm text-fg-muted">Dienst- und Helferverwaltung</p>
@@ -28,6 +27,7 @@ export default async function LoginPage() {
         <p className="mt-4 text-xs text-fg-subtle">Passwort vergessen? Wende dich an die Leitung deiner Einheit – sie kann dein Passwort zurücksetzen.</p>
       </div>
       <p className="mt-6 text-center text-xs text-fg-subtle">Aus Sicherheitsgründen wirst du nach 30 Minuten Inaktivität automatisch abgemeldet.</p>
+      <div className="mt-8"><BrandFooter /></div>
     </main>
   );
 }

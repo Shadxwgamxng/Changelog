@@ -20,6 +20,10 @@ import { setPreferences } from "../../src/server/services/notifications";
 import { notifyUsers } from "../../src/server/notify";
 import { regenerateIcalToken } from "../../src/server/auth";
 import { addHelperQualification } from "../../src/server/services/qualifications";
+import { berlinDateKey } from "../../src/lib/dates";
+
+/** „Reines Datum“ (UTC-Mitternacht) n Tage ab heute (Berliner Datum) – so speichert die Anwendung Ablaufdaten. */
+const dateIn = (n: number) => new Date(new Date(`${berlinDateKey(new Date())}T00:00:00Z`).getTime() + n * 86_400_000);
 
 let S: Awaited<ReturnType<typeof scenario>>;
 const rejects = (p: Promise<unknown>, status: number, re?: RegExp) =>
@@ -263,15 +267,15 @@ test("Wartungslauf: Ablaufwarnungen einmalig, Löschkonzept, Audit-Aufbewahrung"
   const lead = await mkAccountHelper(S.berA.id, "Bea", "Boss", "BEREITSCHAFTSLEITER");
   const a = await mkAccountHelper(S.berA.id, "Anton", "A");
   const day = 86_400_000;
-  await mkQual(a.helper.id, S.qt.get("Sanitätshelfer")!, new Date(Date.now() + 45 * day));
-  await mkQual(a.helper.id, S.qt.get("Erste-Hilfe-Ausbildung")!, new Date(Date.now() + 5 * day));
+  await mkQual(a.helper.id, S.qt.get("Sanitätshelfer")!, dateIn(45));
+  await mkQual(a.helper.id, S.qt.get("Erste-Hilfe-Ausbildung")!, dateIn(5));
   const r1 = await runMaintenance();
   assert.equal(r1.qualWarnings, 2);
   const r2 = await runMaintenance();
   assert.equal(r2.qualWarnings, 0, "keine Doppelwarnung");
   assert.ok(await prisma.notification.findFirst({ where: { userId: lead.user.id, title: { contains: "Erste-Hilfe" } } }), "Leitung wird bei < 7 Tagen informiert");
   // abgelaufene Qualifikation markiert den Helfer im Dashboard
-  await mkQual(a.helper.id, S.qt.get("Sprechfunk (BOS)")!, new Date(Date.now() - 2 * day));
+  await mkQual(a.helper.id, S.qt.get("Sprechfunk (BOS)")!, dateIn(-2));
   const dash = await getDashboard(a.ctx);
   assert.ok(dash.qualWarnings.some((q) => q.name === "Sprechfunk (BOS)" && q.state === "ABGELAUFEN"));
   assert.ok(dash.qualWarnings.some((q) => q.name === "Sanitätshelfer" && q.state === "LAEUFT_AB" && q.daysLeft === 45));

@@ -6,6 +6,7 @@ import { Icon } from "./icons";
 import { NavLink, NavScrim, SidebarToggle, ThemeToggle } from "./nav-client";
 import { logoutAction } from "@/app/(auth)/login/actions";
 import { Avatar } from "@/components/ui";
+import { BrandFooter, EfMark } from "@/components/brand";
 
 export function AppShell({ ctx, unread, unreadMessages, children, activeAlerts }: { ctx: Ctx; unread: number; unreadMessages: number; children: React.ReactNode; activeAlerts: number }) {
   const items = navItems(ctx);
@@ -16,7 +17,7 @@ export function AppShell({ ctx, unread, unreadMessages, children, activeAlerts }
       <header className="app-topbar no-print">
         <SidebarToggle />
         <Link href="/" className="flex items-center gap-2 pr-2" aria-label="HYPAX Startseite">
-          <span className="flex h-6 w-6 items-center justify-center rounded bg-brand-600 text-on-accent" aria-hidden><svg viewBox="0 0 64 64" className="h-3.5 w-3.5"><path fill="currentColor" d="M25 12h14v13h13v14H39v13H25V39H12V25h13z" /></svg></span>
+          <EfMark className="h-4 w-7 text-brand-600" label="EmergencyForge" />
           <span className="hidden text-sm font-semibold tracking-tight text-fg sm:inline">HYPAX</span>
         </Link>
         <form action="/search" role="search" className="relative mx-auto min-w-0 flex-1 sm:max-w-md">
@@ -55,7 +56,7 @@ export function AppShell({ ctx, unread, unreadMessages, children, activeAlerts }
             </div>
           ))}
         </nav>
-        <p className="nav-foot px-4 pb-4 text-[11px] leading-snug text-fg-subtle">Zugriffe auf sensible Daten werden protokolliert.</p>
+        <div className="nav-foot space-y-3 px-4 pb-4"><p className="text-[11px] leading-snug text-fg-subtle">Zugriffe auf sensible Daten werden protokolliert.</p><BrandFooter compact /></div>
       </aside>
       <NavScrim />
 

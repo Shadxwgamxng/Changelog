@@ -3,7 +3,7 @@ import { Plus } from "lucide-react";
 import { requireCtx } from "@/server/session";
 import { hasAnywhere } from "@/server/context";
 import { listEvents } from "@/server/services/events";
-import { Badge, Card, Empty, LinkButton, PageHeader } from "@/components/ui";
+import { Badge, Empty, LinkButton, PageHeader } from "@/components/ui";
 import { fmtRange, fmtLong } from "@/lib/dates";
 
 export const metadata = { title: "Veranstaltungen" };
@@ -22,7 +22,6 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
           <li key={e.id}><Link href={`/events/${e.id}`} className="card flex flex-wrap items-center justify-between gap-3 px-4 py-4 transition hover:shadow-pop"><div className="min-w-0"><p className="truncate font-semibold">{e.name}</p><p className="text-sm text-fg-muted">{fmtLong(e.startsAt)} · {fmtRange(e.startsAt, e.endsAt)}{e.location ? ` · ${e.location}` : ""}</p><p className="text-xs text-fg-subtle">{e.unitName}</p></div><div className="flex gap-2">{e.cancelled && <Badge tone="danger">Abgesagt</Badge>}<Badge tone="info">{e.shiftCount} Dienst{e.shiftCount === 1 ? "" : "e"}</Badge></div></Link></li>
         ))}</ul>
       )}
-      <span hidden><Card>{null}</Card></span>
     </>
   );
 }

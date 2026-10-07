@@ -118,3 +118,7 @@ html.is-collapsed .nav-link { justify-content: center; padding: 0; }
 @media print { .no-print { display: none !important; } body { background: #fff; color: #000; } .app-shell { display: block; } }
 details > summary { list-style: none; cursor: pointer; }
 details > summary::-webkit-details-marker { display: none; }
+
+/* Grid-Kinder dürfen schrumpfen (verhindert horizontalen Überlauf durch lange Inhalte/Tabellen) */
+.app-main .grid > *, .app-main .flex > * { min-width: 0; }
+.app-main .flex > .shrink-0, .app-main .flex > svg, .app-main .flex > button, .app-main .flex > a.btn { min-width: revert; }

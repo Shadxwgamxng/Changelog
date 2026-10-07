@@ -1,0 +1,37 @@
+# Beispiel-Betrieb: PostgreSQL + HYPAX. Vor dem Start .env anlegen (siehe .env.example) und HYPAX_DB_PASSWORD setzen.
+# Hinter einen Reverse-Proxy mit HTTPS stellen (Caddy/nginx/Traefik) und APP_URL entsprechend setzen.
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hypax
+      POSTGRES_PASSWORD: ${HYPAX_DB_PASSWORD:?bitte setzen}
+      POSTGRES_DB: hypax
+    volumes: [dbdata:/var/lib/postgresql/data]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U hypax"], interval: 5s, retries: 10 }
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on: { db: { condition: service_healthy } }
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://hypax:${HYPAX_DB_PASSWORD}@db:5432/hypax?schema=public
+      STORAGE_DIR: /data/storage
+    volumes: [storage:/data/storage]
+    ports: ["127.0.0.1:3000:3000"]
+
+  # Täglicher Wartungslauf (Ablaufwarnungen, Löschkonzept): einfache Variante ohne externen Cron
+  maintenance:
+    build: .
+    restart: unless-stopped
+    depends_on: { db: { condition: service_healthy } }
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://hypax:${HYPAX_DB_PASSWORD}@db:5432/hypax?schema=public
+      STORAGE_DIR: /data/storage
+    volumes: [storage:/data/storage]
+    entrypoint: ["sh", "-c", "while true; do npx tsx scripts/maintenance.ts; sleep 86400; done"]
+
+volumes: { dbdata: {}, storage: {} }

@@ -35,7 +35,7 @@ async function Mine({ ctx, month }: { ctx: Awaited<ReturnType<typeof requireCtx>
   const now = berlinParts(new Date());
   const m = /^\d{4}-\d{2}$/.test(month ?? "") ? month! : `${now.y}-${String(now.m).padStart(2, "0")}`;
   const [y, mo] = m.split("-").map(Number);
-  const first = new Date(Date.UTC(y, mo - 1, 1)), last = new Date(Date.UTC(y, mo, 0));
+  const first = new Date(Date.UTC(y, mo - 1, 1));
   const lead = (first.getUTCDay() + 6) % 7;
   const gridStart = new Date(first.getTime() - lead * 86_400_000), gridEnd = new Date(gridStart.getTime() + 42 * 86_400_000 - 86_400_000);
   const entries = await getAvailability(ctx, ctx.helperId!, gridStart, gridEnd);
@@ -45,7 +45,6 @@ async function Mine({ ctx, month }: { ctx: Awaited<ReturnType<typeof requireCtx>
   const prev = new Date(Date.UTC(y, mo - 2, 1)).toISOString().slice(0, 7), next = new Date(Date.UTC(y, mo, 1)).toISOString().slice(0, 7);
   const today = parseDateOnly(new Date().toISOString().slice(0, 10))!;
   const upcoming = entries.filter((e) => e.endDate >= today);
-  void last;
   return (
     <div className="grid gap-5 lg:grid-cols-5">
       <Card className="lg:col-span-3" title={`${MONTHS[mo - 1]} ${y}`} action={<div className="flex gap-1"><Link href={`?m=${prev}`} className="btn btn-ghost btn-sm" aria-label="Vorheriger Monat"><ChevronLeft className="h-4 w-4" /></Link><Link href="?" className="btn btn-ghost btn-sm">Heute</Link><Link href={`?m=${next}`} className="btn btn-ghost btn-sm" aria-label="Nächster Monat"><ChevronRight className="h-4 w-4" /></Link></div>}>

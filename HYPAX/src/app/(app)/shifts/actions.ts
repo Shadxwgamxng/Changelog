@@ -2,7 +2,6 @@
 import { redirect } from "next/navigation";
 import { action, checked, formObject, json, str } from "@/server/action";
 import * as S from "@/server/services/shifts";
-import { prisma } from "@/server/db";
 
 export const createShiftAction = action(async (ctx, form) => {
   const o = formObject(form);
@@ -57,4 +56,3 @@ export const resourcesAction = action(async (ctx, f) => {
   await S.setShiftResources(ctx, str(f, "id"), { vehicleIds, materials });
   return "Fahrzeuge und Material gespeichert.";
 });
-void prisma;

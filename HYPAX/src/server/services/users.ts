@@ -2,7 +2,7 @@ import type { AssignmentScope, SystemRole } from "@prisma/client";
 import { prisma } from "../db";
 import { audit } from "../audit";
 import { badRequest, conflict, forbidden, notFound } from "../errors";
-import { can, canIn, hasAnywhere, require_, unitIdsWith, type Ctx } from "../context";
+import { canIn, hasAnywhere, require_, unitIdsWith, type Ctx } from "../context";
 import { loadUnits } from "../units";
 import { hashPassword, passwordProblems, randomToken } from "@/lib/crypto";
 import { isPermission } from "@/lib/permissions";

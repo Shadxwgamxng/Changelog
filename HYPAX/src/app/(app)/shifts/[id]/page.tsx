@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarClock, MapPin, Pencil, Siren, Truck, Users2, Package } from "lucide-react";
+import { CalendarClock, MapPin, Pencil, Siren, Truck, Package } from "lucide-react";
 import { requireCtx } from "@/server/session";
 import { getShift, getRecommendation } from "@/server/services/shifts";
 import { helperOptions } from "@/server/services/helpers";
@@ -67,7 +67,7 @@ export default async function ShiftPage({ params }: { params: Promise<{ id: stri
         <Card className="mb-5" title="Deine Teilnahme">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <p className="text-lg font-semibold">{mine ? (mine.status === "BESTAETIGT" ? "✅ Du bist eingeteilt / hast zugesagt" : mine.status === "ANGEFRAGT" ? "⏳ Anfrage gesendet – wartet auf Entscheidung" : mine.status === "EINGELADEN" ? "✉️ Du wurdest eingeladen" : mine.status === "WARTELISTE" ? "🕒 Du stehst auf der Warteliste" : mine.status === "ABGELEHNT" ? "Deine Anfrage wurde abgelehnt" : "Du hast abgesagt") : `Benötigt: ${sum.needed || "–"} · Gemeldet: ${sum.confirmed + sum.invited + sum.requested}`}</p>
+              <p className="text-lg font-semibold">{mine ? (mine.status === "BESTAETIGT" ? "✅ Du bist eingeteilt / hast zugesagt" : mine.status === "ANGEFRAGT" ? "⏳ Deine Anfrage wurde an den Dienstplaner übermittelt." : mine.status === "EINGELADEN" ? "✉️ Du wurdest eingeladen" : mine.status === "WARTELISTE" ? "🕒 Du stehst auf der Warteliste" : mine.status === "ABGELEHNT" ? "Deine Anfrage wurde abgelehnt" : "Du hast abgesagt") : `Benötigt: ${sum.needed || "–"} · Gemeldet: ${sum.confirmed + sum.invited + sum.requested}`}</p>
               {!mine && sum.needed > 0 && <p className="text-sm text-fg-muted">{sum.open} Positionen noch offen.</p>}
             </div>
             <div className="flex flex-wrap items-start gap-2">
@@ -264,7 +264,6 @@ export default async function ShiftPage({ params }: { params: Promise<{ id: stri
           )}
         </div>
       </div>
-      <span hidden><Users2 />{null}</span>
     </>
   );
 }
