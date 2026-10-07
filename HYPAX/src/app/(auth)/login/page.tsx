@@ -1,0 +1,33 @@
+import { redirect } from "next/navigation";
+import { getCtx } from "@/server/session";
+import { ActionForm, SubmitButton } from "@/components/forms";
+import { loginAction } from "./actions";
+
+export const metadata = { title: "Anmelden" };
+
+export default async function LoginPage() {
+  if (await getCtx()) redirect("/");
+  return (
+    <main id="main" className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-4 py-10">
+      <div className="mb-8 flex items-center gap-3">
+        <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-brand-600 text-white shadow-card" aria-hidden>
+          <svg viewBox="0 0 64 64" className="h-7 w-7"><path fill="currentColor" d="M25 12h14v13h13v14H39v13H25V39H12V25h13z" /></svg>
+        </span>
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">HYPAX</h1>
+          <p className="text-sm text-fg-muted">Dienst- und Helferverwaltung</p>
+        </div>
+      </div>
+      <div className="card card-pad">
+        <h2 className="mb-4 text-lg font-semibold">Anmelden</h2>
+        <ActionForm action={loginAction} className="space-y-4">
+          <label className="block"><span className="label">E-Mail</span><input className="input" type="email" name="email" autoComplete="username" required autoFocus inputMode="email" /></label>
+          <label className="block"><span className="label">Passwort</span><input className="input" type="password" name="password" autoComplete="current-password" required /></label>
+          <SubmitButton className="w-full" pendingText="Anmelden …">Anmelden</SubmitButton>
+        </ActionForm>
+        <p className="mt-4 text-xs text-fg-subtle">Passwort vergessen? Wende dich an die Leitung deiner Einheit – sie kann dein Passwort zurücksetzen.</p>
+      </div>
+      <p className="mt-6 text-center text-xs text-fg-subtle">Aus Sicherheitsgründen wirst du nach 30 Minuten Inaktivität automatisch abgemeldet.</p>
+    </main>
+  );
+}

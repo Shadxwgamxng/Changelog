@@ -20,6 +20,8 @@ export interface Ctx {
   helperUnitId: string | null;
   helperName: string | null;
   grants: Grant[];
+  mustChangePw: boolean;
+  totpEnabled: boolean;
   ip?: string;
   userAgent?: string;
 }
@@ -52,6 +54,8 @@ export async function loadCtx(userId: string, meta: { ip?: string; userAgent?: s
     helperUnitId: user.helper?.unitId ?? null,
     helperName: user.helper ? `${user.helper.firstName} ${user.helper.lastName}` : null,
     grants,
+    mustChangePw: user.mustChangePw,
+    totpEnabled: user.totpEnabled,
     ...meta,
   };
 }
