@@ -16,7 +16,9 @@ const noDemo = process.argv.includes("--no-demo");
 const PORT = process.env.PORT || "3000";
 const log = (m) => console.log(`\n▶ ${m}`);
 const run = (cmd, args, env = {}) => {
-  const r = spawnSync(cmd, args, { stdio: "inherit", shell: process.platform === "win32", env: { ...process.env, ...env } });
+  const r = process.platform === "win32"
+    ? spawnSync([cmd, ...args].join(" "), { stdio: "inherit", shell: true, env: { ...process.env, ...env } })
+    : spawnSync(cmd, args, { stdio: "inherit", env: { ...process.env, ...env } });
   if (r.status !== 0) throw new Error(`Befehl fehlgeschlagen: ${cmd} ${args.join(" ")}`);
 };
 
@@ -46,11 +48,24 @@ if (await reachable(dbPort)) {
   const { default: EmbeddedPostgres } = await import("embedded-postgres");
   embedded = new EmbeddedPostgres({
     databaseDir: path.join(root, "pgdata"), port: dbPort, user: decodeURIComponent(dbUrl.username), password: decodeURIComponent(dbUrl.password),
-    persistent: true, onLog: () => {}, onError: (e) => { if (String(e).match(/error|fatal/i)) console.error(String(e)); },
+    persistent: true, initdbFlags: ["--encoding=UTF8", "--locale=C"], onLog: () => {}, onError: (e) => { if (String(e).match(/error|fatal/i)) console.error(String(e)); },
   });
   if (!existsSync(path.join(root, "pgdata", "PG_VERSION"))) await embedded.initialise();
   await embedded.start();
-  try { await embedded.createDatabase(dbUrl.pathname.slice(1)); } catch { /* existiert bereits */ }
+  // Datenbank immer mit UTF-8 anlegen (unter Windows wäre der Standard WIN1252 – dort scheitern Umlaute/Emojis).
+  const dbName = dbUrl.pathname.slice(1).replace(/[^A-Za-z0-9_]/g, "");
+  const admin = embedded.getPgClient("postgres");
+  await admin.connect();
+  const create = () => admin.query(`CREATE DATABASE "${dbName}" ENCODING 'UTF8' LC_COLLATE 'C' LC_CTYPE 'C' TEMPLATE template0`);
+  const found = await admin.query("SELECT pg_encoding_to_char(encoding) AS enc FROM pg_database WHERE datname = $1", [dbName]);
+  if (!found.rows.length) await create();
+  else if (found.rows[0].enc !== "UTF8") {
+    log(`Datenbank "${dbName}" hat die Kodierung ${found.rows[0].enc} statt UTF8 (Altlast eines früheren Startversuchs) – wird neu angelegt`);
+    await admin.query(`DROP DATABASE "${dbName}" WITH (FORCE)`);
+    await create();
+    try { (await import("node:fs")).rmSync(".local-initialized", { force: true }); } catch { /* egal */ }
+  }
+  await admin.end();
   } catch (e) {
     console.error(`\n✘ Die eingebettete Datenbank konnte nicht gestartet werden:\n${String(e.message).split("\n").slice(0, 3).join("\n")}\n\nAlternativen: eigene PostgreSQL-16-Datenbank installieren und DATABASE_URL in .env setzen, oder Docker verwenden (docker-compose.yml).`);
     process.exit(1);
@@ -77,7 +92,9 @@ try {
   // 4) Starten
   console.log(`\n✔ HYPAX läuft auf http://localhost:${PORT}   (Beenden mit Strg+C)`);
   if (!noDemo) console.log("  Demo-Login: admin@demo.hypax.de  oder  max@demo.hypax.de   Passwort: Demo#Passwort1");
-  const child = spawn("npx", ["next", "start", "-p", PORT], { stdio: "inherit", shell: process.platform === "win32" });
+  const child = process.platform === "win32"
+    ? spawn(`npx next start -p ${PORT}`, { stdio: "inherit", shell: true })
+    : spawn("npx", ["next", "start", "-p", PORT], { stdio: "inherit" });
   child.on("exit", async (code) => { await stopDb(); process.exit(code ?? 0); });
 } catch (e) {
   console.error(`\n✘ ${e.message}`);
