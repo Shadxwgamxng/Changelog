@@ -1,0 +1,23 @@
+HYPAX lokal betreiben
+=====================
+Voraussetzungen: Node.js 20 oder neuer, dazu Docker (für die Datenbank) ODER eine eigene PostgreSQL-16-Datenbank.
+
+1. ZIP entpacken.
+2. Linux/macOS:  ./start-local.sh      Windows:  start-local.bat (Doppelklick)
+   Beim ersten Start werden Konfiguration (.env, mit zufälligen Schlüsseln), Datenbank, Demo-Daten und Build automatisch erledigt (einige Minuten).
+3. Im Browser öffnen: http://localhost:3000
+
+Demo-Konten (Passwort für alle: Demo#Passwort1)
+  admin@demo.hypax.de       Superadministrator
+  leitung@demo.hypax.de     Einheitenleiter Ortsverein
+  bereitschaft@demo.hypax.de Bereitschaftsleiter
+  planer@demo.hypax.de      Dienstplaner
+  max@demo.hypax.de         Helfer
+
+Ohne Demo-Daten (echter Einsatz):
+  ./start-local.sh --no-demo   (nur Linux/macOS) und danach
+  npm run bootstrap -- deine@mail.de "Sicheres#Passwort1"
+
+Eigene Datenbank statt Docker: in .env DATABASE_URL anpassen; Docker wird dann nicht benötigt.
+Wichtig: Die Demo-Daten und -Passwörter sind NUR für lokales Ausprobieren. Für den Betrieb im Netzwerk siehe README.md (HTTPS, Backups).
+Datenhaltung: Datenbank (Docker-Volume "hypax-data") und Ordner ./storage (verschlüsselte Dokumente) sichern.
