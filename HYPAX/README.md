@@ -30,7 +30,7 @@ Demo-Konten (Passwort für alle: `Demo#Passwort1`): `admin@demo.hypax.de` (Super
 
 | Bereich | Umsetzung |
 |---|---|
-| **Rollen & Rechte** | 33 granulare Rechte; Rollenvorlagen (Einheitenleiter, Bereitschaftsleiter, Zugführer, Gruppenführer, Dienstplaner, Helfer, Gast) frei editierbar + eigene Rollen; Zuweisung je Einheit, optional inkl. Untereinheiten; pro Zuweisung zusätzliche Rechte gewähren/entziehen; Systemrollen Superadmin/Systemadmin/Support. Eskalationsschutz: man kann nur Rechte vergeben, die man selbst besitzt. |
+| **Rollen & Rechte** | 36 granulare Rechte; Rollenvorlagen (Einheitenleiter, Bereitschaftsleiter, Zugführer, Gruppenführer, Dienstplaner, Helfer, Gast) frei editierbar + eigene Rollen; Zuweisung je Einheit, optional inkl. Untereinheiten; pro Zuweisung zusätzliche Rechte gewähren/entziehen; Systemrollen Superadmin/Systemadmin/Support. Eskalationsschutz: man kann nur Rechte vergeben, die man selbst besitzt. |
 | **Mandantenfähigkeit** | Einheitenbaum (Kreisverband → Ortsverein → Bereitschaft/Einsatzeinheit/SEG/Wasserwacht/JRK/…) mit materialisiertem Pfad; jede Abfrage wird über `scopeWhere()` auf berechtigte Einheiten begrenzt. |
 | **Dashboard** | persönlich (nächste Dienste/Termine, Anfragen/Einladungen, Alarm, Qualifikationswarnungen, Verfügbarkeit, Aufgaben, Bekanntmachungen) + Führungsübersicht (Besetzung, offene Positionen, Einsatzbereitschaft, Qualifikationen, Stunden, Warnungen). |
 | **Helferverwaltung/-profil** | Stammdaten, Organisation, Funktionen, Planungswünsche, Qualifikationen mit Ablaufstatus, Diensthistorie/Stunden, Dokumente, interne Notizen; **feldweise Sichtbarkeit** (Basis / Kontakt / sensibel / Planung / Qualifikationen). |
