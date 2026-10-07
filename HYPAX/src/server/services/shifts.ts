@@ -13,7 +13,7 @@ import { helperWithAccess } from "./helpers";
 
 // ───────────── Sichtbarkeit ─────────────
 
-function visibleWhere(ctx: Ctx): Prisma.ShiftWhereInput {
+export function visibleWhere(ctx: Ctx): Prisma.ShiftWhereInput {
   const staffer: Prisma.ShiftWhereInput[] = (["shift.create", "shift.edit", "shift.staff"] as const).map((p) => scopeWhere(ctx, p) as Prisma.ShiftWhereInput);
   const published: Prisma.ShiftWhereInput = { status: { not: "ENTWURF" } };
   const or: Prisma.ShiftWhereInput[] = [

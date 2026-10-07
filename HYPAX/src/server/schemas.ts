@@ -181,7 +181,7 @@ export const alertInput = z.object({
 
 export const incidentInput = z.object({
   unitId: id,
-  number: reqStr(40),
+  number: optStr(40),
   kind: reqStr(120),
   alertedAt: dateTime.nullable().optional().or(z.literal("").transform(() => null)),
   startedAt: dateTime,

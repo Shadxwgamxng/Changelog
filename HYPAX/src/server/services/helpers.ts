@@ -160,11 +160,10 @@ export async function updateOwnProfile(ctx: Ctx, raw: unknown) {
   return after;
 }
 
-/** DSGVO-Löschung: personenbezogene Daten entfernen, statistische Dienstdaten (ohne Personenbezug) bleiben. */
-export async function anonymizeHelper(ctx: Ctx, helperId: string) {
-  const { helper: h, unit } = await helperWithAccess(ctx, helperId);
-  if (!canIn(ctx, "helper.delete", unit)) throw forbidden();
-  if (h.status === "ANONYMISIERT") return;
+/** Kern der DSGVO-Löschung: personenbezogene Daten entfernen, statistische Dienstdaten (ohne Personenbezug) bleiben. */
+export async function anonymizeCore(helperId: string): Promise<boolean> {
+  const h = await prisma.helper.findUnique({ where: { id: helperId } });
+  if (!h || h.status === "ANONYMISIERT") return false;
   const docs = await prisma.documentVersion.findMany({ where: { document: { ownerHelperId: helperId } }, select: { storageKey: true } });
   const { getStorage } = await import("../storage");
   await prisma.$transaction(async (tx) => {
@@ -173,7 +172,8 @@ export async function anonymizeHelper(ctx: Ctx, helperId: string) {
     await tx.helperQualification.deleteMany({ where: { helperId } });
     await tx.alertRecipient.deleteMany({ where: { helperId } });
     await tx.alertGroupMember.deleteMany({ where: { helperId } });
-    await tx.shiftAssignment.updateMany({ where: { helperId, status: { in: ["ANGEFRAGT", "EINGELADEN", "WARTELISTE"] } }, data: { status: "ZURUECKGEZOGEN" } });
+    await tx.shiftAssignment.updateMany({ where: { helperId, status: { in: ["ANGEFRAGT", "EINGELADEN", "WARTELISTE"] } }, data: { status: "ZURUECKGEZOGEN", note: null } });
+    await tx.shiftAssignment.updateMany({ where: { helperId }, data: { note: null } });
     if (h.userId) {
       await tx.session.deleteMany({ where: { userId: h.userId } });
       await tx.roleAssignment.deleteMany({ where: { userId: h.userId } });
@@ -189,7 +189,15 @@ export async function anonymizeHelper(ctx: Ctx, helperId: string) {
     if (h.userId) await tx.user.delete({ where: { id: h.userId } });
   });
   await Promise.all(docs.map((d) => getStorage().delete(d.storageKey).catch(() => {})));
-  await audit(ctx, { action: "helper.anonymize", entityType: "Helper", entityId: helperId, unitId: h.unitId, summary: `Helfer #${helperId.slice(-6)} anonymisiert (DSGVO-Löschung)` });
+  return true;
+}
+
+export async function anonymizeHelper(ctx: Ctx, helperId: string) {
+  const { helper: h, unit } = await helperWithAccess(ctx, helperId);
+  if (!canIn(ctx, "helper.delete", unit)) throw forbidden();
+  if (await anonymizeCore(helperId)) {
+    await audit(ctx, { action: "helper.anonymize", entityType: "Helper", entityId: helperId, unitId: h.unitId, summary: `Helfer #${helperId.slice(-6)} anonymisiert (DSGVO-Löschung)` });
+  }
 }
 
 /** Auskunft/Export nach Art. 15/20 DSGVO. */

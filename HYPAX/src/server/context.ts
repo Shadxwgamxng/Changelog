@@ -72,9 +72,25 @@ export async function can(ctx: Ctx, perm: Permission, unitId: string): Promise<b
   return !!u && canIn(ctx, perm, u);
 }
 
-/** Wirft 403. `hide` = stattdessen 404 (Existenz nicht verraten). */
+/** Gehört die Einheit zum Sichtbereich des Benutzers (Mitglied, Rolle darin/darüber oder darunter)? */
+function isInScope(ctx: Ctx, unit: UnitInfo, units: Map<string, UnitInfo>): boolean {
+  if (ctx.all || ctx.globalPerms.size) return true;
+  if (ctx.helperUnitId) {
+    const hu = units.get(ctx.helperUnitId);
+    if (hu && (hu.path.startsWith(unit.path) || unit.path.startsWith(hu.path))) return true;
+  }
+  return ctx.grants.some((g) => g.unitPath.startsWith(unit.path) || unit.path.startsWith(g.unitPath));
+}
+
+/**
+ * Wirft bei fehlendem Recht. Mit `hide`: Außenstehende (die die Einheit gar nicht kennen) erhalten 404 statt 403,
+ * damit die Existenz fremder Datensätze nicht verraten wird; Mitglieder der Einheit erhalten ein ehrliches 403.
+ */
 export async function require_(ctx: Ctx, perm: Permission, unitId: string, hide = false): Promise<void> {
-  if (!(await can(ctx, perm, unitId))) throw hide ? notFound() : forbidden();
+  const unit = await unitInfo(unitId);
+  if (unit && canIn(ctx, perm, unit)) return;
+  if (hide && (!unit || !isInScope(ctx, unit, await loadUnits()))) throw notFound();
+  throw forbidden();
 }
 
 /** Hat der Benutzer `perm` irgendwo? (z. B. für Navigationspunkte) */
