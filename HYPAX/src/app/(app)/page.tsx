@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertTriangle, CalendarClock, ChevronRight, ClipboardList, Megaphone, ShieldAlert, Siren } from "lucide-react";
+import { AlertTriangle, CalendarClock, ChevronRight, ClipboardList, Megaphone, ShieldAlert } from "lucide-react";
 import { requireCtx } from "@/server/session";
 import { getDashboard } from "@/server/services/dashboard";
 import { Badge, Card, Empty, LinkButton, ProgressBar, Stat } from "@/components/ui";
@@ -22,14 +22,6 @@ export default async function Dashboard() {
         <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{greeting()}, {d.greetingName}!</h1>
         <p className="mt-1 text-sm text-fg-muted">{ctx.helperName ? "Hier ist alles Wichtige für deinen DRK-Dienst." : "Übersicht über deinen Verantwortungsbereich."}</p>
       </div>
-
-      {d.alerts.some((a) => a.myResponse === "OFFEN") && (
-        <Link href={`/alerts/${d.alerts.find((a) => a.myResponse === "OFFEN")!.id}`} className="mb-5 flex items-center gap-3 rounded-lg border border-danger/40 bg-danger-soft px-4 py-3 text-danger">
-          <Siren className="h-6 w-6 shrink-0" aria-hidden />
-          <div className="min-w-0 flex-1"><p className="font-semibold">Alarmierung: {d.alerts.find((a) => a.myResponse === "OFFEN")!.title}</p><p className="text-sm opacity-90">Bitte jetzt antworten: Ich komme / eventuell / kann nicht.</p></div>
-          <ChevronRight className="h-5 w-5" aria-hidden />
-        </Link>
-      )}
 
       {d.tasks.length > 0 && (
         <div className="mb-5 space-y-2">

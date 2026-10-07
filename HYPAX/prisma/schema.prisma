@@ -167,6 +167,13 @@ enum EventTaskKind {
   SONSTIGES
 }
 
+enum MapObjectKind {
+  MARKER
+  LINE
+  AREA
+  TEXT
+}
+
 enum NotificationType {
   DIENST_NEU
   DIENST_ANFRAGE
@@ -474,9 +481,14 @@ model Shift {
   description   String?
   responsibleId String?
   status        ShiftStatus @default(ENTWURF)
+  /// Gespeicherte Kartenansicht der Lagekarte (Sanitätsdienste)
+  mapLat        Float?
+  mapLng        Float?
+  mapZoom       Int?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
+  mapObjects   MapObject[]
   unit         OrgUnit            @relation(fields: [unitId], references: [id])
   event        Event?             @relation(fields: [eventId], references: [id], onDelete: SetNull)
   responsible  Helper?            @relation("ShiftResponsible", fields: [responsibleId], references: [id], onDelete: SetNull)
@@ -488,6 +500,27 @@ model Shift {
 
   @@index([unitId, startsAt])
   @@index([startsAt, endsAt])
+}
+
+/// Objekt auf der Lagekarte eines Sanitätsdienstes (Symbol, Linie, Fläche oder Text).
+model MapObject {
+  id          String        @id @default(cuid())
+  shiftId     String
+  kind        MapObjectKind
+  /// Marker: Symbol-ID aus src/lib/lagekarte.ts; Linie/Fläche: Stil-ID
+  preset      String
+  /// Marker/Text: [lat, lng]; Linie/Fläche: [[lat, lng], …]
+  coords      Json
+  label       String?
+  note        String?
+  color       String?
+  createdById String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  shift Shift @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+
+  @@index([shiftId])
 }
 
 /// Eine zu besetzende Position („2 × Rettungssanitäter“).

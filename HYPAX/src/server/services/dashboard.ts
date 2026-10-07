@@ -8,7 +8,6 @@ import { expiringQualifications, ownQualificationWarnings } from "./qualificatio
 import { vehicleWarnings } from "./vehicles";
 import { materialWarnings } from "./materials";
 import { hoursReport, ownHours } from "./stats";
-import { listAlerts } from "./alerts";
 import { listEvents } from "./events";
 import { berlinParts, parseDateOnly, startOfBerlinMonth } from "@/lib/dates";
 import { evaluate } from "@/lib/matching";
@@ -18,13 +17,12 @@ const FIELD_KINDS = new Set(["SANITAETSDIENST", "EINSATZ", "UEBUNG", "SONSTIGES"
 
 export async function getDashboard(ctx: Ctx) {
   const now = new Date();
-  const [mine, notifications, unread, announcements, qualWarn, alerts, events] = await Promise.all([
+  const [mine, notifications, unread, announcements, qualWarn, events] = await Promise.all([
     ctx.helperId ? upcomingForHelper(ctx.helperId, 12) : [],
     listNotifications(ctx, { take: 6 }),
     unreadNotificationCount(ctx),
     listAnnouncements(ctx, { take: 4 }),
     ownQualificationWarnings(ctx),
-    listAlerts(ctx, 5),
     hasAnywhere(ctx, "event.view") ? listEvents(ctx, { from: now }) : [],
   ]);
 
@@ -40,7 +38,6 @@ export async function getDashboard(ctx: Ctx) {
 
   const tasks: { text: string; link: string; level: "rot" | "gelb" | "info" }[] = [];
   for (const i of invitations) tasks.push({ text: `Einladung beantworten: ${i.name}`, link: `/shifts/${i.shiftId}`, level: "gelb" });
-  for (const a of alerts.filter((a) => a.status === "AKTIV" && a.myResponse === "OFFEN")) tasks.push({ text: `🚨 Alarmierung beantworten: ${a.title}`, link: `/alerts/${a.id}`, level: "rot" });
   const me = ctx.helperId ? await prisma.helper.findUnique({ where: { id: ctx.helperId }, select: { qualifications: { select: { status: true, validUntil: true, type: { select: { name: true } } } } } }) : null;
   const review = me?.qualifications.filter((q) => q.status === "IN_PRUEFUNG") ?? [];
   for (const q of review) tasks.push({ text: `Qualifikation „${q.type.name}“ wartet auf Bestätigung durch die Leitung`, link: "/profile", level: "info" });
@@ -64,7 +61,7 @@ export async function getDashboard(ctx: Ctx) {
 
   return {
     greetingName: ctx.helperName?.split(" ")[0] ?? ctx.email.split("@")[0],
-    duties, appointments, pendingRequests, invitations, openShifts, events: events.slice(0, 5), announcements, notifications, unread, qualWarnings: qualWarn, alerts: alerts.filter((a) => a.status === "AKTIV"), tasks, availability, leadership,
+    duties, appointments, pendingRequests, invitations, openShifts, events: events.slice(0, 5), announcements, notifications, unread, qualWarnings: qualWarn, tasks, availability, leadership,
     hours: ctx.helperId ? (await ownHours(ctx, berlinParts(now).y)).totalMinutes : 0,
   };
 }

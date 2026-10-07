@@ -1,11 +1,11 @@
-// HYPAX lokal betreiben – ohne Docker. Plattformunabhängig (Windows, macOS, Linux).
+// HelferNet lokal betreiben – ohne Docker. Plattformunabhängig (Windows, macOS, Linux).
 //   node scripts/local.mjs            Demo-Daten beim ersten Start
 //   node scripts/local.mjs --no-demo  ohne Demo-Daten
 // Ist unter DATABASE_URL (.env) schon eine PostgreSQL-Datenbank erreichbar, wird sie genutzt.
 // Sonst startet das Skript eine eingebettete PostgreSQL-Instanz (Daten in ./pgdata).
 import { spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync, appendFileSync, mkdirSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, appendFileSync, mkdirSync, readdirSync, statSync } from "node:fs";
 import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -87,10 +87,14 @@ try {
     else { log("Demo-Daten anlegen"); run("npx", ["tsx", "prisma/seed.ts"]); }
     writeFileSync(".local-initialized", new Date().toISOString());
   }
-  if (!existsSync(path.join(".next", "BUILD_ID"))) { log("Anwendung bauen (einmalig, dauert ein paar Minuten)"); run("npx", ["next", "build"]); }
+  // Neu bauen, wenn noch kein Build existiert oder Quelldateien neuer sind (z. B. nach einem Update des Ordners)
+  const newest = (p) => { try { const st = statSync(p); return st.isDirectory() ? Math.max(...readdirSync(p).map((f) => newest(path.join(p, f))), 0) : st.mtimeMs; } catch { return 0; } };
+  const builtAt = existsSync(path.join(".next", "BUILD_ID")) ? statSync(path.join(".next", "BUILD_ID")).mtimeMs : 0;
+  const srcAt = Math.max(...["src", "public", "prisma", "package.json", "next.config.mjs", "tailwind.config.ts"].map(newest));
+  if (!builtAt || srcAt > builtAt) { log("Anwendung bauen (einmalig, dauert ein paar Minuten)"); run("npx", ["next", "build"]); }
 
   // 4) Starten
-  console.log(`\n✔ HYPAX läuft auf http://localhost:${PORT}   (Beenden mit Strg+C)`);
+  console.log(`\n✔ HelferNet läuft auf http://localhost:${PORT}   (Beenden mit Strg+C)`);
   if (!noDemo) console.log("  Demo-Login: admin@demo.hypax.de  oder  max@demo.hypax.de   Passwort: Demo#Passwort1");
   const child = process.platform === "win32"
     ? spawn(`npx next start -p ${PORT}`, { stdio: "inherit", shell: true })

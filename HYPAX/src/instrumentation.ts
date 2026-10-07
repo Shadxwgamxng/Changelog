@@ -7,7 +7,7 @@ export async function register() {
   if (!key || Buffer.from(key, "base64").length !== 32) problems.push("APP_ENCRYPTION_KEY fehlt oder ist nicht 32 Byte (Base64)");
   if (!process.env.APP_URL) problems.push("APP_URL fehlt (Basis-URL für Links)");
   if (problems.length) {
-    console.error(`\n[HYPAX] Ungültige Konfiguration:\n - ${problems.join("\n - ")}\nSiehe .env.example.\n`);
+    console.error(`\n[HelferNet] Ungültige Konfiguration:\n - ${problems.join("\n - ")}\nSiehe .env.example.\n`);
     throw new Error(`Ungültige Konfiguration: ${problems.join("; ")}`);
   }
 }

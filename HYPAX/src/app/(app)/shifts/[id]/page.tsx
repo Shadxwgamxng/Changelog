@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarClock, MapPin, Pencil, Siren, Truck, Package } from "lucide-react";
+import { CalendarClock, Map as MapIcon, MapPin, Pencil, Truck, Package } from "lucide-react";
 import { requireCtx } from "@/server/session";
 import { getShift, getRecommendation } from "@/server/services/shifts";
 import { helperOptions } from "@/server/services/helpers";
@@ -55,8 +55,8 @@ export default async function ShiftPage({ params }: { params: Promise<{ id: stri
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            {s.kind === "SANITAETSDIENST" && s.status !== "ENTWURF" || (s.kind === "SANITAETSDIENST" && perms.edit) ? <LinkButton href={`/shifts/${id}/lagekarte`}><MapIcon className="h-4 w-4" />Lagekarte</LinkButton> : null}
             {perms.edit && live && <LinkButton href={`/shifts/${id}/edit`}><Pencil className="h-4 w-4" />Bearbeiten</LinkButton>}
-            {perms.alert && s.status === "OFFEN" && <LinkButton href={`/alerts/new?shift=${id}`}><Siren className="h-4 w-4" />Alarmieren</LinkButton>}
             {perms.edit && s.status === "ENTWURF" && <ActionButton action={A.publishAction} fields={{ id }} variant="primary" small={false} label="Veröffentlichen" />}
           </div>
         </div>

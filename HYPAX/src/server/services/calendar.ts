@@ -8,9 +8,9 @@ import { buildIcs, type IcsEvent } from "@/lib/ics";
 import { SHIFT_KIND_LABEL } from "@/lib/constants";
 import { parseDateOnly } from "@/lib/dates";
 
-export const CALENDAR_TYPES = ["DIENST", "VERANSTALTUNG", "AUSBILDUNG", "BESPRECHUNG", "EINSATZ", "FAHRZEUG", "MATERIAL"] as const;
+export const CALENDAR_TYPES = ["DIENST", "VERANSTALTUNG", "AUSBILDUNG", "BESPRECHUNG", "FAHRZEUG", "MATERIAL"] as const;
 export type CalendarType = (typeof CALENDAR_TYPES)[number];
-export const CALENDAR_TYPE_LABEL: Record<CalendarType, string> = { DIENST: "Dienste", VERANSTALTUNG: "Veranstaltungen", AUSBILDUNG: "Ausbildung", BESPRECHUNG: "Besprechungen", EINSATZ: "Einsätze", FAHRZEUG: "Fahrzeuge", MATERIAL: "Material" };
+export const CALENDAR_TYPE_LABEL: Record<CalendarType, string> = { DIENST: "Dienste", VERANSTALTUNG: "Veranstaltungen", AUSBILDUNG: "Ausbildung", BESPRECHUNG: "Besprechungen", FAHRZEUG: "Fahrzeuge", MATERIAL: "Material" };
 
 export interface CalendarEntry {
   id: string; type: CalendarType; title: string; start: Date; end: Date; allDay: boolean; unitName?: string; link: string;
@@ -19,14 +19,14 @@ export interface CalendarEntry {
 
 export interface CalendarQuery { from: Date; to: Date; types?: CalendarType[]; unitId?: string; mine?: boolean }
 
-const kindToType = (k: string): CalendarType => (k === "AUSBILDUNG" ? "AUSBILDUNG" : k === "BESPRECHUNG" ? "BESPRECHUNG" : k === "EINSATZ" ? "EINSATZ" : "DIENST");
+const kindToType = (k: string): CalendarType => (k === "AUSBILDUNG" ? "AUSBILDUNG" : k === "BESPRECHUNG" ? "BESPRECHUNG" : "DIENST");
 
 export async function calendarEntries(ctx: Ctx, q: CalendarQuery): Promise<CalendarEntry[]> {
   const types = new Set(q.types?.length ? q.types : CALENDAR_TYPES);
   const units = await loadUnits();
   const unitFilter = q.unitId && units.get(q.unitId) ? { unit: { path: { startsWith: units.get(q.unitId)!.path } } } : {};
   const out: CalendarEntry[] = [];
-  const dutyTypes: CalendarType[] = ["DIENST", "AUSBILDUNG", "BESPRECHUNG", "EINSATZ"];
+  const dutyTypes: CalendarType[] = ["DIENST", "AUSBILDUNG", "BESPRECHUNG"];
 
   if (dutyTypes.some((t) => types.has(t))) {
     const shifts = await prisma.shift.findMany({
@@ -43,10 +43,6 @@ export async function calendarEntries(ctx: Ctx, q: CalendarQuery): Promise<Calen
   if (types.has("VERANSTALTUNG") && hasAnywhere(ctx, "event.view") && !q.mine) {
     const events = await prisma.event.findMany({ where: { AND: [scopeWhere(ctx, "event.view") as Prisma.EventWhereInput, { startsAt: { lte: q.to }, endsAt: { gte: q.from } }, unitFilter] }, include: { unit: { select: { name: true } } }, take: 500 });
     for (const e of events) out.push({ id: `event:${e.id}`, type: "VERANSTALTUNG", title: e.name, start: e.startsAt, end: e.endsAt, allDay: false, unitName: e.unit.name, link: `/events/${e.id}`, status: e.cancelled ? "ABGESAGT" : undefined, subtitle: "Veranstaltung", location: e.location });
-  }
-  if (types.has("EINSATZ") && hasAnywhere(ctx, "incident.view") && !q.mine) {
-    const inc = await prisma.incident.findMany({ where: { AND: [scopeWhere(ctx, "incident.view") as Prisma.IncidentWhereInput, { startedAt: { lte: q.to }, OR: [{ endedAt: null }, { endedAt: { gte: q.from } }] }, unitFilter] }, include: { unit: { select: { name: true } } }, take: 300 });
-    for (const i of inc) out.push({ id: `incident:${i.id}`, type: "EINSATZ", title: `Einsatz ${i.number}: ${i.kind}`, start: i.startedAt, end: i.endedAt ?? new Date(i.startedAt.getTime() + 3_600_000), allDay: false, unitName: i.unit.name, link: `/incidents/${i.id}`, subtitle: "Einsatz", location: i.location });
   }
   if (types.has("FAHRZEUG") && hasAnywhere(ctx, "vehicle.view") && !q.mine) {
     const from = parseDateOnly(q.from.toISOString().slice(0, 10))!, to = parseDateOnly(q.to.toISOString().slice(0, 10))!;
@@ -69,7 +65,7 @@ export async function exportCalendarIcs(ctx: Ctx, q: CalendarQuery) {
     summary: e.title, location: e.location ?? undefined, description: [e.subtitle, e.unitName].filter(Boolean).join(" · "),
     status: e.status === "ABGESAGT" ? "CANCELLED" : e.status === "ANGEFRAGT" || e.status === "EINGELADEN" ? "TENTATIVE" : "CONFIRMED", categories: [CALENDAR_TYPE_LABEL[e.type]],
   }));
-  return buildIcs("HYPAX Kalender", events);
+  return buildIcs("HelferNet Kalender", events);
 }
 
 /** Persönlicher Abo-Feed (Token statt Login) – enthält nur eigene Dienste und Veranstaltungen der eigenen Einheit. */
@@ -91,7 +87,7 @@ export async function personalIcsByToken(token: string): Promise<string | null> 
     const evs = await prisma.event.findMany({ where: { AND: [scopeWhere(ctx, "event.view") as Prisma.EventWhereInput, { startsAt: { gte: from, lte: to } }] }, take: 300 });
     for (const e of evs) events.push({ uid: `event:${e.id}@hypax`, start: e.startsAt, end: e.endsAt, summary: e.name, location: e.location ?? undefined, status: e.cancelled ? "CANCELLED" : "CONFIRMED", categories: ["Veranstaltung"], updatedAt: e.updatedAt });
   }
-  return buildIcs("HYPAX – Meine Dienste", events);
+  return buildIcs("HelferNet – Meine Dienste", events);
 }
 
 export { canIn };

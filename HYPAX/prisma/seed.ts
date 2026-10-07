@@ -3,6 +3,7 @@ import "dotenv/config";
 import { prisma } from "../src/server/db";
 import { ensureDefaultQualifications, ensureDefaultRoles } from "../src/server/bootstrap";
 import { hashPassword } from "../src/lib/crypto";
+import { seedLagekarte } from "./lagekarte-demo";
 
 if (process.env.NODE_ENV === "production" && process.env.ALLOW_DEMO_SEED !== "yes") {
   console.error("Seed ist für Produktion gesperrt (ALLOW_DEMO_SEED=yes setzen, falls wirklich gewollt).");
@@ -113,6 +114,7 @@ async function main() {
     { label: "Einsatzleiter", count: 1, q: ["Einsatzleiter Sanitätsdienst"] }, { label: "Rettungssanitäter", count: 2, q: ["Rettungssanitäter"] }, { label: "Sanitätshelfer", count: 4, q: ["Sanitätshelfer"] }, { label: "Fahrer", count: 1, fn: "FAHRER", q: ["Führerschein Klasse B"] },
   ], { eventId: fest.id, organizer: "Stadt Musterstadt", description: "Sanitätsdienst auf dem Stadtfest. Dienstkleidung, Verpflegung wird gestellt." });
   await prisma.shiftVehicle.create({ data: { shiftId: sd.id, vehicleId: rtw.id } });
+  await seedLagekarte(prisma, sd.id, bl.user.id);
   await prisma.shiftMaterial.create({ data: { shiftId: sd.id, materialId: aed.id, quantity: 2 } });
   const ab = await mkShift("Bereitschaftsabend", "BEREITSCHAFTSABEND", at(3, 19), at(3, 21, 30), "OFFEN", [{ label: "Helfer", count: 12 }]);
   const aus = await mkShift("Ausbildungsabend: Reanimation", "AUSBILDUNG", at(6, 19), at(6, 21, 30), "OFFEN", [{ label: "Teilnehmer", count: 15 }, { label: "Ausbilder", count: 1, fn: "AUSBILDER", q: ["Erste-Hilfe-Ausbilder"] }]);

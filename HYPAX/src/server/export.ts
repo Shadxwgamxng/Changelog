@@ -22,7 +22,7 @@ export async function exportTable(format: ExportFormat, t: Table): Promise<Buffe
 
 async function xlsx(t: Table): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();
-  wb.creator = "HYPAX";
+  wb.creator = "HelferNet";
   const ws = wb.addWorksheet(t.title.slice(0, 30).replace(/[\\/?*[\]:]/g, " "));
   ws.addRow(t.header);
   const head = ws.getRow(1);
@@ -42,7 +42,7 @@ async function xlsx(t: Table): Promise<Buffer> {
 
 function pdf(t: Table): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: "A4", layout: t.header.length > 5 ? "landscape" : "portrait", margin: 36, info: { Title: t.title, Producer: "HYPAX", Creator: "HYPAX" } });
+    const doc = new PDFDocument({ size: "A4", layout: t.header.length > 5 ? "landscape" : "portrait", margin: 36, info: { Title: t.title, Producer: "HelferNet", Creator: "HelferNet" } });
     const chunks: Buffer[] = [];
     doc.on("data", (c: Buffer) => chunks.push(c));
     doc.on("end", () => resolve(Buffer.concat(chunks)));

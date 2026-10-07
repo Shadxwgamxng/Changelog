@@ -24,7 +24,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
   return (
     <>
       <PageHeader title="Konto & Sicherheit" subtitle={user.email} />
-      {ctx.mustChangePw && <div className="mb-5"><Notice tone="warn">Bitte vergib jetzt ein eigenes Passwort. Erst danach kannst du HYPAX nutzen.</Notice></div>}
+      {ctx.mustChangePw && <div className="mb-5"><Notice tone="warn">Bitte vergib jetzt ein eigenes Passwort. Erst danach kannst du HelferNet nutzen.</Notice></div>}
       {sp.changed && <div className="mb-5"><Notice tone="ok">Passwort geändert. Andere Geräte wurden abgemeldet.</Notice></div>}
       <div className="grid gap-5 lg:grid-cols-2">
         <Card title="Passwort ändern">
@@ -57,7 +57,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
               <div className="mb-4"><PushToggle publicKey={env.vapid?.publicKey ?? null} /></div>
               <ActionForm action={savePrefsAction}>
                 <input type="hidden" name="types" value={prefs.map((p) => p.type).join(",")} />
-                <div className="overflow-x-auto"><table className="tbl"><thead><tr><th>Ereignis</th><th className="text-center">In HYPAX</th><th className="text-center">E-Mail</th><th className="text-center">Push</th></tr></thead><tbody>
+                <div className="overflow-x-auto"><table className="tbl"><thead><tr><th>Ereignis</th><th className="text-center">In HelferNet</th><th className="text-center">E-Mail</th><th className="text-center">Push</th></tr></thead><tbody>
                   {prefs.map((p) => <tr key={p.type}><td>{p.label}</td>{(["inApp", "email", "push"] as const).map((ch) => <td key={ch} className="text-center"><input type="checkbox" name={`${p.type}:${ch}`} defaultChecked={p[ch]} className="h-4 w-4" aria-label={`${p.label} – ${ch}`} /></td>)}</tr>)}
                 </tbody></table></div>
                 <div className="mt-3"><SubmitButton>Speichern</SubmitButton></div>

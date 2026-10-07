@@ -1,6 +1,6 @@
-HYPAX lokal betreiben (ohne Docker)
+HelferNet lokal betreiben (ohne Docker)
 ===================================
-Voraussetzung: Node.js 20 oder neuer (https://nodejs.org). Mehr nicht – die Datenbank (PostgreSQL) bringt HYPAX selbst mit.
+Voraussetzung: Node.js 20 oder neuer (https://nodejs.org). Mehr nicht – die Datenbank (PostgreSQL) bringt HelferNet selbst mit.
 
 1. ZIP entpacken (am besten in einen NEUEN Ordner).
 2. Windows:  start-local.bat doppelklicken      Linux/macOS:  ./start-local.sh
@@ -23,6 +23,6 @@ Ohne Demo-Daten (echter Einsatz):  start-local.bat --no-demo   (bzw. ./start-loc
   npm run bootstrap -- deine@mail.de "Sicheres#Passwort1"
 Neustart mit frischen Demo-Daten: Programm beenden, Ordner pgdata und Datei .local-initialized löschen, erneut starten.
 
-Eigene Datenbank: In .env DATABASE_URL auf deine PostgreSQL-16-Datenbank setzen – dann startet HYPAX keine eingebettete.
+Eigene Datenbank: In .env DATABASE_URL auf deine PostgreSQL-16-Datenbank setzen – dann startet HelferNet keine eingebettete.
 Anderer Port: Umgebungsvariable PORT setzen (Windows: set PORT=8080 & start-local.bat).
 Hinweis: Demo-Daten/-Passwörter sind nur zum Ausprobieren. Für den Betrieb im Netzwerk siehe README.md (HTTPS, Backups).

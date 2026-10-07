@@ -122,3 +122,17 @@ details > summary::-webkit-details-marker { display: none; }
 /* Grid-Kinder dürfen schrumpfen (verhindert horizontalen Überlauf durch lange Inhalte/Tabellen) */
 .app-main .grid > *, .app-main .flex > * { min-width: 0; }
 .app-main .flex > .shrink-0, .app-main .flex > svg, .app-main .flex > button, .app-main .flex > a.btn { min-width: revert; }
+
+/* Lagekarte (Leaflet) – Seite nutzt die volle Breite */
+.page-container:has(.lk-wide) { max-width: 100%; }
+.lk-map { background: rgb(var(--surface-2)); z-index: 0; font: inherit; }
+.lk-map .leaflet-control-attribution { font-size: 10px; }
+.lk-icon { background: none !important; border: none !important; }
+.lk-icon img { filter: drop-shadow(0 1px 2px rgba(0,0,0,.45)); }
+.lk-selected img, .lk-selected .lk-pin { filter: drop-shadow(0 0 0 #fff) drop-shadow(0 0 5px rgb(var(--accent))) drop-shadow(0 0 2px rgb(var(--accent))); }
+.lk-pin { width: 32px; height: 32px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; font-size: 17px; color: #fff; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.5); }
+.lk-textwrap { overflow: visible; }
+.lk-text { transform: translate(-50%, -50%); white-space: nowrap; font-weight: 600; font-size: 14px; padding: 1px 6px; border-radius: 4px; background: rgba(255,255,255,.88); color: #111827; border: 1px solid rgba(0,0,0,.25); box-shadow: 0 1px 3px rgba(0,0,0,.3); width: max-content; }
+.leaflet-tooltip.lk-label { background: rgba(255,255,255,.92); color: #111827; border: 1px solid rgba(0,0,0,.25); border-radius: 4px; font-size: 11px; font-weight: 600; padding: 1px 5px; box-shadow: none; }
+.leaflet-tooltip.lk-label::before { display: none; }
+@media print { .lk-map { height: 85vh !important; } .leaflet-control-container .leaflet-control-zoom { display: none; } }

@@ -129,14 +129,19 @@ await step("private Verfügbarkeitsgründe sind für Planer nicht sichtbar", asy
   assert.ok(seen.length && seen.every((e) => !("reason" in e) && !("note" in e)));
 });
 
-console.log("Alarmierung");
-await step("Rückmeldung wird live in der Leitungsansicht gezählt", async () => {
-  const alerts = await (await api(leitung.ctx, "GET", "/alerts")).json(); const a = alerts.find((x) => x.status === "AKTIV");
-  const before = (await (await api(leitung.ctx, "GET", `/alerts/${a.id}`)).json()).counts;
-  await max.page.goto(`/alerts/${a.id}`); await max.page.getByRole("button", { name: /Ich komme$/ }).click(); await max.page.waitForTimeout(1000);
-  await leitung.page.goto(`/alerts/${a.id}`); const t = await leitung.page.textContent("main");
-  const after = (await (await api(leitung.ctx, "GET", `/alerts/${a.id}`)).json()).counts;
-  assert.equal(after.KOMME, before.KOMME + 1); assert.match(t, /Rückmeldungen/);
+console.log("Lagekarte");
+await step("Lagekarte zeigt GTA-Karte, Symbole lassen sich setzen und bleiben nach Reload", async () => {
+  await planer.page.goto(`/shifts/${shiftId}/lagekarte`);
+  await planer.page.waitForSelector(".lk-map .leaflet-tile-loaded", { timeout: 20000 });
+  const tile = await planer.ctx.request.get(`${base}/map/gta/0/0/0.png`); assert.equal(tile.status(), 200);
+  const before = (await (await api(planer.ctx, "GET", `/shifts/${shiftId}/map`)).json()).objects.length;
+  await planer.page.locator("aside button[title='AED / Defibrillator']").first().waitFor();
+  await planer.page.locator("aside button[title='AED / Defibrillator']").first().click();
+  const box = await planer.page.locator(".lk-map").boundingBox();
+  await planer.page.mouse.click(box.x + box.width / 2, box.y + box.height / 2); await planer.page.waitForTimeout(1000);
+  const after = (await (await api(planer.ctx, "GET", `/shifts/${shiftId}/map`)).json()).objects.length;
+  assert.equal(after, before + 1);
+  await planer.page.reload(); await planer.page.waitForSelector(".lk-map .leaflet-marker-icon", { timeout: 20000 });
 });
 
 console.log("Dokumente, Export, Kalender");
@@ -178,7 +183,7 @@ await step("Audit-Log: nur Berechtigte; Einträge für Aktionen vorhanden", asyn
 });
 
 console.log("Oberfläche: alle Hauptseiten laden ohne Fehler (Desktop + Smartphone)");
-const pages = ["/", "/shifts", `/shifts/${shiftId}`, "/calendar", "/calendar?view=week", "/calendar?view=list", "/availability", "/helpers", "/qualifications", "/qualifications?tab=ablauf", "/qualifications?tab=arten", "/vehicles", "/materials", "/documents", "/messages", "/messages?tab=neu", "/messages?tab=announcements", "/notifications", "/hours", "/reports", "/reports?r=qualifications", "/alerts", "/incidents", "/events", "/admin/units", "/admin/users", "/admin/users?tab=rollen", "/admin/audit", "/account", "/search?q=Max", "/shifts/new", "/helpers/new", "/alerts/new", "/events/new", "/vehicles/new", "/materials/new", "/incidents/new"];
+const pages = ["/", "/shifts", `/shifts/${shiftId}`, `/shifts/${shiftId}/lagekarte`, "/calendar", "/calendar?view=week", "/calendar?view=list", "/availability", "/helpers", "/qualifications", "/qualifications?tab=ablauf", "/qualifications?tab=arten", "/vehicles", "/materials", "/documents", "/messages", "/messages?tab=neu", "/messages?tab=announcements", "/notifications", "/hours", "/reports", "/reports?r=qualifications", "/events", "/admin/units", "/admin/users", "/admin/users?tab=rollen", "/admin/audit", "/account", "/search?q=Max", "/shifts/new", "/helpers/new", "/events/new", "/vehicles/new", "/materials/new"];
 for (const [label, vp, who] of [["Desktop", { width: 1280, height: 900 }, admin], ["Smartphone", { width: 390, height: 844 }, leitung]]) {
   await step(`${label}: ${pages.length} Seiten`, async () => {
     const p = await who.ctx.newPage(); await p.setViewportSize(vp); const bad = []; let cur = "";

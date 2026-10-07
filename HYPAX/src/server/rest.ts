@@ -12,11 +12,10 @@ import * as Events from "./services/events";
 import * as Vehicles from "./services/vehicles";
 import * as Materials from "./services/materials";
 import * as Docs from "./services/documents";
-import * as Alerts from "./services/alerts";
-import * as Incidents from "./services/incidents";
 import * as Messages from "./services/messages";
 import * as Notifs from "./services/notifications";
 import * as Cal from "./services/calendar";
+import * as Lage from "./services/lagekarte";
 import * as Reports from "./services/reports";
 import * as Audit from "./services/audit-log";
 import { globalSearch } from "./services/search";
@@ -91,6 +90,13 @@ patch("/assignments/:id", ({ ctx, params, body }) => { if (body?.workedMinutes !
 del("/assignments/:id", ({ ctx, params }) => ok(() => Shifts.removeFromShift(ctx, params.id)));
 put("/shifts/:id/resources", ({ ctx, params, body }) => ok(() => Shifts.setShiftResources(ctx, params.id, { vehicleIds: body?.vehicleIds, materials: body?.materials })));
 
+// ── Lagekarte (Sanitätsdienste) ──
+get("/shifts/:id/map", ({ ctx, params }) => Lage.getLagekarte(ctx, params.id));
+post("/shifts/:id/map/objects", ({ ctx, params, body }) => Lage.createMapObject(ctx, params.id, body));
+put("/shifts/:id/map/view", ({ ctx, params, body }) => ok(() => Lage.setMapView(ctx, params.id, body)));
+patch("/map-objects/:id", ({ ctx, params, body }) => Lage.updateMapObject(ctx, params.id, body));
+del("/map-objects/:id", ({ ctx, params }) => ok(() => Lage.deleteMapObject(ctx, params.id)));
+
 // ── Veranstaltungen, Kalender, Berichte ──
 get("/events", ({ ctx, q }) => Events.listEvents(ctx, { from: q.get("from") ? date(q.get("from"), new Date()) : undefined, to: q.get("to") ? date(q.get("to"), new Date()) : undefined, unitId: q.get("unitId") ?? undefined }));
 post("/events", ({ ctx, body }) => Events.createEvent(ctx, body));
@@ -118,18 +124,7 @@ get("/documents", ({ ctx, q }) => Docs.listDocuments(ctx, { unitId: q.get("unitI
 get("/documents/:id", ({ ctx, params }) => Docs.getDocument(ctx, params.id));
 del("/documents/:id", ({ ctx, params }) => ok(() => Docs.deleteDocument(ctx, params.id)));
 
-// ── Alarmierung, Einsätze, Kommunikation ──
-get("/alerts", ({ ctx }) => Alerts.listAlerts(ctx));
-post("/alerts", ({ ctx, body }) => Alerts.createAlert(ctx, body).then((r) => ({ id: r.alert.id, recipients: r.recipients })));
-get("/alerts/:id", ({ ctx, params }) => Alerts.getAlert(ctx, params.id));
-post("/alerts/:id/respond", ({ ctx, params, body }) => ok(() => Alerts.respondToAlert(ctx, params.id, body?.response)), 200);
-post("/alerts/:id/end", ({ ctx, params }) => ok(() => Alerts.endAlert(ctx, params.id)), 200);
-get("/alert-groups", ({ ctx }) => Alerts.listAlertGroups(ctx));
-get("/incidents", ({ ctx, q }) => Incidents.listIncidents(ctx, { unitId: q.get("unitId") ?? undefined }));
-post("/incidents", ({ ctx, body }) => Incidents.createIncident(ctx, body));
-get("/incidents/:id", ({ ctx, params }) => Incidents.getIncident(ctx, params.id));
-patch("/incidents/:id", ({ ctx, params, body }) => ok(() => Incidents.updateIncident(ctx, params.id, body)));
-del("/incidents/:id", ({ ctx, params }) => ok(() => Incidents.deleteIncident(ctx, params.id)));
+// ── Kommunikation ──
 get("/messages", ({ ctx }) => Messages.inbox(ctx));
 get("/messages/sent", ({ ctx }) => Messages.sentMessages(ctx));
 post("/messages", ({ ctx, body }) => Messages.sendMessage(ctx, body).then((m) => ({ id: m.id })));

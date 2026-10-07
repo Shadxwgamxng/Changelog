@@ -1,6 +1,6 @@
-# HYPAX – Verwaltungs- und Organisationssystem für DRK-Gliederungen
+# HelferNet (Projektname HYPAX) – Verwaltungs- und Organisationssystem für DRK-Gliederungen
 
-Zentrale Plattform für Helfer, Dienste, Qualifikationen, Verfügbarkeiten, Veranstaltungen, Einsätze, Alarmierung, Fahrzeuge, Material, Dokumente und Kommunikation – mandantenfähig vom kleinen Ortsverein bis zum Kreisverband.
+Zentrale Plattform für Helfer, Dienste, Qualifikationen, Verfügbarkeiten, Veranstaltungen, Lagekarte, Fahrzeuge, Material, Dokumente und Kommunikation – mandantenfähig vom kleinen Ortsverein bis zum Kreisverband.
 
 **Stack:** Next.js 15 (App Router, React 19, TypeScript) · PostgreSQL 16 · Prisma · Tailwind · serverseitige Sessions · optionales TOTP-2FA.
 **Oberflächendesign:** orientiert an [EmergencyForge/ignis](https://github.com/EmergencyForge/ignis) (dunkel-first, neutrale Flächen, ein Akzent, kompakte Typografie). Die Logos stammen aus `assets/img` dieses Projekts (`public/brand/`).
@@ -43,8 +43,8 @@ Demo-Konten (Passwort für alle: `Demo#Passwort1`): `admin@demo.hypax.de` (Super
 | **Intelligente Besetzung** | „Beste Besetzung“: harte Kriterien (Qualifikation, Funktion, Verfügbarkeit, Überschneidung, Ruhezeit, Monatslimit, Status) + gewichteter Passungswert 0–100 % (Verfügbarkeit, Lastverteilung, Ruhepuffer, Wunschzeiten, Selbstmeldung, Einheit); Übernahme wird serverseitig erneut geprüft; Ausnahmen nur mit Override und Audit-Eintrag. |
 | **Verfügbarkeit** | Kalender je Helfer (🟢🟡🔴⚪), Zeiträume, private Gründe (nur der Helfer selbst sieht sie), Team-Matrix für Planer. |
 | **Kalender** | Monat/Woche/Tag/Liste, Filter (eigene Dienste, Einheit, Veranstaltung, Ausbildung, Besprechung, Einsatz, Fahrzeug, Material), iCalendar-Export + privater Abo-Link. |
-| **Veranstaltungen / Einsätze** | Veranstaltung bündelt Dienste und Aufgaben; Einsätze datensparsam (bewusst **keine** Patientendaten-Felder). |
-| **Alarmierung** | Empfängerkreis Einheit/Gruppe/Qualifikation/Alarmgruppe, Rückmeldung Ich komme/eventuell/kann nicht, Live-Status (5-s-Aktualisierung), telefonische Nachpflege durch die Leitung. |
+| **Veranstaltungen** | Veranstaltung bündelt Dienste und Aufgaben. |
+| **Lagekarte** (nur Sanitätsdienste) | Karte pro Dienst auf Basis der **GTA-V-/FiveM-Karte** (lokale Kacheln unter `public/map/gta`, ca. 31 MB, kein Internet nötig) mit taktischen Zeichen nach DV 102, Fahrzeugen des Dienstes, Linien, Flächen, Texten, Legende, Ortssprüngen, GeoJSON-Export, Druck, Vollbild und Live-Aktualisierung. Bearbeiten mit Recht `shift.edit`. Hinweis: Kartenmaterial stammt aus dem ignis-Repository (© Rockstar Games) – Nutzungsrechte vor einer Veröffentlichung prüfen. |
 | **Fahrzeuge / Material** | Status, Fälligkeiten (TÜV/HU/Versicherung), Wartungen, Kilometerstand; Bestand, Mindestbestand, Ablauf, Wartung, Ausgabe/Rückgabe, Defekt. |
 | **Dokumente** | verschlüsselt (AES-256-GCM), versioniert, drei Zugriffsstufen, Typ-/Inhaltsprüfung, Integritätsprüfung (SHA-256), Abrufe im Audit-Log. |
 | **Kommunikation** | Nachrichten (einzeln, Einheit, Gruppe, Dienstbesatzung, Führungskräfte), Bekanntmachungen, Benachrichtigungen je Ereignis/Kanal einstellbar (In-App, E-Mail, Web-Push). |
@@ -87,6 +87,5 @@ Erweiterbar: Speicher-Backend über `ObjectStorage` (`src/server/storage.ts`), n
 - **Object Storage:** Dokumente liegen verschlüsselt im Dateisystem (`STORAGE_DIR`). Ein S3-Treiber ist **nicht** enthalten – nur die Schnittstelle dafür.
 - **Nicht end-to-end getestet:** E-Mail-Versand (SMTP), Web-Push (benötigt VAPID-Schlüssel und HTTPS), Docker-Image/Compose, mehrere Server-Instanzen (Rate-Limit ist pro Prozess; für Skalierung durch Redis ersetzen).
 - **Kein Self-Service „Passwort vergessen“:** Zurücksetzen erfolgt durch die Leitung/Administration (bewusst, da keine garantierte E-Mail-Zustellung).
-- **Alarmierung** ist eine App-interne Benachrichtigung (Live-Seite, E-Mail, Push) – keine Anbindung an Funkmeldeempfänger/SMS/Leitstelle.
 - **Native iOS/Android-App** nicht enthalten; die PWA deckt die mobilen Kernfunktionen ab.
 - **Rechtliches:** Die Logos aus dem ignis-Repository (GPL-3.0; keine eigene Marken-Regelung im Repo erkennbar) sowie DRK-/EmergencyForge-Bezeichnungen sollten vor einer Veröffentlichung hinsichtlich Nutzungsrechten geprüft werden. Eine Datenschutz-Folgenabschätzung und ein Verarbeitungsverzeichnis muss der Betreiber selbst erstellen.

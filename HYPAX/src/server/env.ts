@@ -11,7 +11,7 @@ export const env = {
   get retainNotificationDays() { return num(process.env.RETAIN_NOTIFICATION_DAYS, 90); },
   get smtp() {
     return process.env.SMTP_HOST
-      ? { host: process.env.SMTP_HOST, port: num(process.env.SMTP_PORT, 587), user: process.env.SMTP_USER, pass: process.env.SMTP_PASS, from: process.env.SMTP_FROM || "HYPAX <no-reply@localhost>" }
+      ? { host: process.env.SMTP_HOST, port: num(process.env.SMTP_PORT, 587), user: process.env.SMTP_USER, pass: process.env.SMTP_PASS, from: process.env.SMTP_FROM || "HelferNet <no-reply@localhost>" }
       : null;
   },
   get vapid() {

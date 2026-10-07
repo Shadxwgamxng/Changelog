@@ -18,7 +18,7 @@ export async function markAllRead(ctx: Ctx) {
 export async function getPreferences(ctx: Ctx) {
   const rows = await prisma.notificationPreference.findMany({ where: { userId: ctx.userId } });
   const by = new Map(rows.map((r) => [r.type, r]));
-  return (Object.keys(NOTIFICATION_TYPE_LABEL) as NotificationType[]).map((type) => ({ type, label: NOTIFICATION_TYPE_LABEL[type], ...(by.get(type) ?? NOTIFICATION_DEFAULTS[type]) }));
+  return (Object.keys(NOTIFICATION_TYPE_LABEL) as NotificationType[]).filter((t) => t !== "ALARM").map((type) => ({ type, label: NOTIFICATION_TYPE_LABEL[type], ...(by.get(type) ?? NOTIFICATION_DEFAULTS[type]) }));
 }
 
 export async function setPreferences(ctx: Ctx, prefs: { type: string; inApp: boolean; email: boolean; push: boolean }[]) {

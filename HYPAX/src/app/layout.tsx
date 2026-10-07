@@ -3,12 +3,12 @@ import "./globals.css";
 import { PwaRegister } from "@/components/pwa";
 
 export const metadata: Metadata = {
-  title: { default: "HYPAX", template: "%s · HYPAX" },
+  title: { default: "HelferNet", template: "%s · HelferNet" },
   description: "Verwaltungs- und Organisationssystem für DRK-Gliederungen: Helfer, Dienste, Qualifikationen, Fahrzeuge, Material und Alarmierung.",
-  applicationName: "HYPAX",
+  applicationName: "HelferNet",
   manifest: "/manifest.webmanifest",
   robots: { index: false, follow: false },
-  appleWebApp: { capable: true, title: "HYPAX", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "HelferNet", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {

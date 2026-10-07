@@ -36,7 +36,7 @@ export async function notifyUsers(userIds: string[], n: NotifyInput): Promise<nu
     } else if (n.dedupeKey) {
       continue;
     }
-    if (p.email) void sendMail(u.email, `[HYPAX] ${n.title}`, `${n.title}\n\n${n.body ?? ""}\n\n${n.link ? env.appUrl + n.link : env.appUrl}`);
+    if (p.email) void sendMail(u.email, `[HelferNet] ${n.title}`, `${n.title}\n\n${n.body ?? ""}\n\n${n.link ? env.appUrl + n.link : env.appUrl}`);
     if (p.push) void sendPush(u.id, n);
   }
   return created;

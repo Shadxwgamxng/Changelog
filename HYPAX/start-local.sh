@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# HYPAX lokal starten (Linux/macOS) – ohne Docker. Benötigt nur Node.js >= 20.
+# HelferNet lokal starten (Linux/macOS) – ohne Docker. Benötigt nur Node.js >= 20.
 #   ./start-local.sh            mit Demo-Daten beim ersten Start
 #   ./start-local.sh --no-demo  ohne Demo-Daten
 cd "$(dirname "$0")"

@@ -12,9 +12,9 @@ const MONTHS = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "A
 const DOW = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
 const chip: Record<CalendarType, string> = {
   DIENST: "bg-brand-50 text-brand-700", VERANSTALTUNG: "bg-info-soft text-info", AUSBILDUNG: "bg-ok-soft text-ok",
-  BESPRECHUNG: "bg-warn-soft text-warn", EINSATZ: "bg-danger-soft text-danger", FAHRZEUG: "bg-surface-2 text-fg-muted ring-1 ring-inset ring-line", MATERIAL: "bg-surface-2 text-fg-muted ring-1 ring-inset ring-line",
+  BESPRECHUNG: "bg-warn-soft text-warn", FAHRZEUG: "bg-surface-2 text-fg-muted ring-1 ring-inset ring-line", MATERIAL: "bg-surface-2 text-fg-muted ring-1 ring-inset ring-line",
 };
-const dot: Record<CalendarType, string> = { DIENST: "bg-brand-500", VERANSTALTUNG: "bg-info", AUSBILDUNG: "bg-ok", BESPRECHUNG: "bg-warn", EINSATZ: "bg-danger", FAHRZEUG: "bg-fg-subtle", MATERIAL: "bg-fg-subtle" };
+const dot: Record<CalendarType, string> = { DIENST: "bg-brand-500", VERANSTALTUNG: "bg-info", AUSBILDUNG: "bg-ok", BESPRECHUNG: "bg-warn", FAHRZEUG: "bg-fg-subtle", MATERIAL: "bg-fg-subtle" };
 
 type SP = { view?: string; date?: string; t?: string | string[]; unit?: string; mine?: string };
 const addDays = (key: string, n: number) => new Date(new Date(key + "T00:00:00Z").getTime() + n * 86_400_000).toISOString().slice(0, 10);

@@ -1,5 +1,5 @@
 @echo off
-REM HYPAX lokal starten (Windows) - ohne Docker. Benoetigt nur Node.js 20 oder neuer.
+REM HelferNet lokal starten (Windows) - ohne Docker. Benoetigt nur Node.js 20 oder neuer.
 REM   start-local.bat            mit Demo-Daten beim ersten Start
 REM   start-local.bat --no-demo  ohne Demo-Daten
 cd /d "%~dp0"

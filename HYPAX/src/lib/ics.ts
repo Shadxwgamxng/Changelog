@@ -38,7 +38,7 @@ export function fold(line: string): string {
 }
 
 export function buildIcs(name: string, events: IcsEvent[], now = new Date()): string {
-  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//HYPAX//DRK Verwaltung//DE", "CALSCALE:GREGORIAN", "METHOD:PUBLISH", `X-WR-CALNAME:${icsEscape(name)}`, "X-WR-TIMEZONE:Europe/Berlin"];
+  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//HelferNet//DRK Verwaltung//DE", "CALSCALE:GREGORIAN", "METHOD:PUBLISH", `X-WR-CALNAME:${icsEscape(name)}`, "X-WR-TIMEZONE:Europe/Berlin"];
   for (const e of events) {
     lines.push("BEGIN:VEVENT", `UID:${e.uid}`, `DTSTAMP:${icsDate(now)}`);
     if (e.updatedAt) lines.push(`LAST-MODIFIED:${icsDate(e.updatedAt)}`);

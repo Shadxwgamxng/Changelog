@@ -11,8 +11,6 @@ export function navItems(ctx: Ctx): NavItem[] {
     { group: "Übersicht", href: "/availability", label: "Verfügbarkeit", icon: "CalendarCheck", show: !!ctx.helperId || any("availability.view_others") },
     { group: "Planung", href: "/shifts", label: "Dienste", icon: "ClipboardList", show: any("shift.view") || !!ctx.helperId },
     { group: "Planung", href: "/events", label: "Veranstaltungen", icon: "PartyPopper", show: any("event.view") },
-    { group: "Planung", href: "/alerts", label: "Alarmierung", icon: "Siren", show: any("alert.view") || !!ctx.helperId },
-    { group: "Planung", href: "/incidents", label: "Einsätze", icon: "Ambulance", show: any("incident.view") },
     { group: "Verwaltung", href: "/helpers", label: "Helfer", icon: "Users", show: any("helper.view") },
     { group: "Verwaltung", href: "/qualifications", label: "Qualifikationen", icon: "GraduationCap", show: any("qualification.view") || any("qualification.manage") },
     { group: "Verwaltung", href: "/vehicles", label: "Fahrzeuge", icon: "Truck", show: any("vehicle.view") },

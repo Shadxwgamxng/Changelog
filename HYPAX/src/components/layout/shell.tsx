@@ -1,14 +1,14 @@
 import Link from "next/link";
-import { Bell, LogOut, Search, ShieldAlert, UserRound, Settings } from "lucide-react";
+import { Bell, LogOut, Search, UserRound, Settings } from "lucide-react";
 import type { Ctx } from "@/server/context";
 import { navItems } from "./nav";
 import { Icon } from "./icons";
 import { NavLink, NavScrim, SidebarToggle, ThemeToggle } from "./nav-client";
 import { logoutAction } from "@/app/(auth)/login/actions";
 import { Avatar } from "@/components/ui";
-import { BrandFooter, EfMark } from "@/components/brand";
+import { EfMark } from "@/components/brand";
 
-export function AppShell({ ctx, unread, unreadMessages, children, activeAlerts }: { ctx: Ctx; unread: number; unreadMessages: number; children: React.ReactNode; activeAlerts: number }) {
+export function AppShell({ ctx, unread, unreadMessages, children }: { ctx: Ctx; unread: number; unreadMessages: number; children: React.ReactNode }) {
   const items = navItems(ctx);
   const groups = [...new Set(items.map((i) => i.group))];
   const name = ctx.helperName ?? ctx.email;
@@ -16,15 +16,14 @@ export function AppShell({ ctx, unread, unreadMessages, children, activeAlerts }
     <div className="app-shell">
       <header className="app-topbar no-print">
         <SidebarToggle />
-        <Link href="/" className="flex items-center gap-2 pr-2" aria-label="HYPAX Startseite">
+        <Link href="/" className="flex items-center gap-2 pr-2" aria-label="HelferNet Startseite">
           <EfMark className="h-4 w-7 text-brand-600" label="EmergencyForge" />
-          <span className="hidden text-sm font-semibold tracking-tight text-fg sm:inline">HYPAX</span>
+          <span className="hidden text-sm font-semibold tracking-tight text-fg sm:inline">HelferNet</span>
         </Link>
         <form action="/search" role="search" className="relative mx-auto min-w-0 flex-1 sm:max-w-md">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-fg-subtle" aria-hidden />
           <input name="q" type="search" placeholder="Suchen …" aria-label="Globale Suche" className="input !min-h-[32px] !pl-8" />
         </form>
-        {activeAlerts > 0 && <Link href="/alerts" className="badge badge-danger hidden sm:inline-flex"><ShieldAlert className="h-3 w-3" aria-hidden /> Alarmierung aktiv</Link>}
         <ThemeToggle />
         <Link href="/notifications" className="btn btn-ghost relative !min-h-[32px] !w-8 !px-0" aria-label={`Benachrichtigungen${unread ? `, ${unread} ungelesen` : ""}`}>
           <Bell className="h-[18px] w-[18px]" aria-hidden />
@@ -49,19 +48,19 @@ export function AppShell({ ctx, unread, unreadMessages, children, activeAlerts }
             <div key={g} className="mb-2">
               <p className="nav-group px-2 pb-1 pt-2 text-xs font-medium text-fg-subtle">{g}</p>
               {items.filter((i) => i.group === g).map((i) => (
-                <NavLink key={i.href} href={i.href} label={i.label} count={i.href === "/messages" ? unreadMessages : i.href === "/alerts" ? activeAlerts : undefined} tone={i.href === "/alerts" ? "danger" : "accent"}>
+                <NavLink key={i.href} href={i.href} label={i.label} count={i.href === "/messages" ? unreadMessages : undefined}>
                   <Icon name={i.icon} />
                 </NavLink>
               ))}
             </div>
           ))}
         </nav>
-        <div className="nav-foot space-y-3 px-4 pb-4"><p className="text-[11px] leading-snug text-fg-subtle">Zugriffe auf sensible Daten werden protokolliert.</p><BrandFooter compact /></div>
+        <p className="nav-foot px-4 pb-4 text-[11px] leading-snug text-fg-subtle">Zugriffe auf sensible Daten werden protokolliert.</p>
       </aside>
       <NavScrim />
 
       <main id="main" className="app-main">
-        <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">{children}</div>
+        <div className="page-container mx-auto w-full max-w-6xl px-4 sm:px-6">{children}</div>
       </main>
     </div>
   );
