@@ -1,23 +1,28 @@
-HYPAX lokal betreiben
-=====================
-Voraussetzungen: Node.js 20 oder neuer, dazu Docker (für die Datenbank) ODER eine eigene PostgreSQL-16-Datenbank.
+HYPAX lokal betreiben (ohne Docker)
+===================================
+Voraussetzung: Node.js 20 oder neuer (https://nodejs.org). Mehr nicht – die Datenbank (PostgreSQL) bringt HYPAX selbst mit.
 
-1. ZIP entpacken.
-2. Linux/macOS:  ./start-local.sh      Windows:  start-local.bat (Doppelklick)
-   Beim ersten Start werden Konfiguration (.env, mit zufälligen Schlüsseln), Datenbank, Demo-Daten und Build automatisch erledigt (einige Minuten).
-3. Im Browser öffnen: http://localhost:3000
+1. ZIP entpacken (am besten in einen NEUEN Ordner).
+2. Windows:  start-local.bat doppelklicken      Linux/macOS:  ./start-local.sh
+   Beim ersten Start passiert alles automatisch (einige Minuten): Pakete laden, Konfiguration (.env) mit zufälligen
+   Schlüsseln anlegen, Datenbank starten, Schema + Demo-Daten einrichten, Anwendung bauen.
+3. Browser öffnen: http://localhost:3000     Beenden: Strg+C im Fenster.
 
 Demo-Konten (Passwort für alle: Demo#Passwort1)
-  admin@demo.hypax.de       Superadministrator
-  leitung@demo.hypax.de     Einheitenleiter Ortsverein
+  admin@demo.hypax.de        Superadministrator
+  leitung@demo.hypax.de      Einheitenleiter Ortsverein
   bereitschaft@demo.hypax.de Bereitschaftsleiter
-  planer@demo.hypax.de      Dienstplaner
-  max@demo.hypax.de         Helfer
+  planer@demo.hypax.de       Dienstplaner
+  max@demo.hypax.de          Helfer
 
-Ohne Demo-Daten (echter Einsatz):
-  ./start-local.sh --no-demo   (nur Linux/macOS) und danach
+Datenhaltung
+  ./pgdata   Datenbank          ./storage   verschlüsselte Dokumente          .env   Konfiguration inkl. Schlüssel
+  Diese drei sichern, wenn die Daten wichtig sind. Ohne APP_ENCRYPTION_KEY (in .env) sind Dokumente unlesbar.
+
+Ohne Demo-Daten (echter Einsatz):  start-local.bat --no-demo   (bzw. ./start-local.sh --no-demo), danach in einem zweiten Fenster:
   npm run bootstrap -- deine@mail.de "Sicheres#Passwort1"
+Neustart mit frischen Demo-Daten: Programm beenden, Ordner pgdata und Datei .local-initialized löschen, erneut starten.
 
-Eigene Datenbank statt Docker: in .env DATABASE_URL anpassen; Docker wird dann nicht benötigt.
-Wichtig: Die Demo-Daten und -Passwörter sind NUR für lokales Ausprobieren. Für den Betrieb im Netzwerk siehe README.md (HTTPS, Backups).
-Datenhaltung: Datenbank (Docker-Volume "hypax-data") und Ordner ./storage (verschlüsselte Dokumente) sichern.
+Eigene Datenbank: In .env DATABASE_URL auf deine PostgreSQL-16-Datenbank setzen – dann startet HYPAX keine eingebettete.
+Anderer Port: Umgebungsvariable PORT setzen (Windows: set PORT=8080 & start-local.bat).
+Hinweis: Demo-Daten/-Passwörter sind nur zum Ausprobieren. Für den Betrieb im Netzwerk siehe README.md (HTTPS, Backups).

@@ -5,6 +5,10 @@ Zentrale Plattform für Helfer, Dienste, Qualifikationen, Verfügbarkeiten, Vera
 **Stack:** Next.js 15 (App Router, React 19, TypeScript) · PostgreSQL 16 · Prisma · Tailwind · serverseitige Sessions · optionales TOTP-2FA.
 **Oberflächendesign:** orientiert an [EmergencyForge/ignis](https://github.com/EmergencyForge/ignis) (dunkel-first, neutrale Flächen, ein Akzent, kompakte Typografie). Die Logos stammen aus `assets/img` dieses Projekts (`public/brand/`).
 
+## Lokal ausprobieren (ohne Docker)
+
+`start-local.bat` (Windows) bzw. `./start-local.sh` (Linux/macOS) – benötigt nur Node.js ≥ 20. Das Skript richtet beim ersten Start alles ein (eingebettete PostgreSQL in `./pgdata`, Konfiguration, Demo-Daten, Build). Details: `LOKAL-STARTEN.txt`.
+
 ## Schnellstart (Entwicklung)
 
 ```bash
