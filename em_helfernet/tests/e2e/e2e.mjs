@@ -150,6 +150,16 @@ await step("CSRF: fremder Origin wird abgelehnt", async () => {
   assert.equal(r.status(), 403);
 });
 await step("Eingabevalidierung liefert 400 statt 500", async () => { const r = await api(leitung.ctx, "POST", "/shifts", { unitId: "x", name: "" }); assert.equal(r.status(), 400); });
+await step("Dienst über das Formular anlegen – ohne Veranstaltung und Verantwortlichen", async () => {
+  const p = planer.page;
+  await p.goto("/shifts/new");
+  await p.fill("input[name=name]", "Bereitschaftsabend ohne Veranstaltung");
+  await p.fill("input[name=startsAt]", "2027-03-01T18:00");
+  await p.fill("input[name=endsAt]", "2027-03-01T21:00");
+  await p.click("main button[type=submit]");
+  await p.waitForURL(/\/shifts\/(?!new)[^/]+$/, { timeout: 20000 });
+  assert.match(await p.textContent("main"), /Bereitschaftsabend ohne Veranstaltung/);
+});
 await step("private Verfügbarkeitsgründe sind für Planer nicht sichtbar", async () => {
   const maxId = (await (await api(max.ctx, "GET", "/me")).json()).helperId;
   const own = await (await api(max.ctx, "GET", `/helpers/${maxId}/availability?from=2020-01-01&to=2099-01-01`)).json();

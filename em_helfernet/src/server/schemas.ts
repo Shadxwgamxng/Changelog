@@ -6,6 +6,10 @@ const trim = z.string().trim();
 export const optStr = (max = 500) => trim.max(max).optional().nullable().transform((v) => (v ? v : null));
 export const reqStr = (max = 200) => trim.min(1, "Pflichtfeld").max(max);
 export const id = z.string().min(1).max(40);
+/** Optionaler Verweis: leere Auswahl ("") aus Formularen → null */
+/** Optionale Auswahl aus festen Werten: "" → null */
+const optEnum = <T extends [string, ...string[]]>(values: T) => z.union([z.literal(""), z.null(), z.undefined(), z.enum(values)]).transform((v) => v || null);
+export const optId = z.union([z.literal(""), z.null(), z.undefined(), id]).transform((v) => v || null);
 
 /** Datum+Uhrzeit in Berliner Wandzeit ("2027-07-18T18:00") oder ISO mit Zone → Date */
 export const dateTime = z.union([z.string(), z.date()]).transform((v, ctx) => {
@@ -78,7 +82,7 @@ export const ownProfileInput = z.object({
 });
 
 export const qualTypeInput = z.object({
-  unitId: id.nullable().optional().transform((v) => v || null),
+  unitId: optId,
   name: reqStr(120),
   category: z.enum(["AUSBILDUNG", "LEHRGANG", "FUEHRERSCHEIN", "MEDIZIN", "FUNK", "SANITAET", "FUEHRUNG", "TECHNIK", "SONDER"]),
   validityMonths: optInt,
@@ -92,14 +96,14 @@ export const helperQualInput = z.object({
   validUntil: optDateOnly,
   status: z.enum(["GUELTIG", "IN_PRUEFUNG", "WIDERRUFEN"]).default("GUELTIG"),
   note: optStr(500),
-  documentId: id.nullable().optional().transform((v) => v || null),
+  documentId: optId,
 });
 
 export const availabilityInput = z.object({
   startDate: dateOnly,
   endDate: dateOnly,
   status: z.enum(["VERFUEGBAR", "EINGESCHRAENKT", "NICHT_VERFUEGBAR"]),
-  reason: z.enum(["URLAUB", "SCHULE", "ARBEIT", "KRANKHEIT", "PRIVAT", "SONSTIGES"]).nullable().optional().transform((v) => v || null),
+  reason: optEnum(["URLAUB", "SCHULE", "ARBEIT", "KRANKHEIT", "PRIVAT", "SONSTIGES"]),
   note: optStr(300),
 });
 
@@ -107,13 +111,13 @@ export const requirementInput = z.object({
   id: id.optional(),
   label: reqStr(120),
   count: int(1, 200),
-  functionKey: z.enum(functionKeys).nullable().optional().transform((v) => v || null),
+  functionKey: optEnum(functionKeys),
   qualTypeIds: z.array(id).default([]),
 });
 
 export const shiftInput = z.object({
   unitId: id,
-  eventId: id.nullable().optional().transform((v) => v || null),
+  eventId: optId,
   name: reqStr(160),
   kind: z.enum(["SANITAETSDIENST", "BEREITSCHAFTSABEND", "AUSBILDUNG", "BESPRECHUNG", "EINSATZ", "UEBUNG", "SONSTIGES"]),
   startsAt: dateTime,
@@ -122,7 +126,7 @@ export const shiftInput = z.object({
   location: optStr(200),
   organizer: optStr(200),
   description: optStr(4000),
-  responsibleId: id.nullable().optional().transform((v) => v || null),
+  responsibleId: optId,
   signupDeadline: z.union([z.literal(""), z.null(), z.undefined(), dateTime]).transform((v) => (v ? v : null)),
   requirements: z.array(requirementInput).default([]),
 }).refine((v) => v.endsAt > v.startsAt, { message: "Das Ende muss nach dem Beginn liegen", path: ["endsAt"] })
@@ -170,7 +174,7 @@ export const materialInput = z.object({
   maintenanceDue: optDateOnly,
   expiresAt: optDateOnly,
   status: z.enum(["OK", "DEFEKT", "IN_WARTUNG", "AUSGESONDERT"]).default("OK"),
-  responsibleId: id.nullable().optional().transform((v) => v || null),
+  responsibleId: optId,
   notes: optStr(2000),
 });
 
@@ -182,8 +186,8 @@ export const alertInput = z.object({
   meetingTime: dateTime.nullable().optional().or(z.literal("").transform(() => null)),
   audienceType: z.enum(["EINHEIT", "GRUPPE", "QUALIFIKATION", "ALARMGRUPPE"]),
   audienceRef: optStr(120),
-  alertGroupId: id.nullable().optional().transform((v) => v || null),
-  shiftId: id.nullable().optional().transform((v) => v || null),
+  alertGroupId: optId,
+  shiftId: optId,
 });
 
 export const incidentInput = z.object({
