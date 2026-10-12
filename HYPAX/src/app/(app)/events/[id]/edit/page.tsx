@@ -13,5 +13,5 @@ export default async function EditEvent({ params }: { params: Promise<{ id: stri
   const e = await getEvent(ctx, id).catch(() => null);
   if (!e) notFound();
   if (!e.canManage) redirect(`/events/${id}`);
-  return (<><PageHeader title="Veranstaltung bearbeiten" back={{ href: `/events/${id}`, label: e.name }} subtitle="Änderungen an Zeit oder Ort benachrichtigen die eingeteilten Helfer." /><EventForm action={updateEventAction} units={[{ id: e.unitId, name: e.unitName }]} submit="Speichern" defaults={{ id, unitId: e.unitId, name: e.name, description: e.description, startsAt: e.startsAt, endsAt: e.endsAt, location: e.location, organizer: e.organizer, tasks: e.tasks }} /></>);
+  return (<><PageHeader title="Veranstaltung bearbeiten" back={{ href: `/events/${id}`, label: e.name }} subtitle="Änderungen an Zeit oder Ort benachrichtigen die eingeteilten Helfer." /><EventForm action={updateEventAction} units={[{ id: e.unitId, name: e.unitName }]} submit="Speichern" defaults={{ id, unitId: e.unitId, name: e.name, description: e.description, startsAt: e.startsAt, endsAt: e.endsAt, location: e.location, organizer: e.organizer, signupDeadline: e.signupDeadline, tasks: e.tasks }} /></>);
 }

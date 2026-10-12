@@ -7,7 +7,7 @@ import { loadUnits } from "../units";
 import { shiftInput, timeWindowInput } from "../schemas";
 import { notifyHelpers, notifyUsers, usersWithPermission } from "../notify";
 import { evaluateHelperForRequirement, recommend, toRequirement, type ShiftForMatching } from "./staffing";
-import { fmtDateTime, fmtRange, fmtTime } from "@/lib/dates";
+import { berlinDateKey, fmtDateTime, fmtRange, fmtTime, parseBerlinLocal } from "@/lib/dates";
 import { effective, fits, fullSeats, gaps, isFull, minutesOf, peak, segments, within, type Window } from "@/lib/coverage";
 import { SHIFT_KIND_LABEL } from "@/lib/constants";
 import { helperWithAccess } from "./helpers";
@@ -27,7 +27,7 @@ export function visibleWhere(ctx: Ctx): Prisma.ShiftWhereInput {
 
 const shiftInclude = {
   unit: { select: { id: true, name: true } },
-  event: { select: { id: true, name: true } },
+  event: { select: { id: true, name: true, signupDeadline: true, organizer: true } },
   responsible: { select: { id: true, firstName: true, lastName: true } },
   requirements: { include: { qualifications: { include: { type: { select: { id: true, name: true } } } } }, orderBy: { sortOrder: "asc" as const } },
   assignments: { include: { helper: { select: { id: true, firstName: true, lastName: true, unitId: true, functions: true } } } },
@@ -111,7 +111,7 @@ export async function getShift(ctx: Ctx, shiftId: string) {
   return {
     id: s.id, unitId: s.unitId, unitName: s.unit.name, eventId: s.eventId, eventName: s.event?.name ?? null, name: s.name, kind: s.kind, status: s.status,
     startsAt: s.startsAt, endsAt: s.endsAt, meetingPoint: s.meetingPoint, location: s.location, organizer: s.organizer, description: s.description,
-    signupDeadline: s.signupDeadline, signupClosed: !!s.signupDeadline && s.signupDeadline < new Date(),
+    signupDeadline: deadlineOf(s), signupClosed: !!deadlineOf(s) && deadlineOf(s)! < new Date(),
     responsible: s.responsible ? { id: s.responsible.id, name: `${s.responsible.firstName} ${s.responsible.lastName}` } : null,
     requirements: s.requirements.map((r) => ({
       id: r.id, label: r.label, count: r.count, functionKey: r.functionKey,
@@ -308,8 +308,31 @@ interface AssignOpts { requirementId?: string | null; override?: boolean; mode?:
 
 const MIN_WINDOW_MIN = 15;
 
+/** Wirksamer Meldeschluss: eigener der Schicht, sonst der Veranstaltung. */
+export const deadlineOf = (s: { signupDeadline: Date | null; event?: { signupDeadline: Date | null } | null }) => s.signupDeadline ?? s.event?.signupDeadline ?? null;
+
+/** Reine Uhrzeit („22:00“) auf das passende Datum innerhalb des Dienstes legen (auch über Mitternacht). */
+function timeInShift(s: { startsAt: Date; endsAt: Date }, hhmm: string, after?: Date): Date | null {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm.trim());
+  if (!m) return null;
+  const t = `${m[1].padStart(2, "0")}:${m[2]}`;
+  const ref = after ?? s.startsAt;
+  let d = parseBerlinLocal(`${berlinDateKey(ref)}T${t}`);
+  if (!d) return null;
+  // vor dem Bezugszeitpunkt → am Folgetag (z. B. Ende 01:30 nach Beginn 16:30)
+  if (after ? d <= ref : d < ref) d = parseBerlinLocal(`${berlinDateKey(new Date(ref.getTime() + 86_400_000))}T${t}`);
+  return d;
+}
+
 /** Prüft einen Zeitraum innerhalb des Dienstes; leer = ganzer Dienst. Liefert gespeicherte Werte (null bei ganzem Dienst). */
 function resolveWindow(s: { startsAt: Date; endsAt: Date }, raw: { from?: Date | string | null; to?: Date | string | null }, label = "Zeitraum") {
+  const isHm = (v: unknown): v is string => typeof v === "string" && /^\d{1,2}:\d{2}$/.test(v.trim());
+  if (isHm(raw.from) || isHm(raw.to)) {
+    const f = isHm(raw.from) ? timeInShift(s, raw.from) : (raw.from as Date | null | undefined) ?? s.startsAt;
+    const t = isHm(raw.to) ? timeInShift(s, raw.to, f ?? s.startsAt) : raw.to;
+    if (!f || (isHm(raw.to) && !t)) throw badRequest(`${label}: ungültige Uhrzeit.`);
+    raw = { from: f, to: t };
+  }
   const parsed = timeWindowInput.safeParse({ from: raw.from ?? null, to: raw.to ?? null });
   if (!parsed.success) throw badRequest(`${label}: ungültige Uhrzeit.`);
   const w = effective(shiftWin(s), parsed.data.from, parsed.data.to);
@@ -465,7 +488,8 @@ async function checkSignupEligibility(s: ShiftFull, helperId: string, w: Window)
 function assertSignupOpen(s: ShiftFull) {
   if (s.status !== "OFFEN") throw conflict("Für diesen Dienst kannst du dich nicht melden.");
   if (s.endsAt < new Date()) throw conflict("Der Dienst liegt in der Vergangenheit.");
-  if (s.signupDeadline && s.signupDeadline < new Date()) throw conflict(`Der Meldeschluss (${fmtDateTime(s.signupDeadline)} Uhr) ist vorbei. Bitte wende dich direkt an die Dienstplanung.`);
+  const dl = deadlineOf(s);
+  if (dl && dl < new Date()) throw conflict(`Der Meldeschluss (${fmtDateTime(dl)} Uhr) ist vorbei. Bitte wende dich direkt an die Dienstplanung.`);
 }
 
 export interface SignupWindow { from?: Date | string | null; to?: Date | string | null }
@@ -532,6 +556,37 @@ export async function respondToInvitation(ctx: Ctx, shiftId: string, accept: boo
   const planners = await usersWithPermission("shift.staff", s.unitId);
   await notifyUsers(planners.filter((u) => u !== ctx.userId), { type: "DIENST_BESTAETIGT", title: `Zusage: ${a.helper.firstName} ${a.helper.lastName} – ${s.name}`, link: `/shifts/${shiftId}` });
 }
+
+// ───────────── Meldung für eine Veranstaltung mit mehreren Schichten ─────────────
+
+/** Alle für den Helfer sichtbaren, veröffentlichten Schichten einer Veranstaltung mit eigener Meldung. */
+export async function getEventSignup(ctx: Ctx, eventId: string) {
+  const rows = await prisma.shift.findMany({ where: { AND: [{ eventId, status: { not: "ENTWURF" } }, visibleWhere(ctx)] }, include: shiftInclude, orderBy: { startsAt: "asc" } });
+  if (!rows.length) throw notFound("Für diese Veranstaltung gibt es keine Schichten, für die du dich melden kannst.");
+  const ev = await prisma.event.findUniqueOrThrow({ where: { id: eventId }, select: { id: true, name: true, organizer: true, startsAt: true, endsAt: true, location: true, signupDeadline: true, cancelled: true } });
+  const now = new Date();
+  const shifts = rows.map((s, i) => {
+    const mine = ctx.helperId ? s.assignments.find((a) => a.helperId === ctx.helperId) ?? null : null;
+    const sum = summarize(s);
+    const dl = deadlineOf(s);
+    const active = mine && ["BESTAETIGT", "EINGELADEN", "ANGEFRAGT", "WARTELISTE"].includes(mine.status) ? mine : null;
+    const win = active ? (["BESTAETIGT", "EINGELADEN"].includes(active.status) ? plannedWin(s, active) : availableWin(s, active)) : shiftWin(s);
+    return {
+      id: s.id, index: i + 1, name: s.name, kind: s.kind, status: s.status, startsAt: s.startsAt, endsAt: s.endsAt, meetingPoint: s.meetingPoint, location: s.location,
+      past: s.endsAt < now, full: sum.needed > 0 && sum.open === 0, needed: sum.needed, filled: sum.filledPositions,
+      signupDeadline: dl, signupClosed: !!dl && dl < now,
+      mine: active ? { status: active.status, note: active.note, from: win.from, to: win.to, label: ["BESTAETIGT", "EINGELADEN"].includes(active.status) ? windowLabel(s, active.plannedFrom, active.plannedTo) : windowLabel(s, active.availableFrom, active.availableTo) } : null,
+      defaultFrom: win.from, defaultTo: win.to,
+    };
+  });
+  const deadlines = shifts.map((x) => x.signupDeadline).filter(Boolean) as Date[];
+  return {
+    event: { id: ev.id, name: ev.name, organizer: ev.organizer, location: ev.location, cancelled: ev.cancelled, startsAt: shifts[0].startsAt, endsAt: shifts[shifts.length - 1].endsAt },
+    signupDeadline: ev.signupDeadline ?? (deadlines.length ? new Date(Math.min(...deadlines.map((d) => d.getTime()))) : null),
+    total: shifts.length, past: shifts.filter((x) => x.past).length, shifts, canSignUp: !!ctx.helperId,
+  };
+}
+export type EventSignup = Awaited<ReturnType<typeof getEventSignup>>;
 
 // ───────────── Empfehlung ─────────────
 

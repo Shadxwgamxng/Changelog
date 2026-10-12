@@ -28,6 +28,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
     <>
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div><Link href="/events" className="mb-1 inline-block text-sm text-fg-subtle hover:text-fg">← Veranstaltungen</Link><h1 className="text-xl font-semibold tracking-tight">{e.name} {e.cancelled && <Badge tone="danger">Abgesagt</Badge>}</h1><p className="mt-1 text-sm text-fg-muted">{fmtDateTime(e.startsAt)} – {fmtDateTime(e.endsAt)}{e.location ? ` · ${e.location}` : ""}</p></div>
+        {ctx.helperId && shifts.some((s) => s.status !== "ENTWURF") && <LinkButton href={`/events/${id}/melden`} variant="primary">Meldung abgeben</LinkButton>}
         {e.canManage && <div className="flex gap-2"><LinkButton href={`/events/${id}/edit`}><Pencil className="h-4 w-4" />Bearbeiten</LinkButton>{!e.cancelled && <ActionButton action={cancelEventAction} fields={{ id }} small={false} variant="danger" label="Absagen" confirm="Veranstaltung absagen?" />}</div>}
       </div>
       <div className="grid gap-5 lg:grid-cols-3">

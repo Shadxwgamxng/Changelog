@@ -29,7 +29,7 @@ export async function createEvent(ctx: Ctx, raw: unknown) {
   const input = eventInput.parse(raw);
   await require_(ctx, "event.manage", input.unitId);
   const e = await prisma.event.create({
-    data: { unitId: input.unitId, name: input.name, description: input.description, startsAt: input.startsAt, endsAt: input.endsAt, location: input.location, organizer: input.organizer, tasks: { create: input.tasks } },
+    data: { unitId: input.unitId, name: input.name, description: input.description, startsAt: input.startsAt, endsAt: input.endsAt, location: input.location, organizer: input.organizer, signupDeadline: input.signupDeadline, tasks: { create: input.tasks } },
   });
   await audit(ctx, { action: "event.create", entityType: "Event", entityId: e.id, unitId: e.unitId, summary: `Veranstaltung „${e.name}“ angelegt` });
   return e;
@@ -43,7 +43,7 @@ export async function updateEvent(ctx: Ctx, id: string, raw: unknown) {
   if (input.unitId !== before.unitId) throw badRequest("Die Einheit einer Veranstaltung kann nicht geändert werden.");
   await prisma.$transaction([
     prisma.eventTask.deleteMany({ where: { eventId: id } }),
-    prisma.event.update({ where: { id }, data: { name: input.name, description: input.description, startsAt: input.startsAt, endsAt: input.endsAt, location: input.location, organizer: input.organizer, tasks: { create: input.tasks } } }),
+    prisma.event.update({ where: { id }, data: { name: input.name, description: input.description, startsAt: input.startsAt, endsAt: input.endsAt, location: input.location, organizer: input.organizer, signupDeadline: input.signupDeadline, tasks: { create: input.tasks } } }),
   ]);
   const changed = before.name !== input.name || before.startsAt.getTime() !== input.startsAt.getTime() || before.endsAt.getTime() !== input.endsAt.getTime() || before.location !== input.location;
   await audit(ctx, { action: "event.update", entityType: "Event", entityId: id, unitId: before.unitId, summary: `Veranstaltung „${input.name}“ bearbeitet`, changes: changed ? { startsAt: [before.startsAt.toISOString(), input.startsAt.toISOString()], endsAt: [before.endsAt.toISOString(), input.endsAt.toISOString()], location: [before.location, input.location] } : null });

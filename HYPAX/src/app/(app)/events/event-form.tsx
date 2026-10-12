@@ -4,7 +4,7 @@ import { EVENT_TASK_LABEL } from "@/lib/constants";
 import { toBerlinInput } from "@/lib/dates";
 import type { FormState } from "@/server/action";
 
-export function EventForm({ action, units, defaults, submit }: { action: (p: FormState, f: FormData) => Promise<FormState>; units: { id: string; name: string }[]; submit: string; defaults?: { id?: string; unitId?: string; name?: string; description?: string | null; startsAt?: Date; endsAt?: Date; location?: string | null; organizer?: string | null; tasks?: { kind: string; title: string }[] } }) {
+export function EventForm({ action, units, defaults, submit }: { action: (p: FormState, f: FormData) => Promise<FormState>; units: { id: string; name: string }[]; submit: string; defaults?: { id?: string; unitId?: string; name?: string; description?: string | null; startsAt?: Date; endsAt?: Date; location?: string | null; organizer?: string | null; signupDeadline?: Date | null; tasks?: { kind: string; title: string }[] } }) {
   const d = defaults ?? {};
   return (
     <ActionForm action={action} className="space-y-5">
@@ -15,6 +15,7 @@ export function EventForm({ action, units, defaults, submit }: { action: (p: For
         <Field label="Veranstalter"><input className="input" name="organizer" defaultValue={d.organizer ?? ""} /></Field>
         <Field label="Beginn" required><input className="input" type="datetime-local" name="startsAt" required defaultValue={toBerlinInput(d.startsAt)} /></Field>
         <Field label="Ende" required><input className="input" type="datetime-local" name="endsAt" required defaultValue={toBerlinInput(d.endsAt)} /></Field>
+        <Field label="Meldeschluss (optional)" className="sm:col-span-2" hint="Gilt für alle Schichten der Veranstaltung, sofern eine Schicht keinen eigenen hat."><input className="input" type="datetime-local" name="signupDeadline" defaultValue={toBerlinInput(d.signupDeadline ?? null)} /></Field>
         <Field label="Ort" className="sm:col-span-2"><input className="input" name="location" defaultValue={d.location ?? ""} /></Field>
         <Field label="Beschreibung" className="sm:col-span-2"><textarea className="input" name="description" defaultValue={d.description ?? ""} /></Field>
       </div>

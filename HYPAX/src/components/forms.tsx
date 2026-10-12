@@ -6,10 +6,10 @@ import { useRouter } from "next/navigation";
 import clsx from "clsx";
 import type { FormState } from "@/server/action";
 
-export function SubmitButton({ children, className, pendingText = "Bitte warten …", variant = "primary", small, confirm }: { children: ReactNode; className?: string; pendingText?: string; variant?: "primary" | "ghost" | "danger" | "ok" | "default"; small?: boolean; confirm?: string }) {
+export function SubmitButton({ children, className, pendingText = "Bitte warten …", variant = "primary", small, confirm, name, value }: { children: ReactNode; className?: string; pendingText?: string; variant?: "primary" | "ghost" | "danger" | "ok" | "default"; small?: boolean; confirm?: string; name?: string; value?: string }) {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" disabled={pending} aria-busy={pending}
+    <button type="submit" disabled={pending} aria-busy={pending} name={name} value={value}
       onClick={(e) => { if (confirm && !window.confirm(confirm)) e.preventDefault(); }}
       className={clsx("btn", variant !== "default" && `btn-${variant}`, small && "btn-sm", className)}>
       {pending ? pendingText : children}

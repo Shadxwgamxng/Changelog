@@ -140,6 +140,7 @@ export const eventInput = z.object({
   endsAt: dateTime,
   location: optStr(200),
   organizer: optStr(200),
+  signupDeadline: z.union([z.literal(""), z.null(), z.undefined(), dateTime]).transform((v) => (v ? v : null)),
   tasks: z.array(z.object({ kind: z.enum(["SANITAETSDIENST", "EINSATZLEITUNG", "FAHRZEUG", "MATERIAL", "FUNK", "SONSTIGES"]), title: reqStr(160) })).default([]),
 }).refine((v) => v.endsAt > v.startsAt, { message: "Das Ende muss nach dem Beginn liegen", path: ["endsAt"] });
 

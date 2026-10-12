@@ -33,6 +33,16 @@ export const signUpAction = action(async (ctx, f) => {
   const r = await S.signUpForShift(ctx, str(f, "id"), str(f, "note") || null, windowFrom(f));
   return r.warnings.length ? `Deine Meldung wurde an die Dienstplanung übermittelt. Hinweis: ${r.warnings.join("; ")}` : "Deine Meldung wurde an die Dienstplanung übermittelt.";
 });
+/** Meldeseite einer Veranstaltung: melden, Meldung ändern oder absagen in einem Formular. */
+export const eventSignupAction = action(async (ctx, f) => {
+  const intent = str(f, "intent");
+  if (intent === "withdraw") { await S.withdrawFromShift(ctx, str(f, "id"), null); return "Abgesagt."; }
+  const fn = intent === "update" ? S.updateMySignup : S.signUpForShift;
+  const r = await fn(ctx, str(f, "id"), str(f, "note") || null, { from: str(f, "from") || null, to: str(f, "to") || null });
+  const base = intent === "update" ? "Meldung geändert." : "Gemeldet – die Dienstplanung entscheidet.";
+  return r.warnings.length ? `${base} Hinweis: ${r.warnings.join("; ")}` : base;
+});
+
 export const updateSignupAction = action(async (ctx, f) => {
   const r = await S.updateMySignup(ctx, str(f, "id"), str(f, "note") || null, windowFrom(f));
   return r.warnings.length ? `Meldung geändert. Hinweis: ${r.warnings.join("; ")}` : "Meldung geändert.";

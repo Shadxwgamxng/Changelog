@@ -66,7 +66,7 @@ await step("qualifizierter Helfer meldet sich an", async () => {
   const end = new Date(new Date(min + ":00Z").getTime() + 3 * 3_600_000).toISOString().slice(0, 16);
   await ben.page.fill("#signup-to", end);
   await ben.page.click("text=Für Dienst melden");
-  await ben.page.waitForSelector("text=Deine Meldung wurde an die Dienstplanung übermittelt.", { timeout: 15000 });
+  await ben.page.waitForSelector("text=Gemeldet – die Dienstplanung entscheidet", { timeout: 15000 });
 });
 await step("Planer bestätigt in der Oberfläche → Besetzung aktualisiert sich", async () => {
   before = (await (await api(planer.ctx, "GET", `/shifts/${shiftId}`)).json()).summary;
@@ -86,7 +86,7 @@ await step("Helfer sieht seine Zusage; Benachrichtigung ist angekommen", async (
   const n = await (await api(ben.ctx, "GET", "/notifications")).json(); assert.ok(n.some((x) => x.type === "DIENST_BESTAETIGT"));
 });
 await step("als nicht verfügbar eingetragen: Anfrage möglich, Bestätigung nur mit ausdrücklicher Ausnahme", async () => {
-  await sara.page.goto(`/shifts/${shiftId}`); await sara.page.click("text=Für Dienst melden"); await sara.page.waitForSelector("text=Deine Meldung wurde an die Dienstplanung übermittelt.", { timeout: 15000 });
+  await sara.page.goto(`/shifts/${shiftId}`); await sara.page.click("text=Für Dienst melden"); await sara.page.waitForSelector("text=Gemeldet – die Dienstplanung entscheidet", { timeout: 15000 });
   await planer.page.goto(`/shifts/${shiftId}`);
   const row = planer.page.locator("li", { hasText: "Sanitz, Sara" }).first();
   await row.getByRole("button", { name: "Einteilen" }).click();
@@ -102,6 +102,26 @@ await step("Empfehlung: nur geeignete Helfer, Prozentwerte", async () => {
 await step("Helfer darf keine Empfehlung abrufen / nicht entscheiden (403)", async () => {
   assert.equal((await api(max.ctx, "GET", `/shifts/${shiftId}/recommendation`)).status(), 403);
   assert.equal((await api(max.ctx, "POST", `/shifts/${shiftId}/publish`)).status(), 403);
+});
+
+console.log("Meldung abgeben (Veranstaltung mit mehreren Schichten)");
+await step("Helfer meldet sich auf der Meldeseite für eine Schicht mit Uhrzeiten", async () => {
+  const all = await (await api(max.ctx, "GET", "/shifts?limit=100")).json();
+  const sat = all.find((s) => s.name === "Festival am See – Tag 2");
+  const ev = sat.eventId;
+  await max.page.goto(`/events/${ev}/melden`);
+  const cards = max.page.locator("section[aria-label^='Schicht ']");
+  assert.equal(await cards.count(), 4);
+  assert.match(await max.page.textContent("main"), /Eine Änderung dieser Meldung ist nur durch die Dienstplanung möglich/);
+  const card = cards.nth(2);
+  await card.locator("input[name=from]").fill("18:00");
+  await card.locator("input[name=to]").fill("00:30");
+  await card.locator("textarea[name=note]").fill("Komme direkt von der Arbeit");
+  await card.getByRole("button", { name: "Melden" }).click();
+  await max.page.waitForTimeout(1500);
+  const d = await (await api(max.ctx, "GET", `/shifts/${sat.id}`)).json();
+  assert.equal(d.mine.status, "ANGEFRAGT");
+  assert.match(d.mine.availableLabel, /18:00–00:30/);
 });
 
 console.log("Rechte & Datenschutz über die API");

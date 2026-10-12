@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { scenario, mkAccountHelper, mkQual } from "./fixtures";
 import { prisma } from "../../src/server/db";
 import { HttpError } from "../../src/server/errors";
-import { applyRecommendation, assignHelper, cancelShift, completeShift, createShift, decideAssignment, getRecommendation, getShift, listShifts, publishShift, removeFromShift, respondToInvitation, setShiftResources, signUpForShift, updateMySignup, updateShift, withdrawFromShift } from "../../src/server/services/shifts";
+import { applyRecommendation, assignHelper, cancelShift, completeShift, createShift, decideAssignment, getRecommendation, getShift, listShifts, publishShift, removeFromShift, respondToInvitation, setShiftResources, signUpForShift, updateMySignup, updateShift, withdrawFromShift, getEventSignup } from "../../src/server/services/shifts";
 import { setAvailability } from "../../src/server/services/availability";
 import { expiringQualifications } from "../../src/server/services/qualifications";
 
@@ -340,4 +340,34 @@ test("Meldeschluss: danach keine Selbstmeldung mehr, Planer kann weiter einteile
   await assignHelper(c.planner.ctx, shift.id, c.sh2.helper.id);
   // Meldeschluss nach Dienstende ist ungültig
   await assert.rejects(createShift(c.planner.ctx, { unitId: S.berA.id, name: "X", kind: "SONSTIGES", ...t, signupDeadline: at(t.endsAt, 1).toISOString(), requirements: [] }));
+});
+
+test("Veranstaltung mit mehreren Schichten: Uhrzeiten über Mitternacht, Meldeschluss der Veranstaltung", async () => {
+  const c = await crew();
+  const ev = await prisma.event.create({ data: { unitId: S.berA.id, name: "Festival", startsAt: new Date(Date.now() + 20 * 86_400_000), endsAt: new Date(Date.now() + 22 * 86_400_000), organizer: "Seeufer GmbH" } });
+  // Schicht 16:30–01:30 Berliner Zeit
+  const day = new Date(Date.now() + 20 * 86_400_000).toISOString().slice(0, 10);
+  const next = new Date(Date.now() + 21 * 86_400_000).toISOString().slice(0, 10);
+  const s1 = await createShift(c.planner.ctx, { unitId: S.berA.id, eventId: ev.id, name: "Fr Früh", kind: "SANITAETSDIENST", startsAt: `${day}T16:30`, endsAt: `${next}T01:30`, requirements: [] });
+  const s2 = await createShift(c.planner.ctx, { unitId: S.berA.id, eventId: ev.id, name: "Sa", kind: "SANITAETSDIENST", startsAt: `${next}T14:00`, endsAt: `${next}T20:00`, requirements: [] });
+  await publishShift(c.planner.ctx, s1.id); await publishShift(c.planner.ctx, s2.id);
+
+  // Uhrzeit „00:30“ liegt nach Mitternacht innerhalb der Schicht
+  const { assignment } = await signUpForShift(c.sh1.ctx, s1.id, null, { from: "22:00", to: "00:30" });
+  assert.equal(assignment.availableTo!.getTime() - assignment.availableFrom!.getTime(), 150 * 60_000);
+  await rejects(updateMySignup(c.sh1.ctx, s1.id, null, { from: "15:00", to: "18:00" }), 400, /innerhalb/);
+
+  const view = await getEventSignup(c.sh1.ctx, ev.id);
+  assert.equal(view.total, 2);
+  assert.equal(view.shifts[0].mine?.status, "ANGEFRAGT");
+  assert.match(view.shifts[0].mine!.label!, /22:00–00:30/);
+  assert.equal(view.shifts[1].mine, null);
+
+  // Meldeschluss der Veranstaltung gilt für Schichten ohne eigenen
+  await prisma.event.update({ where: { id: ev.id }, data: { signupDeadline: new Date(Date.now() - 1000) } });
+  await rejects(signUpForShift(c.sh1.ctx, s2.id), 409, /Meldeschluss/);
+  assert.equal((await getEventSignup(c.sh1.ctx, ev.id)).shifts[1].signupClosed, true);
+  // Fremde sehen die Veranstaltung nicht
+  const foreign = await mkAccountHelper(S.berB.id, "Fiona", "Fremd");
+  await rejects(getEventSignup(foreign.ctx, ev.id), 404);
 });

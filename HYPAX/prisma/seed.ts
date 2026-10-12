@@ -134,6 +134,16 @@ async function main() {
   const pa = await mk(sd.id, peter.helper.id, "ANGEFRAGT");
   await prisma.shiftAssignment.update({ where: { id: pa.id }, data: { availableFrom: at(30, 18), availableTo: at(30, 22), note: "Danach muss ich leider weg." } });
   await prisma.shift.update({ where: { id: sd.id }, data: { signupDeadline: at(28, 12) } });
+
+  // Mehrtägige Veranstaltung mit mehreren Schichten/Abschnitten (Meldung über „Meldung abgeben“)
+  const festival = await prisma.event.create({ data: { unitId: berA.id, name: "Festival am See 2026", description: "Drei Tage Festival, Sanitätsdienst in Schichten.", startsAt: at(40, 16, 30), endsAt: at(42, 4), location: "Seeufer Musterstadt", organizer: "Seeufer Events GmbH", signupDeadline: at(35, 20) } });
+  const fsReq = [{ label: "Sanitätshelfer", count: 3, q: ["Sanitätshelfer"] }];
+  const fs1 = await mkShift("Festival am See – Tag 1 früh", "SANITAETSDIENST", at(40, 16, 30), at(41, 1, 30), "OFFEN", fsReq, { eventId: festival.id, location: "Seeufer Musterstadt" });
+  const fs2 = await mkShift("Festival am See – Tag 1 spät", "SANITAETSDIENST", at(40, 18, 15), at(41, 4), "OFFEN", fsReq, { eventId: festival.id, location: "Seeufer Musterstadt" });
+  await mkShift("Festival am See – Tag 2", "SANITAETSDIENST", at(41, 14), at(42, 2), "OFFEN", fsReq, { eventId: festival.id, location: "Seeufer Musterstadt" });
+  await mkShift("Festival am See – Tag 3", "SANITAETSDIENST", at(42, 12), at(42, 20), "OFFEN", fsReq, { eventId: festival.id, location: "Seeufer Musterstadt" });
+  await prisma.shiftAssignment.create({ data: { shiftId: fs1.id, helperId: max.helper.id, status: "ANGEFRAGT", source: "SELBST", availableFrom: at(40, 16, 30), availableTo: at(40, 22) } });
+  await prisma.shiftAssignment.create({ data: { shiftId: fs2.id, helperId: max.helper.id, status: "BESTAETIGT", source: "SELBST", availableFrom: at(40, 18, 15), availableTo: at(40, 22), plannedFrom: at(40, 18, 15), plannedTo: at(40, 22), requirementId: (await prisma.shiftRequirement.findFirstOrThrow({ where: { shiftId: fs2.id } })).id } });
   await mk(sd.id, crew[1].helper.id, "ANGEFRAGT");
   for (const p of [max, anna, peter, ...crew.slice(0, 5)]) await mk(ab.id, p.helper.id, "BESTAETIGT");
   await mk(aus.id, max.helper.id, "BESTAETIGT");
