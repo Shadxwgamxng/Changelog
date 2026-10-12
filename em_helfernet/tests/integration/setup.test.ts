@@ -5,6 +5,9 @@ import { prisma } from "../../src/server/db";
 import { HttpError } from "../../src/server/errors";
 import { needsSetup, runSetup } from "../../src/server/setup";
 import { login } from "../../src/server/auth";
+import { loadCtx } from "../../src/server/context";
+import { createShift, getShift, listShifts } from "../../src/server/services/shifts";
+import { createHelper, listHelpers } from "../../src/server/services/helpers";
 
 const base = { orgName: "Rettungsdienst Los Santos", unitType: "SONSTIGE", email: "Chef@Example.org", password: "Sicher#Passwort1", password2: "Sicher#Passwort1" };
 const rejects = (p: Promise<unknown>, status: number) => assert.rejects(p, (e: unknown) => e instanceof HttpError && e.status === status);
@@ -47,4 +50,16 @@ test("Ersteinrichtung: gleichzeitige Versuche legen nur einen Administrator an",
   assert.equal(results.filter((r) => r.status === "fulfilled").length, 1);
   assert.equal(await prisma.user.count(), 1);
   assert.equal(await prisma.orgUnit.count(), 1);
+});
+
+test("Nach der Ersteinrichtung: Superadmin sieht eigene Entwürfe und angelegte Helfer", async () => {
+  const { userId } = await runSetup(base);
+  const ctx = await loadCtx(userId);
+  const unit = await prisma.orgUnit.findFirstOrThrow();
+  const shift = await createShift(ctx, { unitId: unit.id, eventId: "", responsibleId: "", name: "Erster Dienst", kind: "SONSTIGES", startsAt: "2027-03-01T18:00", endsAt: "2027-03-01T21:00", requirements: [] });
+  assert.equal(shift.status, "ENTWURF");
+  assert.equal((await getShift(ctx, shift.id)).name, "Erster Dienst");
+  assert.equal((await listShifts(ctx, {})).length, 1);
+  await createHelper(ctx, { unitId: unit.id, firstName: "Erika", lastName: "Muster" });
+  assert.equal((await listHelpers(ctx)).total, 1);
 });

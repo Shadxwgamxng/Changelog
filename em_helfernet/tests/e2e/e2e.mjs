@@ -160,6 +160,18 @@ await step("Dienst über das Formular anlegen – ohne Veranstaltung und Verantw
   await p.waitForURL(/\/shifts\/(?!new)[^/]+$/, { timeout: 20000 });
   assert.match(await p.textContent("main"), /Bereitschaftsabend ohne Veranstaltung/);
 });
+await step("Superadmin legt Dienst an und sieht den Entwurf", async () => {
+  const p = admin.page;
+  await p.goto("/shifts/new");
+  await p.fill("input[name=name]", "Entwurf vom Admin");
+  await p.fill("input[name=startsAt]", "2027-03-02T18:00");
+  await p.fill("input[name=endsAt]", "2027-03-02T21:00");
+  await p.click("main button[type=submit]");
+  await p.waitForURL(/\/shifts\/(?!new)[^/]+$/, { timeout: 20000 });
+  const text = await p.textContent("main");
+  assert.match(text, /Entwurf vom Admin/);
+  assert.doesNotMatch(text, /Nicht gefunden/);
+});
 await step("private Verfügbarkeitsgründe sind für Planer nicht sichtbar", async () => {
   const maxId = (await (await api(max.ctx, "GET", "/me")).json()).helperId;
   const own = await (await api(max.ctx, "GET", `/helpers/${maxId}/availability?from=2020-01-01&to=2099-01-01`)).json();

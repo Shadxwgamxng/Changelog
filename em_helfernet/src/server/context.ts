@@ -104,7 +104,8 @@ export function hasAnywhere(ctx: Ctx, perm: Permission): boolean {
 
 /** Prisma-Filter für Modelle mit `unitId` + Relation `unit`: nur Einheiten, in denen `perm` gilt. */
 export function scopeWhere(ctx: Ctx, perm: Permission): Record<string, unknown> {
-  if (ctx.all || ctx.globalPerms.has(perm)) return {};
+  // Kein leeres {}: Prisma wertet `OR: [{}]` als „trifft nichts“ – das würde z. B. Entwürfe vor Superadmins verbergen.
+  if (ctx.all || ctx.globalPerms.has(perm)) return { id: { not: "" } };
   const or: Record<string, unknown>[] = [];
   for (const g of ctx.grants) {
     if (!g.perms.has(perm)) continue;
