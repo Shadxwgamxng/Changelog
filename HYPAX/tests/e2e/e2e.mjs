@@ -53,34 +53,43 @@ await step("Leitungs-Dashboard zeigt Führungsübersicht", async () => { await l
 console.log("Dienste: Anmeldung → Entscheidung → Besetzung");
 const shiftId = (await (await api(planer.ctx, "GET", "/shifts?limit=50")).json()).find((s) => s.name === "Sanitätsdienst Stadtfest").id;
 await step("Helfer ohne Qualifikation kann sich nicht anmelden", async () => {
-  await tim.page.goto(`/shifts/${shiftId}`); await tim.page.click("text=Für Dienst anmelden"); await tim.page.waitForSelector("form [role=alert]");
+  await tim.page.goto(`/shifts/${shiftId}`); await tim.page.click("text=Für Dienst melden"); await tim.page.waitForSelector("form [role=alert]");
   assert.match(await tim.page.textContent("form [role=alert]"), /Qualifikation/);
 });
 let before;
 await step("qualifizierter Helfer meldet sich an", async () => {
   before = (await (await api(planer.ctx, "GET", `/shifts/${shiftId}`)).json()).summary;
-  await ben.page.goto(`/shifts/${shiftId}`); await ben.page.click("text=Für Dienst anmelden");
-  await ben.page.waitForSelector("text=Deine Anfrage wurde an den Dienstplaner übermittelt.", { timeout: 15000 });
+  await ben.page.goto(`/shifts/${shiftId}`);
+  // nur für einen Teil des Dienstes melden: Beginn bis Beginn + 3 h
+  await ben.page.getByText("Nur einen Teil").first().click();
+  const min = await ben.page.locator("#signup-to").getAttribute("min");
+  const end = new Date(new Date(min + ":00Z").getTime() + 3 * 3_600_000).toISOString().slice(0, 16);
+  await ben.page.fill("#signup-to", end);
+  await ben.page.click("text=Für Dienst melden");
+  await ben.page.waitForSelector("text=Deine Meldung wurde an die Dienstplanung übermittelt.", { timeout: 15000 });
 });
 await step("Planer bestätigt in der Oberfläche → Besetzung aktualisiert sich", async () => {
   before = (await (await api(planer.ctx, "GET", `/shifts/${shiftId}`)).json()).summary;
   await planer.page.goto(`/shifts/${shiftId}`);
   const row = planer.page.locator("li", { hasText: "Brandt, Ben" }).first();
-  await row.getByRole("button", { name: "Bestätigen" }).click();
+  await row.getByRole("button", { name: "Einteilen" }).click();
   await planer.page.waitForTimeout(1200);
   const after = (await (await api(planer.ctx, "GET", `/shifts/${shiftId}`)).json()).summary;
   assert.equal(after.confirmed, before.confirmed + 1);
   assert.equal(after.requested, before.requested - 1);
+  const detail = await (await api(planer.ctx, "GET", `/shifts/${shiftId}`)).json();
+  const benRow = detail.crew.find((c) => c.name === "Brandt, Ben");
+  assert.ok(benRow.plannedLabel && /Uhr/.test(benRow.plannedLabel), "Ben ist nur für seinen gemeldeten Zeitraum eingeteilt");
 });
 await step("Helfer sieht seine Zusage; Benachrichtigung ist angekommen", async () => {
-  await ben.page.goto(`/shifts/${shiftId}`); assert.match(await ben.page.textContent("main"), /eingeteilt \/ hast zugesagt/);
+  await ben.page.goto(`/shifts/${shiftId}`); assert.match(await ben.page.textContent("main"), /Du bist eingeteilt[\s\S]*Eingeteilt: [\s\S]*Uhr/);
   const n = await (await api(ben.ctx, "GET", "/notifications")).json(); assert.ok(n.some((x) => x.type === "DIENST_BESTAETIGT"));
 });
 await step("als nicht verfügbar eingetragen: Anfrage möglich, Bestätigung nur mit ausdrücklicher Ausnahme", async () => {
-  await sara.page.goto(`/shifts/${shiftId}`); await sara.page.click("text=Für Dienst anmelden"); await sara.page.waitForSelector("text=Deine Anfrage wurde an den Dienstplaner übermittelt.", { timeout: 15000 });
+  await sara.page.goto(`/shifts/${shiftId}`); await sara.page.click("text=Für Dienst melden"); await sara.page.waitForSelector("text=Deine Meldung wurde an die Dienstplanung übermittelt.", { timeout: 15000 });
   await planer.page.goto(`/shifts/${shiftId}`);
   const row = planer.page.locator("li", { hasText: "Sanitz, Sara" }).first();
-  await row.getByRole("button", { name: "Bestätigen" }).click();
+  await row.getByRole("button", { name: "Einteilen" }).click();
   await planer.page.waitForSelector("li:has-text('Sanitz, Sara') form p", { timeout: 15000 });
   assert.match(await row.textContent(), /nicht verfügbar/);
 });

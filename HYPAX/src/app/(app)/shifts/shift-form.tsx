@@ -6,7 +6,7 @@ import { toBerlinInput } from "@/lib/dates";
 import type { FormState } from "@/server/action";
 
 export interface ShiftFormDefaults {
-  id?: string; unitId?: string; eventId?: string | null; name?: string; kind?: string; startsAt?: Date; endsAt?: Date; meetingPoint?: string | null; location?: string | null; organizer?: string | null; description?: string | null; responsibleId?: string | null;
+  id?: string; unitId?: string; eventId?: string | null; name?: string; kind?: string; startsAt?: Date; endsAt?: Date; meetingPoint?: string | null; location?: string | null; organizer?: string | null; description?: string | null; responsibleId?: string | null; signupDeadline?: Date | null;
   requirements?: { id?: string; label: string; count: number; functionKey: string | null; qualTypeIds: string[] }[];
 }
 
@@ -30,6 +30,8 @@ export function ShiftForm({ action, defaults = {}, units, qualTypes, events, hel
         </Field>
         <Field label="Beginn" required><input className="input" type="datetime-local" name="startsAt" required defaultValue={toBerlinInput(d.startsAt)} /></Field>
         <Field label="Ende" required><input className="input" type="datetime-local" name="endsAt" required defaultValue={toBerlinInput(d.endsAt)} /></Field>
+        <Field label="Meldeschluss (optional)" hint="Bis dahin können sich Helfer selbst melden – auch nur für einen Teil des Dienstes."><input className="input" type="datetime-local" name="signupDeadline" defaultValue={toBerlinInput(d.signupDeadline ?? null)} /></Field>
+        <div className="hidden sm:block" />
         <Field label="Treffpunkt"><input className="input" name="meetingPoint" defaultValue={d.meetingPoint ?? ""} /></Field>
         <Field label="Einsatzort"><input className="input" name="location" defaultValue={d.location ?? ""} /></Field>
         <Field label="Veranstalter"><input className="input" name="organizer" defaultValue={d.organizer ?? ""} /></Field>

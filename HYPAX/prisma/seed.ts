@@ -130,7 +130,10 @@ async function main() {
   await mk(sd.id, crew[0].helper.id, "BESTAETIGT", undefined, await reqOf(sd.id, "Rettungssanitäter"));
   await mk(sd.id, anna.helper.id, "BESTAETIGT", undefined, await reqOf(sd.id, "Sanitätshelfer"));
   await mk(sd.id, max.helper.id, "ANGEFRAGT");
-  await mk(sd.id, peter.helper.id, "ANGEFRAGT");
+  // Teilzeit-Meldung: Peter kann nur von 18 bis 22 Uhr
+  const pa = await mk(sd.id, peter.helper.id, "ANGEFRAGT");
+  await prisma.shiftAssignment.update({ where: { id: pa.id }, data: { availableFrom: at(30, 18), availableTo: at(30, 22), note: "Danach muss ich leider weg." } });
+  await prisma.shift.update({ where: { id: sd.id }, data: { signupDeadline: at(28, 12) } });
   await mk(sd.id, crew[1].helper.id, "ANGEFRAGT");
   for (const p of [max, anna, peter, ...crew.slice(0, 5)]) await mk(ab.id, p.helper.id, "BESTAETIGT");
   await mk(aus.id, max.helper.id, "BESTAETIGT");

@@ -26,21 +26,28 @@ export const completeAction = action(async (ctx, f) => {
   return "Dienst abgeschlossen – Stunden wurden gebucht.";
 });
 
+/** Zeitraum aus dem Formular: bei „ganzer Dienst“ leer. */
+const windowFrom = (f: FormData) => (str(f, "scope") === "teil" ? { from: str(f, "from") || null, to: str(f, "to") || null } : { from: null, to: null });
+
 export const signUpAction = action(async (ctx, f) => {
-  const r = await S.signUpForShift(ctx, str(f, "id"), str(f, "note") || null);
-  return r.warnings.length ? `Deine Anfrage wurde an den Dienstplaner übermittelt. Hinweis: ${r.warnings.join("; ")}` : "Deine Anfrage wurde an den Dienstplaner übermittelt.";
+  const r = await S.signUpForShift(ctx, str(f, "id"), str(f, "note") || null, windowFrom(f));
+  return r.warnings.length ? `Deine Meldung wurde an die Dienstplanung übermittelt. Hinweis: ${r.warnings.join("; ")}` : "Deine Meldung wurde an die Dienstplanung übermittelt.";
+});
+export const updateSignupAction = action(async (ctx, f) => {
+  const r = await S.updateMySignup(ctx, str(f, "id"), str(f, "note") || null, windowFrom(f));
+  return r.warnings.length ? `Meldung geändert. Hinweis: ${r.warnings.join("; ")}` : "Meldung geändert.";
 });
 export const withdrawAction = action(async (ctx, f) => { await S.withdrawFromShift(ctx, str(f, "id"), str(f, "reason") || null); return "Abgesagt. Die Planer wurden informiert."; });
 export const respondInviteAction = action(async (ctx, f) => { await S.respondToInvitation(ctx, str(f, "id"), str(f, "accept") === "1"); return str(f, "accept") === "1" ? "Zugesagt – danke!" : "Abgesagt."; });
 
 export const decideAction = action(async (ctx, f) => {
   const d = str(f, "decision") as "CONFIRM" | "REJECT" | "WAITLIST";
-  await S.decideAssignment(ctx, str(f, "assignmentId"), d, { requirementId: str(f, "requirementId") || null, override: checked(f, "override") });
+  await S.decideAssignment(ctx, str(f, "assignmentId"), d, { requirementId: str(f, "requirementId") || null, override: checked(f, "override"), from: str(f, "from") || null, to: str(f, "to") || null });
   return d === "CONFIRM" ? "Bestätigt." : d === "REJECT" ? "Abgelehnt." : "Auf die Warteliste gesetzt.";
 });
 export const removeCrewAction = action(async (ctx, f) => { await S.removeFromShift(ctx, str(f, "assignmentId")); return "Entfernt."; });
 export const assignAction = action(async (ctx, f) => {
-  await S.assignHelper(ctx, str(f, "shiftId"), str(f, "helperId"), { requirementId: str(f, "requirementId") || null, override: checked(f, "override"), mode: str(f, "mode") === "EINLADEN" ? "EINLADEN" : "EINTEILEN" });
+  await S.assignHelper(ctx, str(f, "shiftId"), str(f, "helperId"), { requirementId: str(f, "requirementId") || null, override: checked(f, "override"), mode: str(f, "mode") === "EINLADEN" ? "EINLADEN" : "EINTEILEN", from: str(f, "from") || null, to: str(f, "to") || null });
   return "Eingeteilt.";
 });
 export const applyRecommendationAction = action(async (ctx, f) => {

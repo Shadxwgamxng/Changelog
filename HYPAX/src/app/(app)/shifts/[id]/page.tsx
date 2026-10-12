@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarClock, Map as MapIcon, MapPin, Pencil, Truck, Package } from "lucide-react";
+import { AlarmClock, CalendarClock, Map as MapIcon, MapPin, Pencil, Truck, Package } from "lucide-react";
 import { requireCtx } from "@/server/session";
 import { getShift, getRecommendation } from "@/server/services/shifts";
 import { helperOptions } from "@/server/services/helpers";
@@ -10,7 +10,8 @@ import { Badge, Card, Dl, Empty, LinkButton, ProgressBar } from "@/components/ui
 import { ActionButton, ActionForm, Collapse, RowsEditor, SubmitButton } from "@/components/forms";
 import { ASSIGNMENT_STATUS_LABEL, FUNCTION_LABEL, SHIFT_KIND_LABEL, SHIFT_STATUS_LABEL, VEHICLE_STATUS_EMOJI, VEHICLE_STATUS_LABEL } from "@/lib/constants";
 import { assignmentTone, shiftStatusTone } from "@/lib/ui-maps";
-import { fmtDateTime, fmtRange, fmtLong, hoursBetween } from "@/lib/dates";
+import { fmtDateTime, fmtRange, fmtLong, fmtTime, hoursBetween, toBerlinInput } from "@/lib/dates";
+import { WindowFields } from "@/components/window-fields";
 import * as A from "../actions";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
@@ -36,7 +37,10 @@ export default async function ShiftPage({ params }: { params: Promise<{ id: stri
   const requests = s.crew.filter((c) => c.status === "ANGEFRAGT" || c.status === "WARTELISTE");
   const mine = s.mine;
   const ended = s.endsAt < new Date();
-  const canSignUp = s.status === "OFFEN" && !ended && ctx.helperId && (!mine || mine.status === "ABGELEHNT" || mine.status === "ZURUECKGEZOGEN");
+  const signupOpen = s.status === "OFFEN" && !ended && !s.signupClosed;
+  const canSignUp = signupOpen && ctx.helperId && (!mine || mine.status === "ABGELEHNT" || mine.status === "ZURUECKGEZOGEN");
+  const minIn = toBerlinInput(s.startsAt), maxIn = toBerlinInput(s.endsAt);
+  const deadlineSoon = s.signupDeadline && !s.signupClosed && s.signupDeadline.getTime() - Date.now() < 48 * 3_600_000;
   const crewBy = (reqId: string | null) => s.crew.filter((c) => c.requirementId === reqId && (c.status === "BESTAETIGT" || c.status === "EINGELADEN"));
   const unassigned = s.crew.filter((c) => c.status === "BESTAETIGT" && !c.requirementId);
   const reqOptions = s.requirements.filter((r) => r.filled + r.reserved < r.count);
@@ -52,6 +56,7 @@ export default async function ShiftPage({ params }: { params: Promise<{ id: stri
             <p className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-fg-muted">
               <span className="inline-flex items-center gap-1.5"><CalendarClock className="h-4 w-4" aria-hidden />{fmtLong(s.startsAt)} · {fmtRange(s.startsAt, s.endsAt)} ({hoursBetween(s.startsAt, s.endsAt).toLocaleString("de-DE", { maximumFractionDigits: 1 })} h)</span>
               {(s.meetingPoint || s.location) && <span className="inline-flex items-center gap-1.5"><MapPin className="h-4 w-4" aria-hidden />{[s.meetingPoint && `Treffpunkt: ${s.meetingPoint}`, s.location && `Einsatzort: ${s.location}`].filter(Boolean).join(" · ")}</span>}
+              {s.signupDeadline && <span className={`inline-flex items-center gap-1.5 ${s.signupClosed ? "text-danger" : deadlineSoon ? "text-warn" : ""}`}><AlarmClock className="h-4 w-4" aria-hidden />Meldeschluss: {fmtDateTime(s.signupDeadline)} Uhr{s.signupClosed ? " (vorbei)" : ""}</span>}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -64,19 +69,37 @@ export default async function ShiftPage({ params }: { params: Promise<{ id: stri
 
       {/* Meine Teilnahme */}
       {ctx.helperId && s.status !== "ENTWURF" && (
-        <Card className="mb-5" title="Deine Teilnahme">
-          <div className="flex flex-wrap items-center justify-between gap-4">
+        <Card className="mb-5" title="Deine Meldung">
+          <div className="space-y-4">
             <div>
-              <p className="text-lg font-semibold">{mine ? (mine.status === "BESTAETIGT" ? "✅ Du bist eingeteilt / hast zugesagt" : mine.status === "ANGEFRAGT" ? "⏳ Deine Anfrage wurde an den Dienstplaner übermittelt." : mine.status === "EINGELADEN" ? "✉️ Du wurdest eingeladen" : mine.status === "WARTELISTE" ? "🕒 Du stehst auf der Warteliste" : mine.status === "ABGELEHNT" ? "Deine Anfrage wurde abgelehnt" : "Du hast abgesagt") : `Benötigt: ${sum.needed || "–"} · Gemeldet: ${sum.confirmed + sum.invited + sum.requested}`}</p>
-              {!mine && sum.needed > 0 && <p className="text-sm text-fg-muted">{sum.open} Positionen noch offen.</p>}
+              <p className="text-lg font-semibold">{mine ? (mine.status === "BESTAETIGT" ? "✅ Du bist eingeteilt" : mine.status === "ANGEFRAGT" ? "⏳ Gemeldet – die Dienstplanung entscheidet" : mine.status === "EINGELADEN" ? "✉️ Du wurdest eingeladen" : mine.status === "WARTELISTE" ? "🕒 Du stehst auf der Warteliste" : mine.status === "ABGELEHNT" ? "Deine Meldung wurde nicht berücksichtigt" : "Du hast abgesagt") : `Benötigt: ${sum.needed || "–"} · Gemeldet: ${sum.confirmed + sum.invited + sum.requested}`}</p>
+              {mine && ["ANGEFRAGT", "WARTELISTE"].includes(mine.status) && <p className="text-sm text-fg-muted">Dein Zeitraum: <strong className="text-fg">{mine.availableLabel ?? "ganzer Dienst"}</strong>{mine.note ? ` · „${mine.note}“` : ""}</p>}
+              {mine && ["BESTAETIGT", "EINGELADEN"].includes(mine.status) && <p className="text-sm text-fg-muted">Eingeteilt: <strong className="text-fg">{mine.plannedLabel ?? `ganzer Dienst (${fmtRange(s.startsAt, s.endsAt)})`}</strong></p>}
+              {!mine && sum.needed > 0 && <p className="text-sm text-fg-muted">{sum.open} Plätze noch nicht durchgehend besetzt.</p>}
+              {!mine && s.signupClosed && <p className="mt-1 text-sm text-danger">Der Meldeschluss ist vorbei. Bitte wende dich direkt an die Dienstplanung.</p>}
             </div>
+            {canSignUp && (
+              <ActionForm action={A.signUpAction} className="space-y-3">
+                <input type="hidden" name="id" value={id} />
+                <WindowFields idPrefix="signup" min={minIn} max={maxIn} />
+                <label className="block"><span className="label">Anmerkung (optional)</span><input className="input" name="note" placeholder="z. B. komme mit eigenem Auto" maxLength={300} /></label>
+                <SubmitButton variant="primary">Für Dienst melden</SubmitButton>
+              </ActionForm>
+            )}
             <div className="flex flex-wrap items-start gap-2">
-              {canSignUp && (
-                <ActionForm action={A.signUpAction} className="flex flex-wrap items-end gap-2"><input type="hidden" name="id" value={id} /><input className="input !w-56" name="note" placeholder="Anmerkung (optional)" maxLength={300} aria-label="Anmerkung" /><SubmitButton variant="primary">Für Dienst anmelden</SubmitButton></ActionForm>
-              )}
               {mine?.status === "EINGELADEN" && (<><ActionButton action={A.respondInviteAction} fields={{ id, accept: "1" }} variant="ok" small={false} label="Zusagen" /><ActionButton action={A.respondInviteAction} fields={{ id, accept: "0" }} small={false} label="Absagen" confirm="Einladung wirklich ablehnen?" /></>)}
-              {mine && ["BESTAETIGT", "ANGEFRAGT", "WARTELISTE"].includes(mine.status) && !ended && s.status === "OFFEN" && <ActionButton action={A.withdrawAction} fields={{ id }} small={false} variant="ghost" label={mine.status === "BESTAETIGT" ? "Absagen" : "Anfrage zurückziehen"} confirm={mine.status === "BESTAETIGT" ? "Willst du deine Zusage wirklich zurückziehen? Die Planer werden informiert." : "Anfrage zurückziehen?"} />}
+              {mine && ["BESTAETIGT", "ANGEFRAGT", "WARTELISTE"].includes(mine.status) && !ended && s.status === "OFFEN" && <ActionButton action={A.withdrawAction} fields={{ id }} small={false} variant="ghost" label={mine.status === "BESTAETIGT" ? "Absagen" : "Meldung zurückziehen"} confirm={mine.status === "BESTAETIGT" ? "Willst du deine Zusage wirklich zurückziehen? Die Planer werden informiert." : "Meldung zurückziehen?"} />}
             </div>
+            {mine && ["ANGEFRAGT", "WARTELISTE"].includes(mine.status) && signupOpen && (
+              <Collapse summary="Meldung ändern">
+                <ActionForm action={A.updateSignupAction} className="space-y-3">
+                  <input type="hidden" name="id" value={id} />
+                  <WindowFields idPrefix="update" min={minIn} max={maxIn} partial={!!mine.availableLabel} from={toBerlinInput(mine.availableFrom)} to={toBerlinInput(mine.availableTo)} />
+                  <label className="block"><span className="label">Anmerkung</span><input className="input" name="note" defaultValue={mine.note ?? ""} maxLength={300} /></label>
+                  <SubmitButton>Meldung speichern</SubmitButton>
+                </ActionForm>
+              </Collapse>
+            )}
           </div>
         </Card>
       )}
@@ -98,15 +121,16 @@ export default async function ShiftPage({ params }: { params: Promise<{ id: stri
                     <div key={r.id}>
                       <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
                         <p className="font-medium">{r.label} <span className="text-fg-muted">× {r.count}</span></p>
-                        <Badge tone={r.filled >= r.count ? "ok" : r.filled > 0 ? "warn" : "danger"}>{r.filled}/{r.count}{r.reserved ? ` (+${r.reserved} eingeladen)` : ""}</Badge>
+                        <Badge tone={r.filled >= r.count ? "ok" : r.people > 0 || r.filled > 0 ? "warn" : "danger"}>{r.filled}/{r.count}{r.people > r.filled ? " · teilweise" : ""}{r.reserved ? ` (+${r.reserved} eingeladen)` : ""}</Badge>
                       </div>
                       <div className="mb-2 flex flex-wrap gap-1.5">
                         {r.functionKey && <Badge tone="info">Funktion: {FUNCTION_LABEL[r.functionKey]}</Badge>}
                         {r.qualifications.map((q) => <Badge key={q.id} tone="neutral">🎓 {q.name}</Badge>)}
                       </div>
-                      <ProgressBar value={r.filled} max={r.count} label={r.label} />
+                      <CoverageBar segments={r.coverage} need={r.count} start={s.startsAt} end={s.endsAt} />
+                      {r.gaps.length > 0 && r.coverage.length > 1 && <p className="mt-1 text-xs text-warn">Lücke: {r.gaps.map((g) => `${fmtTime(g.from)}–${fmtTime(g.to)} Uhr (${g.count}/${r.count})`).join(" · ")}</p>}
                       <CrewList crew={people} perms={perms} live={live} />
-                      {Array.from({ length: Math.max(0, r.count - people.length) }).map((_, i) => <p key={i} className="mt-1.5 rounded-lg border border-dashed border-line-strong px-3 py-2 text-sm text-fg-subtle">Offen</p>)}
+                      {Array.from({ length: Math.max(0, r.count - r.peak) }).map((_, i) => <p key={i} className="mt-1.5 rounded-lg border border-dashed border-line-strong px-3 py-2 text-sm text-fg-subtle">Offen</p>)}
                     </div>
                   );
                 })}
@@ -121,13 +145,16 @@ export default async function ShiftPage({ params }: { params: Promise<{ id: stri
                 {requests.map((c) => (
                   <li key={c.id} className="py-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div><p className="font-medium"><Link href={`/helpers/${c.helperId}`} className="hover:underline">{c.name}</Link> <Badge tone={assignmentTone[c.status]}>{ASSIGNMENT_STATUS_LABEL[c.status as keyof typeof ASSIGNMENT_STATUS_LABEL]}</Badge></p>{c.note && <p className="text-sm text-fg-muted">„{c.note}“</p>}</div>
+                      <div><p className="font-medium"><Link href={`/helpers/${c.helperId}`} className="hover:underline">{c.name}</Link> <Badge tone={assignmentTone[c.status]}>{ASSIGNMENT_STATUS_LABEL[c.status as keyof typeof ASSIGNMENT_STATUS_LABEL]}</Badge></p>
+                        <p className="text-sm text-fg-muted">Gemeldet: <strong className="text-fg">{c.availableLabel ?? "ganzer Dienst"}</strong>{c.note ? ` · „${c.note}“` : ""}</p></div>
                       <div className="flex flex-wrap items-center gap-2">
                         <ActionForm action={A.decideAction} className="flex flex-wrap items-center gap-2" compact>
                           <input type="hidden" name="assignmentId" value={c.id} /><input type="hidden" name="decision" value="CONFIRM" />
+                          <label className="flex items-center gap-1 text-xs text-fg-muted">von <input type="datetime-local" name="from" className="input !min-h-[36px] !w-[11.5rem] !py-0 text-[13px]" min={minIn} max={maxIn} step={900} defaultValue={c.availableFrom ? toBerlinInput(c.availableFrom) : minIn} aria-label={`Einteilen ab (${c.name})`} /></label>
+                          <label className="flex items-center gap-1 text-xs text-fg-muted">bis <input type="datetime-local" name="to" className="input !min-h-[36px] !w-[11.5rem] !py-0 text-[13px]" min={minIn} max={maxIn} step={900} defaultValue={c.availableTo ? toBerlinInput(c.availableTo) : maxIn} aria-label={`Einteilen bis (${c.name})`} /></label>
                           {reqOptions.length > 0 && <select name="requirementId" className="input !min-h-[36px] !w-44 !py-0 text-[13px]" aria-label="Position"><option value="">Beste Position wählen</option>{reqOptions.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}</select>}
                           <label className="flex items-center gap-1.5 text-xs text-fg-muted"><input type="checkbox" name="override" /> trotz Abweichung</label>
-                          <SubmitButton variant="ok" small>Bestätigen</SubmitButton>
+                          <SubmitButton variant="ok" small>Einteilen</SubmitButton>
                         </ActionForm>
                         {c.status === "ANGEFRAGT" && <ActionButton action={A.decideAction} fields={{ assignmentId: c.id, decision: "WAITLIST" }} label="Warteliste" />}
                         <ActionButton action={A.decideAction} fields={{ assignmentId: c.id, decision: "REJECT" }} label="Ablehnen" variant="ghost" confirm="Anfrage ablehnen?" />
@@ -200,6 +227,8 @@ export default async function ShiftPage({ params }: { params: Promise<{ id: stri
                     <label className="block"><span className="label">Position</span><select name="requirementId" className="input"><option value="">Automatisch</option>{reqOptions.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}</select></label>
                     <label className="block"><span className="label">Art</span><select name="mode" className="input"><option value="EINTEILEN">Direkt einteilen</option><option value="EINLADEN">Einladung senden</option></select></label>
                     <label className="flex items-end gap-2 pb-3 text-sm"><input type="checkbox" name="override" className="h-4 w-4" /> Ausnahme: trotz fehlender Qualifikation/Ruhezeit (wird protokolliert)</label>
+                    <label className="block"><span className="label">Von (optional)</span><input type="datetime-local" name="from" className="input" min={minIn} max={maxIn} step={900} /></label>
+                    <label className="block"><span className="label">Bis (optional)</span><input type="datetime-local" name="to" className="input" min={minIn} max={maxIn} step={900} /></label>
                     <div className="sm:col-span-2"><SubmitButton>Einteilen</SubmitButton></div>
                   </ActionForm>
                 </Collapse>
@@ -246,7 +275,7 @@ export default async function ShiftPage({ params }: { params: Promise<{ id: stri
                   <ActionForm action={A.completeAction} className="space-y-3">
                     <input type="hidden" name="id" value={id} />
                     <p className="text-sm text-fg-muted">Schließt den Dienst ab und bucht die Stunden aller bestätigten Helfer. Abweichende Zeiten (in Stunden) optional eintragen:</p>
-                    <div className="space-y-1.5">{s.crew.filter((c) => c.status === "BESTAETIGT").map((c) => <label key={c.id} className="flex items-center justify-between gap-2 text-sm"><span>{c.name}</span><input name={`min:${c.helperId}`} type="number" step="0.25" min="0" max="72" placeholder={String(hoursBetween(s.startsAt, s.endsAt))} className="input !min-h-[36px] !w-24" aria-label={`Stunden ${c.name}`} /></label>)}</div>
+                    <div className="space-y-1.5">{s.crew.filter((c) => c.status === "BESTAETIGT").map((c) => <label key={c.id} className="flex items-center justify-between gap-2 text-sm"><span>{c.name}</span><input name={`min:${c.helperId}`} type="number" step="0.25" min="0" max="72" placeholder={String(Math.round(hoursBetween(c.plannedFrom, c.plannedTo) * 100) / 100).replace(".", ",")} className="input !min-h-[36px] !w-24" aria-label={`Stunden ${c.name}`} /></label>)}</div>
                     <SubmitButton variant="ok" confirm="Dienst abschließen und Stunden buchen?">Dienst abschließen</SubmitButton>
                   </ActionForm>
                 )}
@@ -268,13 +297,13 @@ export default async function ShiftPage({ params }: { params: Promise<{ id: stri
   );
 }
 
-function CrewList({ crew, perms, live }: { crew: { id: string; helperId: string; name: string; status: string; source: string; workedMinutes: number | null }[]; perms: { staff: boolean; viewHelpers: boolean }; live: boolean }) {
+function CrewList({ crew, perms, live }: { crew: { id: string; helperId: string; name: string; status: string; source: string; workedMinutes: number | null; plannedLabel?: string | null }[]; perms: { staff: boolean; viewHelpers: boolean }; live: boolean }) {
   if (!crew.length) return null;
   return (
     <ul className="mt-2 space-y-1.5">
       {crew.map((c) => (
         <li key={c.id} className="flex items-center justify-between gap-2 rounded-lg bg-surface-2 px-3 py-2 text-sm">
-          <span className="min-w-0 truncate">{perms.viewHelpers ? <Link href={`/helpers/${c.helperId}`} className="font-medium hover:underline">{c.name}</Link> : <span className="font-medium">{c.name}</span>}</span>
+          <span className="min-w-0 truncate">{perms.viewHelpers ? <Link href={`/helpers/${c.helperId}`} className="font-medium hover:underline">{c.name}</Link> : <span className="font-medium">{c.name}</span>}{c.plannedLabel && <span className="ml-2 text-xs text-fg-muted">{c.plannedLabel}</span>}</span>
           <span className="flex items-center gap-2">
             <Badge tone={assignmentTone[c.status]}>{ASSIGNMENT_STATUS_LABEL[c.status as keyof typeof ASSIGNMENT_STATUS_LABEL]}</Badge>
             {perms.staff && live && <ActionButton action={A.removeCrewAction} fields={{ assignmentId: c.id }} variant="ghost" label="Entfernen" confirm={`${c.name} aus dem Dienst entfernen?`} />}
@@ -282,5 +311,20 @@ function CrewList({ crew, perms, live }: { crew: { id: string; helperId: string;
         </li>
       ))}
     </ul>
+  );
+}
+
+/** Zeitleiste einer Position: grün = voll besetzt, gelb = teilweise, rot = niemand. */
+function CoverageBar({ segments, need, start, end }: { segments: { from: Date; to: Date; count: number }[]; need: number; start: Date; end: Date }) {
+  const total = end.getTime() - start.getTime() || 1;
+  return (
+    <div className="mt-1">
+      <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-fill-2" role="img" aria-label={segments.map((g) => `${fmtTime(g.from)}–${fmtTime(g.to)}: ${g.count} von ${need}`).join(", ")}>
+        {segments.map((g, i) => (
+          <span key={i} title={`${fmtTime(g.from)}–${fmtTime(g.to)} Uhr: ${g.count}/${need}`} className={g.count >= need ? "bg-ok" : g.count > 0 ? "bg-warn" : "bg-danger/60"} style={{ width: `${((g.to.getTime() - g.from.getTime()) / total) * 100}%` }} />
+        ))}
+      </div>
+      {segments.length > 1 && <div className="mt-0.5 flex justify-between text-[11px] tabular-nums text-fg-subtle"><span>{fmtTime(start)}</span><span>{fmtTime(end)}</span></div>}
+    </div>
   );
 }

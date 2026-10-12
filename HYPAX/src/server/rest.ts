@@ -80,13 +80,14 @@ del("/shifts/:id", ({ ctx, params }) => ok(() => Shifts.deleteShift(ctx, params.
 post("/shifts/:id/publish", ({ ctx, params }) => ok(() => Shifts.publishShift(ctx, params.id)), 200);
 post("/shifts/:id/cancel", ({ ctx, params, body }) => ok(() => Shifts.cancelShift(ctx, params.id, body?.reason)), 200);
 post("/shifts/:id/complete", ({ ctx, params, body }) => ok(() => Shifts.completeShift(ctx, params.id, body?.minutes ?? {})), 200);
-post("/shifts/:id/signup", ({ ctx, params, body }) => Shifts.signUpForShift(ctx, params.id, body?.note ?? null).then((r) => ({ status: r.assignment.status, warnings: r.warnings })));
+post("/shifts/:id/signup", ({ ctx, params, body }) => Shifts.signUpForShift(ctx, params.id, body?.note ?? null, { from: body?.from ?? null, to: body?.to ?? null }).then((r) => ({ status: r.assignment.status, warnings: r.warnings })));
+patch("/shifts/:id/signup", ({ ctx, params, body }) => Shifts.updateMySignup(ctx, params.id, body?.note, { from: body?.from ?? null, to: body?.to ?? null }).then((r) => ({ status: r.assignment.status, warnings: r.warnings })));
 post("/shifts/:id/withdraw", ({ ctx, params, body }) => ok(() => Shifts.withdrawFromShift(ctx, params.id, body?.reason)), 200);
 post("/shifts/:id/respond", ({ ctx, params, body }) => ok(() => Shifts.respondToInvitation(ctx, params.id, body?.accept === true)), 200);
 get("/shifts/:id/recommendation", ({ ctx, params }) => Shifts.getRecommendation(ctx, params.id));
 post("/shifts/:id/recommendation/apply", ({ ctx, params, body }) => Shifts.applyRecommendation(ctx, params.id, body?.picks ?? [], body?.mode === "EINLADEN" ? "EINLADEN" : "EINTEILEN"), 200);
-post("/shifts/:id/assignments", ({ ctx, params, body }) => Shifts.assignHelper(ctx, params.id, String(body?.helperId ?? ""), { requirementId: body?.requirementId ?? null, override: body?.override === true, mode: body?.mode === "EINLADEN" ? "EINLADEN" : "EINTEILEN" }));
-patch("/assignments/:id", ({ ctx, params, body }) => { if (body?.workedMinutes !== undefined) return ok(() => Shifts.setWorkedMinutes(ctx, params.id, Number(body.workedMinutes))); if (!["CONFIRM", "REJECT", "WAITLIST"].includes(body?.decision)) throw badRequest("decision muss CONFIRM, REJECT oder WAITLIST sein."); return Shifts.decideAssignment(ctx, params.id, body.decision, { requirementId: body.requirementId ?? null, override: body.override === true }); });
+post("/shifts/:id/assignments", ({ ctx, params, body }) => Shifts.assignHelper(ctx, params.id, String(body?.helperId ?? ""), { requirementId: body?.requirementId ?? null, override: body?.override === true, mode: body?.mode === "EINLADEN" ? "EINLADEN" : "EINTEILEN", from: body?.from ?? null, to: body?.to ?? null }));
+patch("/assignments/:id", ({ ctx, params, body }) => { if (body?.workedMinutes !== undefined) return ok(() => Shifts.setWorkedMinutes(ctx, params.id, Number(body.workedMinutes))); if (!["CONFIRM", "REJECT", "WAITLIST"].includes(body?.decision)) throw badRequest("decision muss CONFIRM, REJECT oder WAITLIST sein."); return Shifts.decideAssignment(ctx, params.id, body.decision, { requirementId: body.requirementId ?? null, override: body.override === true, from: body.from ?? null, to: body.to ?? null }); });
 del("/assignments/:id", ({ ctx, params }) => ok(() => Shifts.removeFromShift(ctx, params.id)));
 put("/shifts/:id/resources", ({ ctx, params, body }) => ok(() => Shifts.setShiftResources(ctx, params.id, { vehicleIds: body?.vehicleIds, materials: body?.materials })));
 

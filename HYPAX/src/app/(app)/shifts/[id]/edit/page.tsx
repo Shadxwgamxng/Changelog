@@ -22,7 +22,7 @@ export default async function EditShift({ params }: { params: Promise<{ id: stri
     <>
       <PageHeader title="Dienst bearbeiten" back={{ href: `/shifts/${id}`, label: s.name }} subtitle={s.status === "OFFEN" ? "Änderungen an Zeit, Ort oder Beschreibung benachrichtigen die Besatzung automatisch." : undefined} />
       <ShiftForm action={updateShiftAction} submit="Änderungen speichern" units={[{ id: s.unitId, name: s.unitName }]} qualTypes={qualTypes} events={events} helpers={helpers}
-        defaults={{ id, unitId: s.unitId, eventId: s.eventId, name: s.name, kind: s.kind, startsAt: s.startsAt, endsAt: s.endsAt, meetingPoint: s.meetingPoint, location: s.location, organizer: s.organizer, description: s.description, responsibleId: s.responsible?.id ?? null,
+        defaults={{ id, unitId: s.unitId, eventId: s.eventId, name: s.name, kind: s.kind, startsAt: s.startsAt, endsAt: s.endsAt, meetingPoint: s.meetingPoint, location: s.location, organizer: s.organizer, description: s.description, responsibleId: s.responsible?.id ?? null, signupDeadline: s.signupDeadline,
           requirements: reqs.map((r) => ({ id: r.id, label: r.label, count: r.count, functionKey: r.functionKey, qualTypeIds: r.qualifications.map((q) => q.typeId) })) }} />
     </>
   );

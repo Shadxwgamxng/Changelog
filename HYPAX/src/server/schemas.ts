@@ -123,8 +123,14 @@ export const shiftInput = z.object({
   organizer: optStr(200),
   description: optStr(4000),
   responsibleId: id.nullable().optional().transform((v) => v || null),
+  signupDeadline: z.union([z.literal(""), z.null(), z.undefined(), dateTime]).transform((v) => (v ? v : null)),
   requirements: z.array(requirementInput).default([]),
-}).refine((v) => v.endsAt > v.startsAt, { message: "Das Ende muss nach dem Beginn liegen", path: ["endsAt"] });
+}).refine((v) => v.endsAt > v.startsAt, { message: "Das Ende muss nach dem Beginn liegen", path: ["endsAt"] })
+  .refine((v) => !v.signupDeadline || v.signupDeadline <= v.endsAt, { message: "Der Meldeschluss muss vor dem Ende des Dienstes liegen", path: ["signupDeadline"] });
+
+/** Optionaler Zeitraum innerhalb eines Dienstes (leer = ganzer Dienst). */
+const optDateTime = z.union([z.literal(""), z.null(), z.undefined(), dateTime]).transform((v) => (v ? v : null));
+export const timeWindowInput = z.object({ from: optDateTime, to: optDateTime });
 
 export const eventInput = z.object({
   unitId: id,

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { scenario, mkAccountHelper, mkQual } from "./fixtures";
 import { prisma } from "../../src/server/db";
 import { HttpError } from "../../src/server/errors";
-import { applyRecommendation, assignHelper, cancelShift, completeShift, createShift, decideAssignment, getRecommendation, getShift, listShifts, publishShift, removeFromShift, respondToInvitation, setShiftResources, signUpForShift, updateShift, withdrawFromShift } from "../../src/server/services/shifts";
+import { applyRecommendation, assignHelper, cancelShift, completeShift, createShift, decideAssignment, getRecommendation, getShift, listShifts, publishShift, removeFromShift, respondToInvitation, setShiftResources, signUpForShift, updateMySignup, updateShift, withdrawFromShift } from "../../src/server/services/shifts";
 import { setAvailability } from "../../src/server/services/availability";
 import { expiringQualifications } from "../../src/server/services/qualifications";
 
@@ -265,4 +265,79 @@ test("Auslaufende Qualifikationen werden gemeldet (nur im sichtbaren Bereich)", 
   const all = await expiringQualifications(S.adminCtx, 60);
   assert.ok(all.some((r) => r.helperId === y.helper.id && r.state === "ABGELAUFEN"));
   assert.deepEqual(await expiringQualifications(x.ctx, 60), []); // normale Helfer sehen keine Übersicht
+});
+
+// ───────────── Teilzeit-Meldungen und Einteilung im gemeldeten Zeitraum ─────────────
+
+const at = (base: string, hours: number) => new Date(new Date(base).getTime() + hours * 3_600_000);
+
+test("Teilzeit: Melden für einen Zeitraum, Einteilen genau dafür, Position zeitlich teilen", async () => {
+  const c = await crew();
+  const t = future(20, 12, 6); // 12–18 Uhr UTC
+  const shift = await createShift(c.planner.ctx, { unitId: S.berA.id, name: "Ausbildungstag", kind: "AUSBILDUNG", ...t, requirements: [{ label: "Sanitätshelfer", count: 1, qualTypeIds: [id("Sanitätshelfer")] }] });
+  await publishShift(c.planner.ctx, shift.id);
+
+  // Zeitraum muss im Dienst liegen und mindestens 15 Minuten haben
+  await rejects(signUpForShift(c.sh1.ctx, shift.id, null, { from: at(t.startsAt, -1), to: at(t.startsAt, 2) }), 400, /innerhalb/);
+  await rejects(signUpForShift(c.sh1.ctx, shift.id, null, { from: at(t.startsAt, 2), to: at(t.startsAt, 2.1) }), 400, /15 Minuten/);
+
+  // Sven kann 12–15, Sara 15–18
+  const a1 = (await signUpForShift(c.sh1.ctx, shift.id, null, { from: t.startsAt, to: at(t.startsAt, 3) })).assignment;
+  const a2 = (await signUpForShift(c.sh2.ctx, shift.id, null, { from: at(t.startsAt, 3), to: t.endsAt })).assignment;
+  let mine = (await getShift(c.sh1.ctx, shift.id)).mine!;
+  assert.ok(mine.availableLabel && /Uhr/.test(mine.availableLabel));
+
+  // Meldung ändern (nur offene Meldungen)
+  await updateMySignup(c.sh1.ctx, shift.id, "doch bis 15:00", { from: t.startsAt, to: at(t.startsAt, 3) });
+  mine = (await getShift(c.sh1.ctx, shift.id)).mine!;
+  assert.equal(mine.note, "doch bis 15:00");
+
+  // Planer teilt im gemeldeten Zeitraum ein (Standard = gemeldeter Zeitraum)
+  const c1 = await decideAssignment(c.planner.ctx, a1.id, "CONFIRM");
+  assert.equal(c1.plannedFrom?.toISOString(), new Date(t.startsAt).toISOString());
+  assert.equal(c1.plannedTo?.toISOString(), at(t.startsAt, 3).toISOString());
+  let d = await getShift(c.planner.ctx, shift.id);
+  let pos = d.requirements[0];
+  assert.equal(pos.filled, 0, "nur teilweise besetzt");
+  assert.equal(pos.gaps.length, 1);
+  await rejects(updateMySignup(c.sh1.ctx, shift.id, null, {}), 409); // bereits eingeteilt
+
+  // Außerhalb des gemeldeten Zeitraums nur als Ausnahme
+  await rejects(decideAssignment(c.planner.ctx, a2.id, "CONFIRM", { from: at(t.startsAt, 2), to: t.endsAt }), 409, /gemeldeten Zeitraums/);
+  // Überschneidung mit Sven auf derselben Position (1 Platz) ist zu viel – auch mit Ausnahme
+  await rejects(decideAssignment(c.planner.ctx, a2.id, "CONFIRM", { from: at(t.startsAt, 2), to: t.endsAt, override: true, requirementId: pos.id }), 409, /voll besetzt/);
+  // Im gemeldeten Zeitraum passt Sara lückenlos auf denselben Platz
+  await decideAssignment(c.planner.ctx, a2.id, "CONFIRM");
+  d = await getShift(c.planner.ctx, shift.id);
+  pos = d.requirements[0];
+  assert.equal(pos.filled, 1, "Platz durch zwei Teilzeit-Einteilungen voll abgedeckt");
+  assert.equal(pos.people, 2);
+  assert.equal(pos.gaps.length, 0);
+  assert.equal(d.summary.open, 0);
+
+  // Stunden werden nach eingeteiltem Zeitraum gebucht
+  await prisma.shift.update({ where: { id: shift.id }, data: { startsAt: new Date(Date.now() - 6 * 3_600_000), endsAt: new Date(Date.now() - 1000) } });
+  await prisma.shiftAssignment.updateMany({ where: { shiftId: shift.id }, data: { plannedFrom: null, plannedTo: null } });
+  await prisma.shiftAssignment.update({ where: { id: a1.id }, data: { plannedFrom: new Date(Date.now() - 6 * 3_600_000), plannedTo: new Date(Date.now() - 3 * 3_600_000 - 1000) } });
+  await completeShift(c.planner.ctx, shift.id);
+  const worked = await prisma.shiftAssignment.findUniqueOrThrow({ where: { id: a1.id } });
+  assert.ok(worked.workedMinutes! >= 179 && worked.workedMinutes! <= 180, `3 h statt 6 h gebucht (${worked.workedMinutes})`);
+  const full = await prisma.shiftAssignment.findUniqueOrThrow({ where: { id: a2.id } });
+  assert.equal(full.workedMinutes, 360);
+});
+
+test("Meldeschluss: danach keine Selbstmeldung mehr, Planer kann weiter einteilen", async () => {
+  const c = await crew();
+  const t = future(10);
+  const shift = await createShift(c.planner.ctx, { unitId: S.berA.id, name: "Bereitschaftsabend", kind: "BEREITSCHAFTSABEND", ...t, signupDeadline: new Date(Date.now() + 86_400_000).toISOString(), requirements: [] });
+  await publishShift(c.planner.ctx, shift.id);
+  await signUpForShift(c.sh1.ctx, shift.id);
+  await prisma.shift.update({ where: { id: shift.id }, data: { signupDeadline: new Date(Date.now() - 1000) } });
+  const d = await getShift(c.sh2.ctx, shift.id);
+  assert.equal(d.signupClosed, true);
+  await rejects(signUpForShift(c.sh2.ctx, shift.id), 409, /Meldeschluss/);
+  await rejects(updateMySignup(c.sh1.ctx, shift.id, null, {}), 409, /Meldeschluss/);
+  await assignHelper(c.planner.ctx, shift.id, c.sh2.helper.id);
+  // Meldeschluss nach Dienstende ist ungültig
+  await assert.rejects(createShift(c.planner.ctx, { unitId: S.berA.id, name: "X", kind: "SONSTIGES", ...t, signupDeadline: at(t.endsAt, 1).toISOString(), requirements: [] }));
 });

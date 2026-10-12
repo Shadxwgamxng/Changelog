@@ -481,6 +481,8 @@ model Shift {
   description   String?
   responsibleId String?
   status        ShiftStatus @default(ENTWURF)
+  /// Meldeschluss: danach sind keine Selbstmeldungen mehr möglich
+  signupDeadline DateTime?
   /// Gespeicherte Kartenansicht der Lagekarte (Sanitätsdienste)
   mapLat        Float?
   mapLng        Float?
@@ -557,6 +559,12 @@ model ShiftAssignment {
   status        AssignmentStatus
   source        AssignmentSource
   note          String?
+  /// Zeitraum, für den sich der Helfer gemeldet hat (null = ganzer Dienst)
+  availableFrom DateTime?
+  availableTo   DateTime?
+  /// Zeitraum, für den der Helfer eingeteilt ist (null = ganzer Dienst)
+  plannedFrom   DateTime?
+  plannedTo     DateTime?
   decidedById   String?
   decidedAt     DateTime?
   /// Tatsächlich geleistete Minuten (wird beim Abschluss des Dienstes gesetzt)

@@ -4,10 +4,11 @@ import { audit, type Changes } from "../audit";
 import { badRequest, conflict, forbidden, notFound } from "../errors";
 import { canIn, hasAnywhere, require_, scopeWhere, type Ctx } from "../context";
 import { loadUnits } from "../units";
-import { shiftInput } from "../schemas";
+import { shiftInput, timeWindowInput } from "../schemas";
 import { notifyHelpers, notifyUsers, usersWithPermission } from "../notify";
 import { evaluateHelperForRequirement, recommend, toRequirement, type ShiftForMatching } from "./staffing";
-import { fmtDateTime, fmtRange } from "@/lib/dates";
+import { fmtDateTime, fmtRange, fmtTime } from "@/lib/dates";
+import { effective, fits, fullSeats, gaps, isFull, minutesOf, peak, segments, within, type Window } from "@/lib/coverage";
 import { SHIFT_KIND_LABEL } from "@/lib/constants";
 import { helperWithAccess } from "./helpers";
 
@@ -38,14 +39,27 @@ type ShiftFull = Prisma.ShiftGetPayload<{ include: typeof shiftInclude }>;
 
 const ACTIVE: AssignmentStatus[] = ["BESTAETIGT", "EINGELADEN"];
 
-function summarize(s: Pick<ShiftFull, "requirements" | "assignments">) {
+const shiftWin = (s: { startsAt: Date; endsAt: Date }): Window => ({ from: s.startsAt, to: s.endsAt });
+const plannedWin = (s: { startsAt: Date; endsAt: Date }, a: { plannedFrom: Date | null; plannedTo: Date | null }) => effective(shiftWin(s), a.plannedFrom, a.plannedTo);
+const availableWin = (s: { startsAt: Date; endsAt: Date }, a: { availableFrom: Date | null; availableTo: Date | null }) => effective(shiftWin(s), a.availableFrom, a.availableTo);
+/** Zeiträume aller aktiven (bestätigten/eingeladenen) Einteilungen einer Position. */
+const reqWindows = (s: Pick<ShiftFull, "startsAt" | "endsAt" | "assignments">, reqId: string, exceptAssignmentId?: string, statuses: AssignmentStatus[] = ACTIVE) =>
+  s.assignments.filter((a) => a.requirementId === reqId && statuses.includes(a.status) && a.id !== exceptAssignmentId).map((a) => plannedWin(s, a));
+/** Lesbarer Zeitraum, falls nicht der ganze Dienst. */
+export function windowLabel(s: { startsAt: Date; endsAt: Date }, from: Date | null, to: Date | null): string | null {
+  if (!from && !to) return null;
+  const w = effective(shiftWin(s), from, to);
+  return isFull(shiftWin(s), w) ? null : `${fmtTime(w.from)}–${fmtTime(w.to)} Uhr`;
+}
+
+function summarize(s: Pick<ShiftFull, "requirements" | "assignments" | "startsAt" | "endsAt">) {
   const needed = s.requirements.reduce((a, r) => a + r.count, 0);
   const confirmed = s.assignments.filter((a) => a.status === "BESTAETIGT").length;
   const invited = s.assignments.filter((a) => a.status === "EINGELADEN").length;
   const requested = s.assignments.filter((a) => a.status === "ANGEFRAGT").length;
   const waitlist = s.assignments.filter((a) => a.status === "WARTELISTE").length;
-  // Auf offene Positionen angerechnet (Überbesetzung zählt nicht doppelt)
-  const filledPositions = s.requirements.reduce((a, r) => a + Math.min(r.count, s.assignments.filter((x) => x.requirementId === r.id && x.status === "BESTAETIGT").length), 0);
+  // Auf offene Positionen angerechnet: nur über den ganzen Dienst lückenlos besetzte Plätze (Teilzeit-Einteilungen können sich einen Platz teilen)
+  const filledPositions = s.requirements.reduce((a, r) => a + Math.min(r.count, fullSeats(shiftWin(s), reqWindows(s, r.id, undefined, ["BESTAETIGT"]))), 0);
   return { needed, confirmed, invited, requested, waitlist, filledPositions, open: Math.max(0, needed - filledPositions), pct: needed ? Math.round((filledPositions / needed) * 100) : null };
 }
 
@@ -89,20 +103,29 @@ export async function getShift(ctx: Ctx, shiftId: string) {
     .map((a) => ({
       id: a.id, helperId: a.helper.id, name: `${a.helper.lastName}, ${a.helper.firstName}`, status: a.status, source: a.source,
       requirementId: a.requirementId, note: perms.staff || a.helperId === ctx.helperId ? a.note : null, workedMinutes: a.workedMinutes,
+      availableFrom: perms.staff || a.helperId === ctx.helperId ? availableWin(s, a).from : null, availableTo: perms.staff || a.helperId === ctx.helperId ? availableWin(s, a).to : null,
+      availableLabel: perms.staff || a.helperId === ctx.helperId ? windowLabel(s, a.availableFrom, a.availableTo) : null,
+      plannedFrom: plannedWin(s, a).from, plannedTo: plannedWin(s, a).to, plannedLabel: windowLabel(s, a.plannedFrom, a.plannedTo),
       functions: perms.staff ? a.helper.functions : [], createdAt: a.createdAt,
     }));
   return {
     id: s.id, unitId: s.unitId, unitName: s.unit.name, eventId: s.eventId, eventName: s.event?.name ?? null, name: s.name, kind: s.kind, status: s.status,
     startsAt: s.startsAt, endsAt: s.endsAt, meetingPoint: s.meetingPoint, location: s.location, organizer: s.organizer, description: s.description,
+    signupDeadline: s.signupDeadline, signupClosed: !!s.signupDeadline && s.signupDeadline < new Date(),
     responsible: s.responsible ? { id: s.responsible.id, name: `${s.responsible.firstName} ${s.responsible.lastName}` } : null,
     requirements: s.requirements.map((r) => ({
       id: r.id, label: r.label, count: r.count, functionKey: r.functionKey,
       qualifications: r.qualifications.map((q) => ({ id: q.typeId, name: q.type.name })),
-      filled: s.assignments.filter((a) => a.requirementId === r.id && a.status === "BESTAETIGT").length,
+      filled: Math.min(r.count, fullSeats(shiftWin(s), reqWindows(s, r.id, undefined, ["BESTAETIGT"]))),
+      people: s.assignments.filter((a) => a.requirementId === r.id && a.status === "BESTAETIGT").length,
       reserved: s.assignments.filter((a) => a.requirementId === r.id && a.status === "EINGELADEN").length,
+      /** Abschnitte mit Anzahl gleichzeitig eingeteilter Personen (bestätigt + eingeladen) */
+      coverage: segments(shiftWin(s), reqWindows(s, r.id)).map((g) => ({ from: g.from, to: g.to, count: g.count })),
+      gaps: gaps(shiftWin(s), reqWindows(s, r.id), r.count).map((g) => ({ from: g.from, to: g.to, count: g.count })),
+      peak: peak(reqWindows(s, r.id)),
     })),
     crew, vehicles: s.vehicles.map((v) => v.vehicle), materials: s.materials.map((m) => ({ id: m.material.id, name: m.material.name, quantity: m.quantity, stock: m.material.quantity })),
-    summary: summarize(s), mine: mine ? { id: mine.id, status: mine.status, requirementId: mine.requirementId } : null, perms,
+    summary: summarize(s), mine: mine ? { id: mine.id, status: mine.status, requirementId: mine.requirementId, note: mine.note, availableFrom: availableWin(s, mine).from, availableTo: availableWin(s, mine).to, availableLabel: windowLabel(s, mine.availableFrom, mine.availableTo), plannedLabel: windowLabel(s, mine.plannedFrom, mine.plannedTo) } : null, perms,
     updatedAt: s.updatedAt,
   };
 }
@@ -154,7 +177,7 @@ export async function createShift(ctx: Ctx, raw: unknown) {
   const shift = await prisma.shift.create({
     data: {
       unitId: input.unitId, eventId: input.eventId, name: input.name, kind: input.kind, startsAt: input.startsAt, endsAt: input.endsAt,
-      meetingPoint: input.meetingPoint, location: input.location, organizer: input.organizer, description: input.description, responsibleId: input.responsibleId,
+      meetingPoint: input.meetingPoint, location: input.location, organizer: input.organizer, description: input.description, responsibleId: input.responsibleId, signupDeadline: input.signupDeadline,
       requirements: { create: input.requirements.map((r, i) => ({ label: r.label, count: r.count, functionKey: r.functionKey, sortOrder: i, qualifications: { create: [...new Set(r.qualTypeIds)].map((typeId) => ({ typeId })) } })) },
     },
   });
@@ -172,10 +195,10 @@ export async function updateShift(ctx: Ctx, shiftId: string, raw: unknown) {
 
   const keepIds = new Set(input.requirements.map((r) => r.id).filter(Boolean) as string[]);
   for (const id of keepIds) if (!before.requirements.some((r) => r.id === id)) throw badRequest("Unbekannte Position.");
-  // Positionen darf man nicht unter die Zahl der bereits Eingeteilten senken
+  // Positionen darf man nicht unter die Zahl der gleichzeitig Eingeteilten senken
   for (const r of input.requirements) {
     if (!r.id) continue;
-    const taken = before.assignments.filter((a) => a.requirementId === r.id && ACTIVE.includes(a.status)).length;
+    const taken = peak(reqWindows(before, r.id));
     if (r.count < taken) throw conflict(`Die Position „${r.label}“ hat bereits ${taken} Eingeteilte – die Anzahl kann nicht kleiner sein.`);
   }
   const removed = before.requirements.filter((r) => !keepIds.has(r.id));
@@ -195,7 +218,7 @@ export async function updateShift(ctx: Ctx, shiftId: string, raw: unknown) {
     }
     return tx.shift.update({
       where: { id: shiftId },
-      data: { eventId: input.eventId, name: input.name, kind: input.kind, startsAt: input.startsAt, endsAt: input.endsAt, meetingPoint: input.meetingPoint, location: input.location, organizer: input.organizer, description: input.description, responsibleId: input.responsibleId },
+      data: { eventId: input.eventId, name: input.name, kind: input.kind, startsAt: input.startsAt, endsAt: input.endsAt, meetingPoint: input.meetingPoint, location: input.location, organizer: input.organizer, description: input.description, responsibleId: input.responsibleId, signupDeadline: input.signupDeadline },
     });
   });
 
@@ -204,6 +227,7 @@ export async function updateShift(ctx: Ctx, shiftId: string, raw: unknown) {
   cmp("name", before.name, after.name); cmp("kind", before.kind, after.kind); cmp("startsAt", before.startsAt, after.startsAt); cmp("endsAt", before.endsAt, after.endsAt);
   cmp("meetingPoint", before.meetingPoint, after.meetingPoint); cmp("location", before.location, after.location); cmp("organizer", before.organizer, after.organizer);
   cmp("description", before.description, after.description); cmp("responsibleId", before.responsibleId, after.responsibleId); cmp("eventId", before.eventId, after.eventId);
+  cmp("signupDeadline", before.signupDeadline, after.signupDeadline);
   const oldNeed = before.requirements.reduce((a, r) => a + r.count, 0), newNeed = input.requirements.reduce((a, r) => a + r.count, 0);
   cmp("benötigteHelfer", oldNeed, newNeed);
   if (Object.keys(changes).length) {
@@ -251,10 +275,10 @@ export async function completeShift(ctx: Ctx, shiftId: string, minutesOverrides:
   if (s.status === "ABGESCHLOSSEN") throw conflict("Der Dienst ist bereits abgeschlossen.");
   if (s.status !== "OFFEN") throw conflict("Nur veröffentlichte Dienste können abgeschlossen werden.");
   if (s.startsAt > new Date()) throw conflict("Der Dienst hat noch nicht begonnen.");
-  const planned = Math.round((s.endsAt.getTime() - s.startsAt.getTime()) / 60_000);
   await prisma.$transaction(async (tx) => {
     for (const a of s.assignments.filter((x) => x.status === "BESTAETIGT")) {
-      const m = minutesOverrides[a.helperId] ?? planned;
+      // Geplante Zeit = eingeteilter Zeitraum (bei Teilzeit-Einteilung nur dieser Teil)
+      const m = minutesOverrides[a.helperId] ?? minutesOf(plannedWin(s, a));
       if (!Number.isInteger(m) || m < 0 || m > 24 * 60 * 3) throw badRequest("Ungültige Dienstzeit.");
       await tx.shiftAssignment.update({ where: { id: a.id }, data: { workedMinutes: m } });
     }
@@ -280,26 +304,43 @@ async function lockShift(tx: Tx, id: string) {
   await tx.$queryRaw`SELECT id FROM "Shift" WHERE id = ${id} FOR UPDATE`;
 }
 
-interface AssignOpts { requirementId?: string | null; override?: boolean; mode?: "EINTEILEN" | "EINLADEN"; source?: "SELBST" | "PLANER"; note?: string | null }
+interface AssignOpts { requirementId?: string | null; override?: boolean; mode?: "EINTEILEN" | "EINLADEN"; source?: "SELBST" | "PLANER"; note?: string | null; from?: Date | string | null; to?: Date | string | null }
 
-/** Wählt die beste freie Position, für die der Helfer geeignet ist. */
-async function pickRequirement(s: ShiftFull, helperId: string, taken: Record<string, number>): Promise<{ id: string | null; blockers: string[] }> {
+const MIN_WINDOW_MIN = 15;
+
+/** Prüft einen Zeitraum innerhalb des Dienstes; leer = ganzer Dienst. Liefert gespeicherte Werte (null bei ganzem Dienst). */
+function resolveWindow(s: { startsAt: Date; endsAt: Date }, raw: { from?: Date | string | null; to?: Date | string | null }, label = "Zeitraum") {
+  const parsed = timeWindowInput.safeParse({ from: raw.from ?? null, to: raw.to ?? null });
+  if (!parsed.success) throw badRequest(`${label}: ungültige Uhrzeit.`);
+  const w = effective(shiftWin(s), parsed.data.from, parsed.data.to);
+  if (!within(shiftWin(s), w)) throw badRequest(`${label} muss innerhalb des Dienstes liegen (${fmtRange(s.startsAt, s.endsAt)}).`);
+  if (minutesOf(w) < MIN_WINDOW_MIN || w.to <= w.from) throw badRequest(`${label}: Das Ende muss mindestens ${MIN_WINDOW_MIN} Minuten nach dem Beginn liegen.`);
+  const full = isFull(shiftWin(s), w);
+  return { window: w, from: full ? null : w.from, to: full ? null : w.to };
+}
+
+/** Dienst so zuschneiden, dass Verfügbarkeit/Konflikte nur für den Zeitraum geprüft werden. */
+const matchingFor = (s: ShiftFull, w: Window): ShiftForMatching => ({ ...asMatching(s), startsAt: w.from, endsAt: w.to });
+
+/** Wählt die beste Position, in der im Zeitraum noch Platz ist und für die der Helfer geeignet ist. */
+async function pickRequirement(s: ShiftFull, helperId: string, w: Window, exceptAssignmentId?: string): Promise<{ id: string | null; blockers: string[] }> {
   if (!s.requirements.length) return { id: null, blockers: [] };
-  const m = asMatching(s);
+  const m = matchingFor(s, w);
   let best: { id: string; score: number } | null = null;
   let firstBlockers: string[] = [];
   for (const r of s.requirements) {
-    if ((taken[r.id] ?? 0) >= r.count) continue;
+    if (!fits(reqWindows(s, r.id, exceptAssignmentId), w, r.count)) continue;
     const ev = await evaluateHelperForRequirement(m, helperId, r.id);
     if (!firstBlockers.length) firstBlockers = ev.blockers;
     if (ev.eligible && (!best || ev.score > best.score)) best = { id: r.id, score: ev.score };
   }
-  return best ? { id: best.id, blockers: [] } : { id: null, blockers: firstBlockers.length ? firstBlockers : ["Keine freie Position"] };
+  return best ? { id: best.id, blockers: [] } : { id: null, blockers: firstBlockers.length ? firstBlockers : ["Keine freie Position in diesem Zeitraum"] };
 }
 
-const takenByReq = (s: Pick<ShiftFull, "assignments">, exceptAssignmentId?: string) => {
+/** Für die Empfehlung: lückenlos besetzte Plätze je Position. */
+const takenByReq = (s: ShiftFull) => {
   const t: Record<string, number> = {};
-  for (const a of s.assignments) if (ACTIVE.includes(a.status) && a.requirementId && a.id !== exceptAssignmentId) t[a.requirementId] = (t[a.requirementId] ?? 0) + 1;
+  for (const r of s.requirements) t[r.id] = Math.min(r.count, fullSeats(shiftWin(s), reqWindows(s, r.id)));
   return t;
 };
 
@@ -318,21 +359,29 @@ async function placeHelper(ctx: Ctx, shiftId: string, helperId: string, status: 
     const s = (await tx.shift.findUnique({ where: { id: shiftId }, include: shiftInclude }))!;
     const existing = s.assignments.find((a) => a.helperId === helperId);
     if (existing && ACTIVE.includes(existing.status) && !(existing.status === "EINGELADEN" && status === "BESTAETIGT")) throw conflict("Der Helfer ist bereits für diesen Dienst eingeteilt.");
-    const taken = takenByReq(s, existing?.id);
-    let requirementId = opts.requirementId ?? null;
     const warnings: string[] = [];
+    // Zeitraum: ausdrücklich angegeben, sonst der gemeldete Zeitraum, sonst der ganze Dienst
+    const reported = existing && ["ANGEFRAGT", "WARTELISTE"].includes(existing.status) ? availableWin(s, existing) : null;
+    const hasExplicit = opts.from != null || opts.to != null;
+    const win = resolveWindow(s, hasExplicit ? { from: opts.from, to: opts.to } : reported ? { from: reported.from, to: reported.to } : {}, "Einteilungszeitraum");
+    if (reported && !within(reported, win.window)) {
+      const msg = `Einteilung außerhalb des gemeldeten Zeitraums (${fmtTime(reported.from)}–${fmtTime(reported.to)} Uhr)`;
+      if (!opts.override) throw conflict(`${msg}. Bitte innerhalb der Meldung einteilen oder als Ausnahme bestätigen.`, { blockers: [msg], overridable: true });
+      warnings.push(msg);
+    }
+    let requirementId = opts.requirementId ?? null;
     if (s.requirements.length) {
       if (requirementId) {
         const r = s.requirements.find((x) => x.id === requirementId);
         if (!r) throw badRequest("Unbekannte Position.");
-        if ((taken[r.id] ?? 0) >= r.count) throw conflict(`Die Position „${r.label}“ ist bereits voll besetzt.`);
-        const ev = await evaluateHelperForRequirement(asMatching(s), helperId, r.id);
+        if (!fits(reqWindows(s, r.id, existing?.id), win.window, r.count)) throw conflict(`Die Position „${r.label}“ ist im Zeitraum ${fmtTime(win.window.from)}–${fmtTime(win.window.to)} Uhr bereits voll besetzt.`);
+        const ev = await evaluateHelperForRequirement(matchingFor(s, win.window), helperId, r.id);
         if (!ev.eligible) {
           if (!opts.override) throw conflict(`Nicht geeignet für „${r.label}“: ${ev.blockers.join("; ")}`, { blockers: ev.blockers, overridable: true });
           warnings.push(...ev.blockers);
         }
       } else {
-        const pick = await pickRequirement(s, helperId, taken);
+        const pick = await pickRequirement(s, helperId, win.window, existing?.id);
         if (!pick.id) {
           if (!opts.override) throw conflict(`Keine passende freie Position: ${pick.blockers.join("; ")}`, { blockers: pick.blockers, overridable: true });
           throw badRequest("Bitte wähle für die Ausnahme-Zuteilung eine Position.");
@@ -340,14 +389,17 @@ async function placeHelper(ctx: Ctx, shiftId: string, helperId: string, status: 
         requirementId = pick.id;
       }
     }
-    const data = { requirementId, status, source: opts.source ?? "PLANER", decidedById: ctx.userId, decidedAt: new Date(), note: opts.note ?? existing?.note ?? null };
+    const data = { requirementId, status, source: opts.source ?? "PLANER", decidedById: ctx.userId, decidedAt: new Date(), note: opts.note ?? existing?.note ?? null, plannedFrom: win.from, plannedTo: win.to };
     const a = existing
       ? await tx.shiftAssignment.update({ where: { id: existing.id }, data })
       : await tx.shiftAssignment.create({ data: { shiftId, helperId, ...data } });
-    await audit(ctx, { action: status === "BESTAETIGT" ? "shift.assign" : "shift.invite", entityType: "ShiftAssignment", entityId: a.id, unitId: s.unitId, summary: `${helper.firstName} ${helper.lastName} ${status === "BESTAETIGT" ? "für" : "eingeladen zu"} „${s.name}“${requirementId ? ` (${s.requirements.find((r) => r.id === requirementId)?.label})` : ""}${warnings.length ? ` – Ausnahme: ${warnings.join("; ")}` : ""}` }, tx);
-    return { assignment: a, shift: s, helper, warnings };
+    const wl = windowLabel(s, win.from, win.to);
+    await audit(ctx, { action: status === "BESTAETIGT" ? "shift.assign" : "shift.invite", entityType: "ShiftAssignment", entityId: a.id, unitId: s.unitId, summary: `${helper.firstName} ${helper.lastName} ${status === "BESTAETIGT" ? "für" : "eingeladen zu"} „${s.name}“${requirementId ? ` (${s.requirements.find((r) => r.id === requirementId)?.label})` : ""}${wl ? `, ${wl}` : ""}${warnings.length ? ` – Ausnahme: ${warnings.join("; ")}` : ""}` }, tx);
+    return { assignment: a, shift: s, helper, warnings, windowText: wl };
   });
 }
+
+const whenText = (s: { startsAt: Date; endsAt: Date }, wl: string | null) => (wl ? `${fmtDateTime(s.startsAt).split(" ")[0]} ${wl}` : fmtRange(s.startsAt, s.endsAt));
 
 /** Planer teilt einen Helfer direkt ein (oder lädt ihn ein). */
 export async function assignHelper(ctx: Ctx, shiftId: string, helperId: string, opts: AssignOpts = {}) {
@@ -355,19 +407,19 @@ export async function assignHelper(ctx: Ctx, shiftId: string, helperId: string, 
   const mode = opts.mode ?? "EINTEILEN";
   const r = await placeHelper(ctx, shiftId, helperId, mode === "EINTEILEN" ? "BESTAETIGT" : "EINGELADEN", { ...opts, source: "PLANER" });
   await notifyHelpers([helperId], mode === "EINTEILEN"
-    ? { type: "DIENST_BESTAETIGT", title: `Du wurdest eingeteilt: ${r.shift.name}`, body: `${fmtRange(r.shift.startsAt, r.shift.endsAt)}${r.shift.meetingPoint ? ` · Treffpunkt: ${r.shift.meetingPoint}` : ""}`, link: `/shifts/${shiftId}` }
-    : { type: "DIENST_NEU", title: `Einladung zum Dienst: ${r.shift.name}`, body: `${fmtRange(r.shift.startsAt, r.shift.endsAt)} – bitte zu- oder absagen.`, link: `/shifts/${shiftId}` });
+    ? { type: "DIENST_BESTAETIGT", title: `Du wurdest eingeteilt: ${r.shift.name}`, body: `${whenText(r.shift, r.windowText)}${r.shift.meetingPoint ? ` · Treffpunkt: ${r.shift.meetingPoint}` : ""}`, link: `/shifts/${shiftId}` }
+    : { type: "DIENST_NEU", title: `Einladung zum Dienst: ${r.shift.name}`, body: `${whenText(r.shift, r.windowText)} – bitte zu- oder absagen.`, link: `/shifts/${shiftId}` });
   return r.assignment;
 }
 
-export async function decideAssignment(ctx: Ctx, assignmentId: string, decision: "CONFIRM" | "REJECT" | "WAITLIST", opts: { requirementId?: string | null; override?: boolean } = {}) {
+export async function decideAssignment(ctx: Ctx, assignmentId: string, decision: "CONFIRM" | "REJECT" | "WAITLIST", opts: { requirementId?: string | null; override?: boolean; from?: Date | string | null; to?: Date | string | null } = {}) {
   const a = await prisma.shiftAssignment.findUnique({ where: { id: assignmentId }, include: { shift: true } });
   if (!a) throw notFound();
   await loadShiftFor(ctx, a.shiftId, "shift.staff");
   if (a.status !== "ANGEFRAGT" && a.status !== "WARTELISTE") throw conflict("Diese Anfrage wurde bereits entschieden.");
   if (decision === "CONFIRM") {
-    const r = await placeHelper(ctx, a.shiftId, a.helperId, "BESTAETIGT", { requirementId: opts.requirementId, override: opts.override, source: a.source });
-    await notifyHelpers([a.helperId], { type: "DIENST_BESTAETIGT", title: `Dienst bestätigt: ${r.shift.name}`, body: `${fmtRange(r.shift.startsAt, r.shift.endsAt)}${r.shift.meetingPoint ? ` · Treffpunkt: ${r.shift.meetingPoint}` : ""}`, link: `/shifts/${a.shiftId}` });
+    const r = await placeHelper(ctx, a.shiftId, a.helperId, "BESTAETIGT", { requirementId: opts.requirementId, override: opts.override, source: a.source, from: opts.from, to: opts.to });
+    await notifyHelpers([a.helperId], { type: "DIENST_BESTAETIGT", title: `Dienst bestätigt: ${r.shift.name}`, body: `${whenText(r.shift, r.windowText)}${r.shift.meetingPoint ? ` · Treffpunkt: ${r.shift.meetingPoint}` : ""}`, link: `/shifts/${a.shiftId}` });
     return r.assignment;
   }
   const status: AssignmentStatus = decision === "REJECT" ? "ABGELEHNT" : "WARTELISTE";
@@ -383,7 +435,7 @@ export async function removeFromShift(ctx: Ctx, assignmentId: string) {
   if (!a) throw notFound();
   await loadShiftFor(ctx, a.shiftId, "shift.staff");
   if (a.shift.status === "ABGESCHLOSSEN") throw conflict("Der Dienst ist abgeschlossen.");
-  await prisma.shiftAssignment.update({ where: { id: assignmentId }, data: { status: "ABGELEHNT", requirementId: null, decidedById: ctx.userId, decidedAt: new Date() } });
+  await prisma.shiftAssignment.update({ where: { id: assignmentId }, data: { status: "ABGELEHNT", requirementId: null, plannedFrom: null, plannedTo: null, decidedById: ctx.userId, decidedAt: new Date() } });
   await audit(ctx, { action: "shift.unassign", entityType: "ShiftAssignment", entityId: assignmentId, unitId: a.shift.unitId, summary: `${a.helper.firstName} ${a.helper.lastName} aus „${a.shift.name}“ entfernt` });
   await notifyHelpers([a.helperId], { type: "DIENST_GEAENDERT", title: `Du wurdest aus dem Dienst „${a.shift.name}“ ausgetragen`, body: fmtDateTime(a.shift.startsAt), link: `/shifts/${a.shiftId}` });
 }
@@ -397,45 +449,73 @@ async function ownContext(ctx: Ctx, shiftId: string) {
   return s;
 }
 
-export async function signUpForShift(ctx: Ctx, shiftId: string, note?: string | null) {
+/** Fachliche Prüfung einer Meldung für einen Zeitraum (mindestens eine Position muss in Frage kommen). */
+async function checkSignupEligibility(s: ShiftFull, helperId: string, w: Window) {
+  const warnings: string[] = [];
+  if (!s.requirements.length) return warnings;
+  const m = matchingFor(s, w);
+  const evals = await Promise.all(s.requirements.map((r) => evaluateHelperForRequirement(m, helperId, r.id)));
+  const ok = evals.filter((e) => e.eligible || (e.blockers.length === 1 && e.blockers[0].startsWith("Als nicht verfügbar")));
+  const qualOk = evals.filter((e) => !e.missingQualTypeIds.length && !e.missingFunction);
+  if (!qualOk.length) throw conflict("Dir fehlt für alle Positionen dieses Dienstes eine erforderliche Qualifikation oder Funktion.", { blockers: evals[0]?.blockers });
+  if (!ok.length) warnings.push(...new Set(evals.flatMap((e) => e.blockers)));
+  return warnings;
+}
+
+function assertSignupOpen(s: ShiftFull) {
+  if (s.status !== "OFFEN") throw conflict("Für diesen Dienst kannst du dich nicht melden.");
+  if (s.endsAt < new Date()) throw conflict("Der Dienst liegt in der Vergangenheit.");
+  if (s.signupDeadline && s.signupDeadline < new Date()) throw conflict(`Der Meldeschluss (${fmtDateTime(s.signupDeadline)} Uhr) ist vorbei. Bitte wende dich direkt an die Dienstplanung.`);
+}
+
+export interface SignupWindow { from?: Date | string | null; to?: Date | string | null }
+
+/** Für einen Dienst melden – optional nur für einen Teil des Dienstes. */
+export async function signUpForShift(ctx: Ctx, shiftId: string, note?: string | null, win: SignupWindow = {}) {
   const s = await ownContext(ctx, shiftId);
   const unit = (await loadUnits()).get(s.unitId)!;
   if (!canIn(ctx, "shift.view", unit)) throw forbidden();
-  if (s.status !== "OFFEN") throw conflict("Für diesen Dienst kannst du dich nicht anmelden.");
-  if (s.endsAt < new Date()) throw conflict("Der Dienst liegt in der Vergangenheit.");
+  assertSignupOpen(s);
   const helper = await prisma.helper.findUniqueOrThrow({ where: { id: ctx.helperId! } });
-  if (helper.status !== "AKTIV") throw forbidden("Nur aktive Helfer können sich anmelden.");
+  if (helper.status !== "AKTIV") throw forbidden("Nur aktive Helfer können sich melden.");
   const existing = s.assignments.find((a) => a.helperId === helper.id);
-  if (existing && ["BESTAETIGT", "EINGELADEN", "ANGEFRAGT", "WARTELISTE"].includes(existing.status)) throw conflict("Du bist für diesen Dienst bereits angemeldet.");
-
-  // Nur anmelden, wenn mindestens eine Position fachlich in Frage kommt – kein „beliebiger Helfer“.
-  const m = asMatching(s);
-  const warnings: string[] = [];
-  if (s.requirements.length) {
-    const evals = await Promise.all(s.requirements.map((r) => evaluateHelperForRequirement(m, helper.id, r.id)));
-    const ok = evals.filter((e) => e.eligible || (e.blockers.length === 1 && e.blockers[0].startsWith("Als nicht verfügbar")) );
-    const qualOk = evals.filter((e) => !e.missingQualTypeIds.length && !e.missingFunction);
-    if (!qualOk.length) throw conflict("Dir fehlt für alle Positionen dieses Dienstes eine erforderliche Qualifikation oder Funktion.", { blockers: evals[0]?.blockers });
-    if (!ok.length) warnings.push(...new Set(evals.flatMap((e) => e.blockers)));
-  }
+  if (existing && ["BESTAETIGT", "EINGELADEN", "ANGEFRAGT", "WARTELISTE"].includes(existing.status)) throw conflict("Du bist für diesen Dienst bereits gemeldet.");
+  const w = resolveWindow(s, win, "Dein Zeitraum");
+  const warnings = await checkSignupEligibility(s, helper.id, w.window);
+  const data = { status: "ANGEFRAGT" as const, source: "SELBST" as const, note: note ?? null, availableFrom: w.from, availableTo: w.to, plannedFrom: null, plannedTo: null };
   const a = existing
-    ? await prisma.shiftAssignment.update({ where: { id: existing.id }, data: { status: "ANGEFRAGT", source: "SELBST", note: note ?? null, decidedAt: null, decidedById: null, requirementId: null } })
-    : await prisma.shiftAssignment.create({ data: { shiftId, helperId: helper.id, status: "ANGEFRAGT", source: "SELBST", note: note ?? null } });
-  await audit(ctx, { action: "shift.signup", entityType: "ShiftAssignment", entityId: a.id, unitId: s.unitId, summary: `${helper.firstName} ${helper.lastName} hat sich für „${s.name}“ angemeldet` });
+    ? await prisma.shiftAssignment.update({ where: { id: existing.id }, data: { ...data, decidedAt: null, decidedById: null, requirementId: null } })
+    : await prisma.shiftAssignment.create({ data: { shiftId, helperId: helper.id, ...data } });
+  const wl = windowLabel(s, w.from, w.to);
+  await audit(ctx, { action: "shift.signup", entityType: "ShiftAssignment", entityId: a.id, unitId: s.unitId, summary: `${helper.firstName} ${helper.lastName} hat sich für „${s.name}“ gemeldet${wl ? ` (${wl})` : ""}` });
   const planners = await usersWithPermission("shift.staff", s.unitId);
-  await notifyUsers(planners.filter((u) => u !== ctx.userId), { type: "DIENST_ANFRAGE", title: `Neue Anfrage: ${s.name}`, body: `${helper.firstName} ${helper.lastName} möchte am ${fmtDateTime(s.startsAt)} teilnehmen.`, link: `/shifts/${shiftId}` });
+  await notifyUsers(planners.filter((u) => u !== ctx.userId), { type: "DIENST_ANFRAGE", title: `Neue Meldung: ${s.name}`, body: `${helper.firstName} ${helper.lastName} kann ${wl ? `am ${fmtDateTime(s.startsAt).split(" ")[0]} von ${wl}` : `am ${fmtDateTime(s.startsAt)} (ganzer Dienst)`}.`, link: `/shifts/${shiftId}` });
   return { assignment: a, warnings };
+}
+
+/** Eigene, noch nicht entschiedene Meldung ändern (Zeitraum/Anmerkung). */
+export async function updateMySignup(ctx: Ctx, shiftId: string, note: string | null | undefined, win: SignupWindow = {}) {
+  const s = await ownContext(ctx, shiftId);
+  const a = s.assignments.find((x) => x.helperId === ctx.helperId);
+  if (!a || !["ANGEFRAGT", "WARTELISTE"].includes(a.status)) throw conflict("Du hast keine offene Meldung für diesen Dienst.");
+  assertSignupOpen(s);
+  const w = resolveWindow(s, win, "Dein Zeitraum");
+  const warnings = await checkSignupEligibility(s, a.helperId, w.window);
+  const upd = await prisma.shiftAssignment.update({ where: { id: a.id }, data: { availableFrom: w.from, availableTo: w.to, note: note === undefined ? a.note : note } });
+  const wl = windowLabel(s, w.from, w.to);
+  await audit(ctx, { action: "shift.signup_update", entityType: "ShiftAssignment", entityId: a.id, unitId: s.unitId, summary: `${a.helper.firstName} ${a.helper.lastName} hat die Meldung für „${s.name}“ geändert: ${wl ?? "ganzer Dienst"}`, changes: { availableFrom: [a.availableFrom?.toISOString() ?? null, w.from?.toISOString() ?? null], availableTo: [a.availableTo?.toISOString() ?? null, w.to?.toISOString() ?? null] } });
+  return { assignment: upd, warnings };
 }
 
 /** Eigene Anfrage zurückziehen bzw. eine Zusage absagen. */
 export async function withdrawFromShift(ctx: Ctx, shiftId: string, reason?: string | null) {
   const s = await ownContext(ctx, shiftId);
   const a = s.assignments.find((x) => x.helperId === ctx.helperId);
-  if (!a || !["BESTAETIGT", "EINGELADEN", "ANGEFRAGT", "WARTELISTE"].includes(a.status)) throw conflict("Du bist für diesen Dienst nicht angemeldet.");
+  if (!a || !["BESTAETIGT", "EINGELADEN", "ANGEFRAGT", "WARTELISTE"].includes(a.status)) throw conflict("Du bist für diesen Dienst nicht gemeldet.");
   if (s.status === "ABGESCHLOSSEN") throw conflict("Der Dienst ist abgeschlossen.");
   const wasConfirmed = a.status === "BESTAETIGT";
   await prisma.shiftAssignment.update({ where: { id: a.id }, data: { status: "ZURUECKGEZOGEN", note: reason ?? a.note, decidedAt: new Date() } });
-  await audit(ctx, { action: wasConfirmed ? "shift.cancel_own" : "shift.withdraw", entityType: "ShiftAssignment", entityId: a.id, unitId: s.unitId, summary: `${a.helper.firstName} ${a.helper.lastName} ${wasConfirmed ? "hat für" : "zog Anfrage für"} „${s.name}“ ${wasConfirmed ? "abgesagt" : "zurück"}` });
+  await audit(ctx, { action: wasConfirmed ? "shift.cancel_own" : "shift.withdraw", entityType: "ShiftAssignment", entityId: a.id, unitId: s.unitId, summary: `${a.helper.firstName} ${a.helper.lastName} ${wasConfirmed ? "hat für" : "zog Meldung für"} „${s.name}“ ${wasConfirmed ? "abgesagt" : "zurück"}` });
   if (wasConfirmed) {
     const planners = await usersWithPermission("shift.staff", s.unitId);
     await notifyUsers(planners.filter((u) => u !== ctx.userId), { type: "DIENST_ABGESAGT", title: `Absage: ${a.helper.firstName} ${a.helper.lastName} – ${s.name}`, body: `${fmtDateTime(s.startsAt)}${reason ? ` – ${reason}` : ""}. Die Position ist wieder frei.`, link: `/shifts/${shiftId}` });
