@@ -1,0 +1,54 @@
+# HelferNet – Produktionsbetrieb: PostgreSQL + HelferNet + täglicher Wartungslauf + Caddy (HTTPS).
+# Einrichtung: sh scripts/install.sh   (legt .env mit allen Geheimnissen an) → docker compose up -d --build
+# Details: INSTALLATION.md
+name: em_helfernet
+
+x-app: &app
+  build: .
+  image: em_helfernet:latest
+  restart: unless-stopped
+  depends_on: { db: { condition: service_healthy } }
+  env_file: .env
+  environment:
+    DATABASE_URL: postgresql://helfernet:${HELFERNET_DB_PASSWORD:?HELFERNET_DB_PASSWORD fehlt – zuerst scripts/install.sh ausführen}@db:5432/helfernet?schema=public
+    STORAGE_DIR: /data/storage
+  volumes: [storage:/data/storage]
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: helfernet
+      POSTGRES_PASSWORD: ${HELFERNET_DB_PASSWORD:?HELFERNET_DB_PASSWORD fehlt – zuerst scripts/install.sh ausführen}
+      POSTGRES_DB: helfernet
+    volumes: [dbdata:/var/lib/postgresql/data]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U helfernet -d helfernet"], interval: 5s, retries: 20 }
+
+  app:
+    <<: *app
+    # Nur lokal erreichbar – nach außen geht es über Caddy (oder einen eigenen Reverse-Proxy).
+    ports: ["127.0.0.1:${HELFERNET_PORT:-3000}:3000"]
+    healthcheck: { test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""], interval: 30s, timeout: 5s, retries: 5, start_period: 60s }
+
+  # Täglicher Wartungslauf (Ablaufwarnungen, Löschkonzept)
+  maintenance:
+    <<: *app
+    depends_on: { app: { condition: service_healthy } }
+    entrypoint: ["sh", "-c", "while true; do npx tsx scripts/maintenance.ts; sleep 86400; done"]
+
+  # HTTPS über Caddy (Profil "caddy"; wird von scripts/install.sh aktiviert). Ports 80/443 müssen frei und erreichbar sein.
+  caddy:
+    image: caddy:2
+    profiles: ["caddy"]
+    restart: unless-stopped
+    depends_on: [app]
+    environment:
+      HELFERNET_DOMAIN: ${HELFERNET_DOMAIN:-localhost}
+    ports: ["80:80", "443:443", "443:443/udp"]
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes: { dbdata: {}, storage: {}, caddy_data: {}, caddy_config: {} }
