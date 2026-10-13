@@ -232,19 +232,48 @@ await step("Neues Konto: erster Login landet auf der Startseite mit Banner zum P
   await n.goto("/"); assert.doesNotMatch(await n.textContent("main"), /Bitte ändere dein Startpasswort/);
   await ctx.close();
 });
+await step("Qualifikationsart bearbeiten, archivieren und wiederherstellen (Oberfläche)", async () => {
+  const p = admin.page;
+  await p.goto("/qualifications?tab=arten");
+  await p.click("summary:has-text('Neue Qualifikationsart')");
+  await p.fill("form:has(select[name=unitId]) input[name=name]", "  Höhenrettung   Basis ");
+  await p.click("form:has(select[name=unitId]) button[type=submit]");
+  const row = p.locator("li[data-qualtype='Höhenrettung Basis']");
+  await row.waitFor({ timeout: 20000 });
+  // Dublette wird abgelehnt
+  await p.locator("details:has(select[name=unitId])").evaluate((d) => { d.open = true; });
+  await p.fill("form:has(select[name=unitId]) input[name=name]", "höhenrettung basis");
+  await p.click("form:has(select[name=unitId]) button[type=submit]");
+  await p.waitForSelector("text=gibt es bereits");
+  // bearbeiten
+  await row.locator("summary:has-text('Bearbeiten')").click();
+  await row.locator("input[name=validityMonths]").fill("12");
+  await row.locator("button:has-text('Speichern')").click();
+  await p.waitForSelector("li[data-qualtype='Höhenrettung Basis'] >> text=12 Monate gültig", { timeout: 20000 });
+  // archivieren und wiederherstellen
+  p.once("dialog", (d) => d.accept());
+  await p.locator("li[data-qualtype='Höhenrettung Basis'] button:has-text('Archivieren')").click();
+  await p.waitForSelector("li[data-qualtype='Höhenrettung Basis']", { state: "detached", timeout: 20000 });
+  await p.goto("/qualifications?tab=arten&archiv=1");
+  await p.locator("li[data-qualtype='Höhenrettung Basis'] button:has-text('Wiederherstellen')").click();
+  await p.waitForSelector("li[data-qualtype='Höhenrettung Basis']", { state: "detached", timeout: 20000 });
+  await p.goto("/qualifications?tab=arten");
+  await p.locator("li[data-qualtype='Höhenrettung Basis']").waitFor();
+});
 await step("Zertifikat ohne Lehrgang ausstellen (Admin) – landet in Max' Dokumenten", async () => {
   const p = admin.page;
   await p.goto("/documents/certificate");
   const maxOpt = await p.locator("select[name=helperId] option", { hasText: "Mustermann, Max" }).first().getAttribute("value");
   await p.selectOption("select[name=helperId]", maxOpt);
-  await p.fill("input[name=title]", "Atemschutz-Grundlehrgang (extern)");
+  const motor = await p.locator("select[name=qualificationTypeId] option", { hasText: "Motorsäge (Basis)" }).first().getAttribute("value");
+  await p.selectOption("select[name=qualificationTypeId]", motor);
   await p.fill("input[name=startsAt]", "2026-09-01");
   await p.fill("input[name=endsAt]", "2026-09-03");
   await p.click("main button[type=submit]");
   await p.waitForURL(/\/documents\/(?!certificate)[^/]+$/, { timeout: 20000 });
   assert.match(await p.textContent("main"), /Zertifikat[\s\S]*Ohne Lehrgang ausgestellt/);
   await max.page.goto("/documents");
-  assert.match(await max.page.textContent("main"), /Atemschutz-Grundlehrgang \(extern\)/);
+  assert.match(await max.page.textContent("main"), /Motorsäge \(Basis\)/);
 });
 await step("private Verfügbarkeitsgründe sind für Planer nicht sichtbar", async () => {
   const maxId = (await (await api(max.ctx, "GET", "/me")).json()).helperId;
@@ -308,7 +337,7 @@ await step("Audit-Log: nur Berechtigte; Einträge für Aktionen vorhanden", asyn
 });
 
 console.log("Oberfläche: alle Hauptseiten laden ohne Fehler (Desktop + Smartphone)");
-const pages = ["/", "/shifts", `/shifts/${shiftId}`, `/shifts/${shiftId}/lagekarte`, "/calendar", "/calendar?view=week", "/calendar?view=list", "/availability", "/helpers", "/qualifications", "/qualifications?tab=ablauf", "/qualifications?tab=arten", "/vehicles", "/materials", "/documents", "/messages", "/messages?tab=neu", "/messages?tab=announcements", "/notifications", "/hours", "/reports", "/reports?r=qualifications", "/events", "/admin/units", "/admin/users", "/admin/users?tab=rollen", "/admin/audit", "/account", "/search?q=Max", "/shifts/new", "/helpers/new", "/events/new", "/vehicles/new", "/materials/new", "/courses", "/courses?tab=mine", "/courses/new", "/admin/certificate", "/documents/certificate"];
+const pages = ["/", "/shifts", `/shifts/${shiftId}`, `/shifts/${shiftId}/lagekarte`, "/calendar", "/calendar?view=week", "/calendar?view=list", "/availability", "/helpers", "/qualifications", "/qualifications?tab=ablauf", "/qualifications?tab=arten", "/vehicles", "/materials", "/documents", "/messages", "/messages?tab=neu", "/messages?tab=announcements", "/notifications", "/hours", "/reports", "/reports?r=qualifications", "/events", "/admin/units", "/admin/users", "/admin/users?tab=rollen", "/admin/audit", "/account", "/search?q=Max", "/shifts/new", "/helpers/new", "/events/new", "/vehicles/new", "/materials/new", "/courses", "/courses?tab=mine", "/courses/new", "/admin/certificate", "/documents/certificate", "/qualifications?tab=arten&archiv=1"];
 for (const [label, vp, who] of [["Desktop", { width: 1280, height: 900 }, admin], ["Smartphone", { width: 390, height: 844 }, leitung]]) {
   await step(`${label}: ${pages.length} Seiten`, async () => {
     const p = await who.ctx.newPage(); await p.setViewportSize(vp); const bad = []; let cur = "";

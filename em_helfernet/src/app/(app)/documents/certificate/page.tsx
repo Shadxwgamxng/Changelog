@@ -4,6 +4,7 @@ import { certificateIssueOptions } from "@/server/services/courses";
 import { Card, Field, PageHeader } from "@/components/ui";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { issueCertificateAction } from "../actions";
+import { QUAL_CATEGORY_LABEL } from "@/lib/constants";
 
 export const metadata = { title: "Zertifikat ausstellen" };
 
@@ -26,13 +27,19 @@ export default async function IssueCertificatePage({ searchParams }: { searchPar
                 {o.helpers.map((h) => <option key={h.id} value={h.id}>{h.name} · {h.unitName}</option>)}
               </select>
             </Field>
-            <Field label="Bezeichnung (Lehrgang/Ausbildung)" required className="sm:col-span-2"><input name="title" className="input" required maxLength={160} placeholder="z. B. Erste-Hilfe-Ausbildung (extern)" /></Field>
+            <Field label="Ausbildung" required className="sm:col-span-2" hint="Aus der Liste unter Qualifikationen → Qualifikationsarten. Fehlt eine? Dort anlegen.">
+              <select name="qualificationTypeId" className="input" required defaultValue="">
+                <option value="" disabled>— bitte wählen —</option>
+                {Object.entries(QUAL_CATEGORY_LABEL).map(([cat, label]) => {
+                  const items = o.qualTypes.filter((q) => q.category === cat);
+                  return items.length ? <optgroup key={cat} label={label}>{items.map((q) => <option key={q.id} value={q.id}>{q.name}{q.validityMonths ? ` (${q.validityMonths} Monate gültig)` : ""}</option>)}</optgroup> : null;
+                })}
+              </select>
+            </Field>
             <Field label="Von" required><input type="date" name="startsAt" className="input" required defaultValue={today} /></Field>
             <Field label="Bis" required><input type="date" name="endsAt" className="input" required defaultValue={today} /></Field>
-            <Field label="Qualifikation eintragen (optional)" hint="Wird mit Gültigkeit im Profil eingetragen und steht auf dem Zertifikat.">
-              <select name="qualificationTypeId" className="input" defaultValue=""><option value="">— keine —</option>{o.qualTypes.map((q) => <option key={q.id} value={q.id}>{q.name}{q.validityMonths ? ` (${q.validityMonths} Monate)` : ""}</option>)}</select>
-            </Field>
-            <Field label="Gültig bis (optional)" hint="Leer = aus der Qualifikation berechnet bzw. unbegrenzt."><input type="date" name="validUntil" className="input" /></Field>
+            <label className="flex items-start gap-2 text-sm sm:col-span-2"><input type="checkbox" name="addQualification" defaultChecked className="mt-0.5 h-4 w-4" /><span>Qualifikation im Profil eintragen <span className="block text-xs text-fg-subtle">Abwählen für eine reine Teilnahmebescheinigung – dann steht auch keine Qualifikation auf dem Zertifikat.</span></span></label>
+            <Field label="Gültig bis (optional)" hint="Leer = aus der Gültigkeitsdauer der Ausbildung berechnet."><input type="date" name="validUntil" className="input" /></Field>
             <Field label="Ausbilder / Lehrgangsleitung (optional)" className="sm:col-span-2"><input name="instructors" className="input" maxLength={300} placeholder="z. B. Dr. M. Weber" /></Field>
           </div>
         </Card>
@@ -41,7 +48,7 @@ export default async function IssueCertificatePage({ searchParams }: { searchPar
             <ul className="list-disc space-y-1.5 pl-5 text-sm text-fg-muted">
               <li>Zertifikat mit fortlaufender Nummer und Prüf-Link wird erstellt (Gestaltung laut Zertifikat-Vorlage).</li>
               <li>Das PDF landet als persönliches Dokument in der Personalakte.</li>
-              <li>Optional wird die Qualifikation eingetragen.</li>
+              <li>Die Qualifikation wird mit Gültigkeit im Profil eingetragen (abwählbar).</li>
               <li>Die Person wird benachrichtigt; alles wird im Audit-Log protokolliert.</li>
             </ul>
           </Card>

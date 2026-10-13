@@ -243,8 +243,10 @@ export const courseInput = z.object({
 
 export const manualCertificateInput = z.object({
   helperId: id,
-  title: reqStr(160),
-  qualificationTypeId: optId,
+  /** Ausbildung aus der zentralen Liste – der Zertifikatstitel ist ihr Name */
+  qualificationTypeId: z.string({ required_error: "Bitte eine Ausbildung auswählen" }).min(1, "Bitte eine Ausbildung auswählen").max(40),
+  /** Qualifikation im Helferprofil eintragen (Standard: ja) */
+  addQualification: bool.default(true),
   startsAt: dateOnly,
   endsAt: dateOnly,
   validUntil: optDateOnly,

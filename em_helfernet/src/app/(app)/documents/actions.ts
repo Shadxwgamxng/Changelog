@@ -25,6 +25,6 @@ export const deleteDocAction = action(async (ctx, f) => { await D.deleteDocument
 
 export const issueCertificateAction = action(async (ctx, f) => {
   const { issueCertificate } = await import("@/server/services/courses");
-  const c = await issueCertificate(ctx, { helperId: str(f, "helperId"), title: str(f, "title"), qualificationTypeId: str(f, "qualificationTypeId"), startsAt: str(f, "startsAt"), endsAt: str(f, "endsAt"), validUntil: str(f, "validUntil"), instructors: str(f, "instructors") });
+  const c = await issueCertificate(ctx, { helperId: str(f, "helperId"), qualificationTypeId: str(f, "qualificationTypeId"), addQualification: f.get("addQualification") === "on", startsAt: str(f, "startsAt"), endsAt: str(f, "endsAt"), validUntil: str(f, "validUntil"), instructors: str(f, "instructors") });
   redirect(c.documentId ? `/documents/${c.documentId}` : "/documents");
 });

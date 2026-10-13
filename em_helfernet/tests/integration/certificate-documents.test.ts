@@ -49,7 +49,7 @@ test("Zertifikat ohne Lehrgang: Ausbilder stellt aus, Qualifikation wird eingetr
   const ausbilder = await mkAccountHelper(S.berA.id, "Anna", "Ausbilder", "AUSBILDER");
   const helfer = await mkAccountHelper(S.berA.id, "Hans", "Helfer");
   const fremd = await mkHelper(S.berB.id, "Fritz", "Fremd");
-  const input = { helperId: helfer.helper.id, title: "Erste Hilfe (extern)", qualificationTypeId: S.qt.get("Erste-Hilfe-Ausbildung"), startsAt: "2026-09-01", endsAt: "2026-09-02", instructors: "DRK-Fremdkurs" };
+  const input = { helperId: helfer.helper.id, qualificationTypeId: S.qt.get("Erste-Hilfe-Ausbildung"), startsAt: "2026-09-01", endsAt: "2026-09-02", instructors: "DRK-Fremdkurs" };
   await rejects(C.issueCertificate(helfer.ctx, input), 403);
   await rejects(C.issueCertificate(ausbilder.ctx, { ...input, helperId: fremd.id }), 403);
   await rejects(C.issueCertificate(ausbilder.ctx, { ...input, endsAt: "2026-08-01" }), 400);
@@ -70,10 +70,26 @@ test("Zertifikat ohne Lehrgang: Ausbilder stellt aus, Qualifikation wird eingetr
   assert.equal((await C.certificateForDownload(helfer.ctx, c.id)).id, c.id);
   await rejects(C.certificateForDownload(anderer.ctx, c.id), 404);
   // Prüfseite und Widerruf ohne Lehrgang
-  assert.equal((await C.verifyCertificate(c.code))?.courseTitle, "Erste Hilfe (extern)");
+  assert.equal((await C.verifyCertificate(c.code))?.courseTitle, "Erste-Hilfe-Ausbildung");
   await rejects(C.revokeCertificate(anderer.ctx, c.id, "x"), 403);
   await C.revokeCertificate(ausbilder.ctx, c.id, "falsch ausgestellt");
   assert.equal((await prisma.helperQualification.findUniqueOrThrow({ where: { id: q.id } })).status, "WIDERRUFEN");
+});
+
+test("Zertifikat ohne Lehrgang: nur Ausbildungen aus der Liste; Eintrag ins Profil abwählbar", async () => {
+  const ausbilder = await mkAccountHelper(S.berA.id, "Anna", "Ausbilder", "AUSBILDER");
+  const h = await mkHelper(S.berA.id, "Tina", "Teilnahme");
+  const base = { helperId: h.id, startsAt: "2026-09-01", endsAt: "2026-09-01" };
+  await assert.rejects(C.issueCertificate(ausbilder.ctx, base), /Ausbildung auswählen/);
+  await rejects(C.issueCertificate(ausbilder.ctx, { ...base, qualificationTypeId: "gibtsnicht" }), 400, /aus der Liste/);
+  const funk = S.qt.get("Sprechfunk (BOS)")!;
+  await prisma.qualificationType.update({ where: { id: funk }, data: { active: false } });
+  await rejects(C.issueCertificate(ausbilder.ctx, { ...base, qualificationTypeId: funk }), 400, /aus der Liste/);
+  const c = await C.issueCertificate(ausbilder.ctx, { ...base, qualificationTypeId: S.qt.get("Motorsäge (Basis)"), addQualification: "" });
+  assert.equal(c.courseTitle, "Motorsäge (Basis)");
+  assert.equal(c.qualificationName, null);
+  assert.equal(c.helperQualificationId, null);
+  assert.equal(await prisma.helperQualification.count({ where: { helperId: h.id } }), 0);
 });
 
 test("Nachtrag alter Zertifikate und Anonymisierung", async () => {

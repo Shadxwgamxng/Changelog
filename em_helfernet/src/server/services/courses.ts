@@ -352,24 +352,26 @@ export async function issueCertificate(ctx: Ctx, raw: unknown) {
   if (!helper || helper.status === "ANONYMISIERT") throw notFound("Helfer nicht gefunden.");
   if (!canIn(ctx, "course.manage", helper.unit)) throw forbidden("Zertifikate darf ausstellen, wer in der Einheit Lehrgänge verwalten darf.");
   if (input.endsAt < input.startsAt) throw badRequest("Das Ende liegt vor dem Beginn.");
-  const qual = input.qualificationTypeId ? await prisma.qualificationType.findUnique({ where: { id: input.qualificationTypeId } }) : null;
-  if (input.qualificationTypeId && !qual) throw badRequest("Qualifikationsart nicht gefunden.");
-  const validUntil = input.validUntil ?? (qual ? computeValidUntil(input.endsAt, qual.validityMonths) : null);
+  const qual = await prisma.qualificationType.findUnique({ where: { id: input.qualificationTypeId } });
+  if (!qual || !qual.active) throw badRequest("Bitte eine Ausbildung aus der Liste auswählen.");
+  const qualUnit = qual.unitId ? (await loadUnits()).get(qual.unitId) : null;
+  if (qual.unitId && !(qualUnit && helper.unit.path.startsWith(qualUnit.path))) throw badRequest("Diese Ausbildung gilt nicht für die Einheit der Person.");
+  const validUntil = input.validUntil ?? computeValidUntil(input.endsAt, qual.validityMonths);
   if (validUntil && validUntil < input.endsAt) throw badRequest("„Gültig bis“ liegt vor dem Ende.");
   const name = `${helper.firstName} ${helper.lastName}`;
   const cert = await prisma.$transaction(async (tx) => {
-    const hq = qual ? await tx.helperQualification.create({ data: { helperId: helper.id, typeId: qual.id, issuedAt: input.endsAt, validUntil, status: "GUELTIG", note: `Zertifikat „${input.title}“` } }) : null;
+    const hq = input.addQualification ? await tx.helperQualification.create({ data: { helperId: helper.id, typeId: qual.id, issuedAt: input.endsAt, validUntil, status: "GUELTIG", note: "Zertifikat (ohne Lehrgang)" } }) : null;
     return tx.certificate.create({
       data: {
         number: await nextCertificateNumber(tx, input.endsAt), code: randomToken(12).replace(/[-_]/g, "x"), helperId: helper.id, helperQualificationId: hq?.id ?? null,
-        holderName: name, courseTitle: input.title, qualificationName: qual?.name ?? null, unitName: helper.unit.name,
+        holderName: name, courseTitle: qual.name, qualificationName: input.addQualification ? qual.name : null, unitName: helper.unit.name,
         courseStartsAt: input.startsAt, courseEndsAt: input.endsAt, validUntil, issuedByName: ctx.helperName ?? ctx.email, instructors: input.instructors,
       },
     });
   });
   const documentId = await storeCertificateDocument(cert.id, ctx.userId);
-  await audit(ctx, { action: "certificate.issue", entityType: "Certificate", entityId: cert.id, unitId: helper.unitId, summary: `Zertifikat ${cert.number} „${input.title}“ für ${name} ausgestellt (ohne Lehrgang)${qual ? `, Qualifikation „${qual.name}“ eingetragen` : ""}` });
-  await notifyHelpers([helper.id], { type: "LEHRGANG_ERGEBNIS", title: `Zertifikat ausgestellt: ${input.title}`, body: `Dein Zertifikat ${cert.number} liegt in deinen Dokumenten.${qual ? ` Die Qualifikation „${qual.name}“ wurde eingetragen.` : ""}`, link: documentId ? `/documents/${documentId}` : "/courses?tab=mine" });
+  await audit(ctx, { action: "certificate.issue", entityType: "Certificate", entityId: cert.id, unitId: helper.unitId, summary: `Zertifikat ${cert.number} „${qual.name}“ für ${name} ausgestellt (ohne Lehrgang)${input.addQualification ? ", Qualifikation eingetragen" : ""}` });
+  await notifyHelpers([helper.id], { type: "LEHRGANG_ERGEBNIS", title: `Zertifikat ausgestellt: ${qual.name}`, body: `Dein Zertifikat ${cert.number} liegt in deinen Dokumenten.${input.addQualification ? ` Die Qualifikation „${qual.name}“ wurde eingetragen.` : ""}`, link: documentId ? `/documents/${documentId}` : "/courses?tab=mine" });
   return { ...cert, documentId };
 }
 
@@ -386,7 +388,7 @@ export async function certificateIssueOptions(ctx: Ctx) {
   if (!units.length) return null;
   const [helpers, qualTypes] = await Promise.all([
     prisma.helper.findMany({ where: { status: { not: "ANONYMISIERT" }, OR: units.map((u) => ({ unit: { path: { startsWith: u.path } } })) }, select: { id: true, firstName: true, lastName: true, unit: { select: { name: true } } }, orderBy: [{ lastName: "asc" }, { firstName: "asc" }], take: 3000 }),
-    prisma.qualificationType.findMany({ where: { active: true }, select: { id: true, name: true, validityMonths: true }, orderBy: { name: "asc" } }),
+    prisma.qualificationType.findMany({ where: { active: true }, select: { id: true, name: true, validityMonths: true, category: true }, orderBy: [{ category: "asc" }, { name: "asc" }] }),
   ]);
   return { helpers: helpers.map((h) => ({ id: h.id, name: `${h.lastName}, ${h.firstName}`, unitName: h.unit.name })), qualTypes };
 }
