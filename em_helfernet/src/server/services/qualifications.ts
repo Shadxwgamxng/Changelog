@@ -20,15 +20,27 @@ export async function loadCovers() {
 }
 
 /** Qualifikationsarten, die der Benutzer sehen/verwenden darf: globale + die seiner sichtbaren Einheiten. */
-export async function listQualTypes(ctx: Ctx) {
+export async function listQualTypes(ctx: Ctx, opts: { archived?: boolean } = {}) {
   const units = await loadUnits();
   const visibleUnitIds = [...units.values()].filter((u) => ctx.all || ctx.helperUnitId === u.id || ctx.grants.some((g) => (g.scope === "SUBTREE" ? u.path.startsWith(g.unitPath) || g.unitPath.startsWith(u.path) : g.unitId === u.id)) || ctx.globalPerms.size).map((u) => u.id);
   const rows = await prisma.qualificationType.findMany({
-    where: { active: true, OR: [{ unitId: null }, { unitId: { in: visibleUnitIds } }] },
+    where: { active: !opts.archived, OR: [{ unitId: null }, { unitId: { in: visibleUnitIds } }] },
     include: { covers: { select: { coversTypeId: true } }, unit: { select: { name: true } }, _count: { select: { helperQualifications: true } } },
     orderBy: [{ category: "asc" }, { name: "asc" }],
   });
   return rows.map((r) => ({ id: r.id, unitId: r.unitId, unitName: r.unit?.name ?? null, name: r.name, category: r.category, validityMonths: r.validityMonths, description: r.description, covers: r.covers.map((c) => c.coversTypeId), holders: r._count.helperQualifications }));
+}
+
+/** Einheitliche Schreibweise: Leerzeichen bereinigen. */
+const normName = (n: string) => n.replace(/\s+/g, " ").trim();
+
+/** Gleicher Name (ohne Groß-/Kleinschreibung) im selben Geltungsbereich oder global? */
+async function assertUniqueName(name: string, unitId: string | null, exceptId?: string) {
+  const clash = await prisma.qualificationType.findFirst({
+    where: { name: { equals: name, mode: "insensitive" }, OR: [{ unitId: null }, { unitId }], ...(exceptId ? { id: { not: exceptId } } : {}) },
+    select: { name: true, active: true },
+  });
+  if (clash) throw conflict(clash.active ? `„${clash.name}“ gibt es bereits.` : `„${clash.name}“ gibt es bereits (archiviert) – bitte dort wiederherstellen.`);
 }
 
 async function typeScopeGuard(ctx: Ctx, unitId: string | null) {
@@ -38,9 +50,10 @@ async function typeScopeGuard(ctx: Ctx, unitId: string | null) {
 }
 
 export async function createQualType(ctx: Ctx, raw: unknown) {
-  const input = qualTypeInput.parse(raw);
+  const parsed = qualTypeInput.parse(raw);
+  const input = { ...parsed, name: normName(parsed.name) };
   await typeScopeGuard(ctx, input.unitId);
-  if (await prisma.qualificationType.findFirst({ where: { unitId: input.unitId, name: input.name } })) throw conflict("Diese Qualifikationsart gibt es bereits.");
+  await assertUniqueName(input.name, input.unitId);
   const t = await prisma.qualificationType.create({
     data: { unitId: input.unitId, name: input.name, category: input.category, validityMonths: input.validityMonths, description: input.description, covers: { create: input.covers.map((c) => ({ coversTypeId: c })) } },
   });
@@ -49,10 +62,12 @@ export async function createQualType(ctx: Ctx, raw: unknown) {
 }
 
 export async function updateQualType(ctx: Ctx, typeId: string, raw: unknown) {
-  const input = qualTypeInput.omit({ unitId: true }).parse(raw);
+  const parsed = qualTypeInput.omit({ unitId: true }).parse(raw);
+  const input = { ...parsed, name: normName(parsed.name) };
   const t = await prisma.qualificationType.findUnique({ where: { id: typeId } });
   if (!t) throw notFound();
   await typeScopeGuard(ctx, t.unitId);
+  await assertUniqueName(input.name, t.unitId, typeId);
   if (input.covers.includes(typeId)) throw badRequest("Eine Qualifikation kann sich nicht selbst abdecken.");
   await prisma.$transaction([
     prisma.qualificationCover.deleteMany({ where: { typeId } }),
@@ -61,7 +76,7 @@ export async function updateQualType(ctx: Ctx, typeId: string, raw: unknown) {
       data: { name: input.name, category: input.category, validityMonths: input.validityMonths, description: input.description, covers: { create: input.covers.map((c) => ({ coversTypeId: c })) } },
     }),
   ]);
-  await audit(ctx, { action: "qualtype.update", entityType: "QualificationType", entityId: typeId, unitId: t.unitId, summary: `Qualifikationsart „${t.name}“ geändert` });
+  await audit(ctx, { action: "qualtype.update", entityType: "QualificationType", entityId: typeId, unitId: t.unitId, summary: t.name === input.name ? `Qualifikationsart „${t.name}“ geändert` : `Qualifikationsart „${t.name}“ umbenannt in „${input.name}“` });
 }
 
 export async function archiveQualType(ctx: Ctx, typeId: string) {
@@ -70,6 +85,15 @@ export async function archiveQualType(ctx: Ctx, typeId: string) {
   await typeScopeGuard(ctx, t.unitId);
   await prisma.qualificationType.update({ where: { id: typeId }, data: { active: false } });
   await audit(ctx, { action: "qualtype.archive", entityType: "QualificationType", entityId: typeId, unitId: t.unitId, summary: `Qualifikationsart „${t.name}“ archiviert` });
+}
+
+export async function restoreQualType(ctx: Ctx, typeId: string) {
+  const t = await prisma.qualificationType.findUnique({ where: { id: typeId } });
+  if (!t) throw notFound();
+  await typeScopeGuard(ctx, t.unitId);
+  await assertUniqueName(t.name, t.unitId, typeId);
+  await prisma.qualificationType.update({ where: { id: typeId }, data: { active: true } });
+  await audit(ctx, { action: "qualtype.restore", entityType: "QualificationType", entityId: typeId, unitId: t.unitId, summary: `Qualifikationsart „${t.name}“ wiederhergestellt` });
 }
 
 export interface QualView {
