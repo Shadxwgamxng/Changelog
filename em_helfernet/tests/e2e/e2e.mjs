@@ -185,7 +185,7 @@ await step("Lehrgang anlegen (Leitung) und als Helfer anmelden", async () => {
   assert.match(await p.textContent("main"), /Funk-Lehrgang E2E[\s\S]*0 \/ 5/);
   await max.page.goto(url);
   await max.page.click("main button:has-text('Anmelden')");
-  await max.page.waitForSelector("text=Du bist angemeldet.");
+  await max.page.waitForSelector("main button:has-text('Abmelden')", { timeout: 20000 });
   await p.goto(url);
   assert.match(await p.textContent("main"), /Teilnehmer \(1\)[\s\S]*Angemeldet/);
 });
@@ -209,6 +209,28 @@ await step("Zertifikat-Vorlage anpassen (Admin) und Vorschau als PDF", async () 
   await p.reload();
   assert.equal(await p.inputValue("input[name=title]"), "Urkunde E2E");
   assert.match(await p.textContent("main"), /Bild hinterlegt/);
+});
+await step("Neues Konto: erster Login landet auf der Startseite mit Banner zum Passwortwechsel", async () => {
+  const p = admin.page;
+  await p.goto("/admin/users");
+  await p.click("summary:has-text('Benutzerkonto ohne Helferprofil anlegen')");
+  await p.fill("form input[name=email]", "neu.e2e@test.helfernet.example");
+  await p.click("form:has(input[name=email]) button[type=submit]");
+  const msg = await (await p.waitForSelector("text=Initialpasswort")).textContent();
+  const initial = msg.match(/:\s*(\S+)\s*$/)[1];
+  const ctx = await browser.newContext({ baseURL: base, locale: "de-DE" }); const n = await ctx.newPage();
+  await n.goto("/login"); await n.fill("input[name=email]", "neu.e2e@test.helfernet.example"); await n.fill("input[name=password]", initial); await n.click("button[type=submit]");
+  await n.waitForURL((u) => u.pathname === "/", { timeout: 20000 });
+  await n.waitForSelector("text=Bitte ändere dein Startpasswort");
+  // andere Seiten sind normal erreichbar, das Banner bleibt
+  const r = await n.goto("/calendar"); assert.ok(r.ok()); assert.match(n.url(), /\/calendar/);
+  assert.match(await n.textContent("main"), /Bitte ändere dein Startpasswort/);
+  await n.click("a:has-text('Passwort ändern')"); await n.waitForURL(/\/account/);
+  await n.fill("input[name=current]", initial); await n.fill("input[name=next]", "Neues#Passwort2026"); await n.fill("input[name=repeat]", "Neues#Passwort2026");
+  await n.click("button:has-text('Passwort ändern')");
+  await n.waitForURL(/changed=1/, { timeout: 20000 });
+  await n.goto("/"); assert.doesNotMatch(await n.textContent("main"), /Bitte ändere dein Startpasswort/);
+  await ctx.close();
 });
 await step("private Verfügbarkeitsgründe sind für Planer nicht sichtbar", async () => {
   const maxId = (await (await api(max.ctx, "GET", "/me")).json()).helperId;

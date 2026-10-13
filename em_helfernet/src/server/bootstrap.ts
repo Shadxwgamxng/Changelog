@@ -22,7 +22,7 @@ export async function ensureSuperadmin(email: string, password: string) {
   return prisma.user.create({ data: { email: email.toLowerCase(), passwordHash: await hashPassword(password), systemRole: "SUPERADMIN", mustChangePw: true } });
 }
 
-/** Globale Standard-Qualifikationsarten für DRK-Einheiten. */
+/** Globale Standard-Qualifikationsarten. */
 export const DEFAULT_QUALIFICATIONS: { name: string; category: "AUSBILDUNG" | "LEHRGANG" | "FUEHRERSCHEIN" | "MEDIZIN" | "FUNK" | "SANITAET" | "FUEHRUNG" | "TECHNIK" | "SONDER"; months: number | null; covers?: string[] }[] = [
   { name: "Erste-Hilfe-Ausbildung", category: "AUSBILDUNG", months: 24 },
   { name: "Sanitätshelfer", category: "SANITAET", months: 24 },

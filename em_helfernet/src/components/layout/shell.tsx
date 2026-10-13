@@ -60,7 +60,15 @@ export function AppShell({ ctx, unread, unreadMessages, children }: { ctx: Ctx; 
       <NavScrim />
 
       <main id="main" className="app-main">
-        <div className="page-container mx-auto w-full max-w-6xl px-4 sm:px-6">{children}</div>
+        <div className="page-container mx-auto w-full max-w-6xl px-4 sm:px-6">
+          {ctx.mustChangePw && (
+            <div role="alert" className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warn/40 bg-warn-soft px-4 py-3 text-sm text-warn">
+              <span><strong>Bitte ändere dein Startpasswort.</strong> Du hast dich mit einem vorläufigen Passwort angemeldet – vergib jetzt ein eigenes.</span>
+              <a href="/account#passwort" className="btn btn-sm btn-primary">Passwort ändern</a>
+            </div>
+          )}
+          {children}
+        </div>
       </main>
     </div>
   );

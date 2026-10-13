@@ -41,8 +41,7 @@ export async function getDashboard(ctx: Ctx) {
   const me = ctx.helperId ? await prisma.helper.findUnique({ where: { id: ctx.helperId }, select: { qualifications: { select: { status: true, validUntil: true, type: { select: { name: true } } } } } }) : null;
   const review = me?.qualifications.filter((q) => q.status === "IN_PRUEFUNG") ?? [];
   for (const q of review) tasks.push({ text: `Qualifikation „${q.type.name}“ wartet auf Bestätigung durch die Leitung`, link: "/profile", level: "info" });
-  const user = await prisma.user.findUnique({ where: { id: ctx.userId }, select: { mustChangePw: true, totpEnabled: true } });
-  if (user?.mustChangePw) tasks.push({ text: "Bitte vergib ein neues Passwort", link: "/account", level: "rot" });
+  // Startpasswort: Hinweis kommt als Banner oben auf jeder Seite (AppShell)
 
   // Aktuelle Verfügbarkeit (heute und die nächsten 14 Tage)
   let availability: { today: string | null; nextChange: string | null } | null = null;

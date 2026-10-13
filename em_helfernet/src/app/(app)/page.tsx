@@ -20,7 +20,7 @@ export default async function Dashboard() {
     <>
       <div className="mb-6">
         <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{greeting()}, {d.greetingName}!</h1>
-        <p className="mt-1 text-sm text-fg-muted">{ctx.helperName ? "Hier ist alles Wichtige für deinen DRK-Dienst." : "Übersicht über deinen Verantwortungsbereich."}</p>
+        <p className="mt-1 text-sm text-fg-muted">{ctx.helperName ? "Hier ist alles Wichtige für deinen Dienst." : "Übersicht über deinen Verantwortungsbereich."}</p>
       </div>
 
       {d.tasks.length > 0 && (

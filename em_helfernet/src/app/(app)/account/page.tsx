@@ -25,12 +25,11 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
   return (
     <>
       <PageHeader title="Konto & Sicherheit" subtitle={user.email} />
-      {ctx.mustChangePw && <div className="mb-5"><Notice tone="warn">Bitte vergib jetzt ein eigenes Passwort. Erst danach kannst du HelferNet nutzen.</Notice></div>}
       {sp.changed && <div className="mb-5"><Notice tone="ok">Passwort geändert. Andere Geräte wurden abgemeldet.</Notice></div>}
       {sp.discord && <div className="mb-5"><Notice tone="ok">Discord-Konto verknüpft. Du kannst dich ab jetzt mit Discord anmelden.</Notice></div>}
       {sp.error && <div className="mb-5"><Notice tone="danger">{sp.error.slice(0, 300)}</Notice></div>}
       <div className="grid gap-5 lg:grid-cols-2">
-        <Card title="Passwort ändern">
+        <Card title="Passwort ändern" id="passwort">
           <ActionForm action={changePasswordAction} className="space-y-3">
             <Field label="Aktuelles Passwort"><input type="password" name="current" className="input" autoComplete="current-password" required /></Field>
             <Field label="Neues Passwort" hint="Mindestens 10 Zeichen, drei Zeichenarten."><input type="password" name="next" className="input" autoComplete="new-password" required minLength={10} /></Field>
@@ -38,7 +37,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
             <SubmitButton>Passwort ändern</SubmitButton>
           </ActionForm>
         </Card>
-        {!ctx.mustChangePw && (
+        {(
           <>
             <Card title="Zwei-Faktor-Authentifizierung (optional)">
               {user.totpEnabled ? (

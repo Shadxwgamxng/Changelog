@@ -20,7 +20,6 @@ export const getCtx = cache(async (): Promise<Ctx | null> => {
 export async function requireCtx(): Promise<Ctx> {
   const ctx = await getCtx();
   if (!ctx) redirect("/login");
-  if (ctx.mustChangePw) redirect("/account?force=1");
   return ctx;
 }
 
