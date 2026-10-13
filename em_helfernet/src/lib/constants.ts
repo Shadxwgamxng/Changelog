@@ -152,6 +152,8 @@ export const NOTIFICATION_TYPE_LABEL = {
   QUALIFIKATION_LAEUFT_AB: "Qualifikation läuft ab",
   DOKUMENT_LAEUFT_AB: "Dokument läuft ab",
   VERANSTALTUNG_GEAENDERT: "Veranstaltung geändert",
+  LEHRGANG: "Lehrgänge (neue Termine, Anmeldung, Warteliste)",
+  LEHRGANG_ERGEBNIS: "Lehrgangsergebnis / Zertifikat",
   SYSTEM: "Systemhinweise",
 } as const;
 
@@ -169,6 +171,8 @@ export const NOTIFICATION_DEFAULTS: Record<keyof typeof NOTIFICATION_TYPE_LABEL,
   QUALIFIKATION_LAEUFT_AB: { inApp: true, email: true },
   DOKUMENT_LAEUFT_AB: { inApp: true, email: false },
   VERANSTALTUNG_GEAENDERT: { inApp: true, email: false },
+  LEHRGANG: { inApp: true, email: false },
+  LEHRGANG_ERGEBNIS: { inApp: true, email: true },
   SYSTEM: { inApp: true, email: false },
 };
 

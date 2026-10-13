@@ -16,7 +16,7 @@ export async function listUsers(ctx: Ctx) {
   return prisma.user.findMany({
     where: all ? {} : { OR: [{ roleAssignments: { some: { unitId: { in: unitIds } } } }, { helper: { unitId: { in: unitIds } } }] },
     select: {
-      id: true, email: true, systemRole: true, active: true, totpEnabled: true, lastLoginAt: true,
+      id: true, email: true, systemRole: true, active: true, totpEnabled: true, lastLoginAt: true, discordId: true, discordName: true,
       helper: { select: { id: true, firstName: true, lastName: true, unitId: true } },
       roleAssignments: { select: { id: true, unitId: true, scope: true, grants: true, denies: true, role: { select: { id: true, key: true, name: true } } } },
     },
@@ -81,6 +81,20 @@ export async function adminResetPassword(ctx: Ctx, userId: string): Promise<stri
   await revokeAllSessions(userId);
   await audit(ctx, { action: "user.password_reset", entityType: "User", entityId: userId, unitId: user.helper?.unitId, summary: `Passwort von ${user.email} zurückgesetzt` });
   return pw;
+}
+
+/** Leitung/Administration trägt die Discord-ID eines Kontos ein (leer = Verknüpfung entfernen). */
+export async function setDiscordId(ctx: Ctx, userId: string, discordIdRaw: string) {
+  const user = await managedUserGuard(ctx, userId);
+  const discordId = discordIdRaw.trim() || null;
+  if (discordId && !/^\d{17,20}$/.test(discordId)) throw badRequest("Die Discord-ID besteht aus 17–20 Ziffern (in Discord: Entwicklermodus aktivieren → Rechtsklick auf den Benutzer → „ID kopieren“).");
+  if (discordId && discordId !== user.discordId) {
+    const other = await prisma.user.findUnique({ where: { discordId } });
+    if (other) throw conflict("Diese Discord-ID ist bereits einem anderen Konto zugeordnet.");
+  }
+  if (discordId === user.discordId) return;
+  await prisma.user.update({ where: { id: userId }, data: { discordId, discordName: null } });
+  await audit(ctx, { action: "user.discord_admin", entityType: "User", entityId: userId, unitId: user.helper?.unitId, summary: discordId ? `Discord-ID für ${user.email} eingetragen` : `Discord-Verknüpfung von ${user.email} entfernt` });
 }
 
 export async function setSystemRole(ctx: Ctx, userId: string, role: SystemRole) {

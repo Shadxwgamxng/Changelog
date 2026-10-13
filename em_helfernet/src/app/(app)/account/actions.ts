@@ -15,3 +15,4 @@ export const confirmTotpAction = action(async (ctx, f) => { const codes = await 
 export const disableTotpAction = action(async (ctx, f) => { await disableTotp(ctx, String(f.get("password") ?? "")); return "2FA deaktiviert."; });
 export const icalTokenAction = action(async (ctx) => { await regenerateIcalToken(ctx); return "Neuer Kalender-Link erzeugt. Der alte Link funktioniert nicht mehr."; });
 export const revokeSessionsAction = action(async (ctx) => { const t = await currentToken(); const { revokeAllSessions } = await import("@/server/auth"); await revokeAllSessions(ctx.userId, t); return "Alle anderen Geräte wurden abgemeldet."; });
+export const unlinkDiscordAction = action(async (ctx) => { const { unlinkDiscord } = await import("@/server/discord"); await unlinkDiscord(ctx); return "Discord-Verknüpfung entfernt."; });

@@ -187,6 +187,8 @@ enum NotificationType {
   QUALIFIKATION_LAEUFT_AB
   DOKUMENT_LAEUFT_AB
   VERANSTALTUNG_GEAENDERT
+  LEHRGANG
+  LEHRGANG_ERGEBNIS
   SYSTEM
 }
 
@@ -217,49 +219,53 @@ model OrgUnit {
   alertGroups     AlertGroup[]
   announcements   Announcement[]
   qualTypes       QualificationType[]
+  courses         Course[]
 
   @@index([parentId])
 }
 
 model User {
-  id               String     @id @default(cuid())
-  email            String     @unique
-  passwordHash     String
-  systemRole       SystemRole @default(NONE)
-  active           Boolean    @default(true)
-  mustChangePw     Boolean    @default(false)
-  failedLogins     Int        @default(0)
-  lockedUntil      DateTime?
-  lastLoginAt      DateTime?
-  passwordChangedAt DateTime  @default(now())
-  totpSecretEnc    String?
-  totpEnabled      Boolean    @default(false)
+  id                String     @id @default(cuid())
+  email             String     @unique
+  passwordHash      String
+  systemRole        SystemRole @default(NONE)
+  active            Boolean    @default(true)
+  mustChangePw      Boolean    @default(false)
+  failedLogins      Int        @default(0)
+  lockedUntil       DateTime?
+  lastLoginAt       DateTime?
+  passwordChangedAt DateTime   @default(now())
+  totpSecretEnc     String?
+  totpEnabled       Boolean    @default(false)
   /// SHA-256-Hashes der Einmal-Wiederherstellungscodes
-  recoveryHashes   String[]
-  icalToken        String?    @unique
-  createdAt        DateTime   @default(now())
+  recoveryHashes    String[]
+  icalToken         String?    @unique
+  /// Verknüpftes Discord-Konto (Login mit Discord)
+  discordId         String?    @unique
+  discordName       String?
+  createdAt         DateTime   @default(now())
 
   helper          Helper?
   sessions        Session[]
   roleAssignments RoleAssignment[]
   notifications   Notification[]
   notifPrefs      NotificationPreference[]
-  sentMessages    Message[]          @relation("MessageSender")
+  sentMessages    Message[]                @relation("MessageSender")
   received        MessageRecipient[]
   resetTokens     PasswordResetToken[]
 }
 
 model Session {
   /// SHA-256 des Cookie-Tokens – das Token selbst wird nie gespeichert.
-  id         String   @id
-  userId     String
-  createdAt  DateTime @default(now())
-  lastSeenAt DateTime @default(now())
-  expiresAt  DateTime
-  ip         String?
-  userAgent  String?
+  id          String   @id
+  userId      String
+  createdAt   DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+  expiresAt   DateTime
+  ip          String?
+  userAgent   String?
   /// true erst nach erfolgreicher 2. Stufe (falls 2FA aktiv)
-  twoFactorOk Boolean @default(true)
+  twoFactorOk Boolean  @default(true)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -268,12 +274,12 @@ model Session {
 }
 
 model PasswordResetToken {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
-  tokenHash String   @unique
+  tokenHash String    @unique
   expiresAt DateTime
   usedAt    DateTime?
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 /// Konfigurierbare Rollenvorlage mit Rechteliste.
@@ -314,49 +320,51 @@ model RoleAssignment {
 // ═══════════════════════════ Helfer & Qualifikationen ═══════════════════════════
 
 model Helper {
-  id             String       @id @default(cuid())
-  unitId         String
-  userId         String?      @unique
-  firstName      String
-  lastName       String
-  birthDate      DateTime?
-  email          String?
-  phone          String?
-  street         String?
-  zip            String?
-  city           String?
-  memberNumber   String?      @unique
-  status         HelperStatus @default(AKTIV)
-  joinedAt       DateTime?
-  leftAt         DateTime?
-  groupName      String?
+  id                String       @id @default(cuid())
+  unitId            String
+  userId            String?      @unique
+  firstName         String
+  lastName          String
+  birthDate         DateTime?
+  email             String?
+  phone             String?
+  street            String?
+  zip               String?
+  city              String?
+  memberNumber      String?      @unique
+  status            HelperStatus @default(AKTIV)
+  joinedAt          DateTime?
+  leftAt            DateTime?
+  groupName         String?
   /// Mehrere Funktionen möglich (siehe lib/constants.ts → FUNCTIONS)
-  functions      String[]
-  dienststellung String?
-  leadershipRole String?
-  internalNotes  String?
+  functions         String[]
+  dienststellung    String?
+  leadershipRole    String?
+  internalNotes     String?
   // Planungspräferenzen
   maxShiftsPerMonth Int?
-  minRestHours      Int         @default(11)
+  minRestHours      Int          @default(11)
   preferredKinds    ShiftKind[]
   preferredWeekdays Int[]
   // Datenschutz
-  anonymizedAt   DateTime?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  anonymizedAt      DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
 
-  unit           OrgUnit      @relation(fields: [unitId], references: [id])
-  user           User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
-  qualifications HelperQualification[]
-  assignments    ShiftAssignment[]
-  availabilities Availability[]
-  documents      Document[]
-  alertRecipients AlertRecipient[]
-  alertGroupMembers AlertGroupMember[]
-  incidentHelpers IncidentHelper[]
-  materialIssues MaterialIssue[]
-  responsibleShifts Shift[]   @relation("ShiftResponsible")
-  responsibleMaterials MaterialItem[] @relation("MaterialResponsible")
+  unit                 OrgUnit               @relation(fields: [unitId], references: [id])
+  user                 User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
+  qualifications       HelperQualification[]
+  assignments          ShiftAssignment[]
+  availabilities       Availability[]
+  documents            Document[]
+  alertRecipients      AlertRecipient[]
+  alertGroupMembers    AlertGroupMember[]
+  incidentHelpers      IncidentHelper[]
+  courseParticipations CourseParticipant[]
+  ledCourses           Course[]              @relation("CourseLead")
+  materialIssues       MaterialIssue[]
+  responsibleShifts    Shift[]               @relation("ShiftResponsible")
+  responsibleMaterials MaterialItem[]        @relation("MaterialResponsible")
 
   @@index([unitId, status])
   @@index([lastName, firstName])
@@ -373,42 +381,44 @@ model QualificationType {
   /// Fahrerlaubnisklassen o. Ä. gelten als „Führerschein“
   active         Boolean      @default(true)
 
-  unit    OrgUnit?  @relation(fields: [unitId], references: [id])
+  unit                 OrgUnit?                        @relation(fields: [unitId], references: [id])
   /// Diese Qualifikation „deckt“ die genannten ab (z. B. Rettungssanitäter ⊇ Sanitätshelfer).
-  covers  QualificationCover[] @relation("Covering")
-  coveredBy QualificationCover[] @relation("Covered")
+  covers               QualificationCover[]            @relation("Covering")
+  coveredBy            QualificationCover[]            @relation("Covered")
   helperQualifications HelperQualification[]
-  requirements ShiftRequirementQualification[]
+  requirements         ShiftRequirementQualification[]
+  courses              Course[]
 
   @@unique([unitId, name])
 }
 
 model QualificationCover {
-  typeId        String
-  coversTypeId  String
-  type          QualificationType @relation("Covering", fields: [typeId], references: [id], onDelete: Cascade)
-  covers        QualificationType @relation("Covered", fields: [coversTypeId], references: [id], onDelete: Cascade)
+  typeId       String
+  coversTypeId String
+  type         QualificationType @relation("Covering", fields: [typeId], references: [id], onDelete: Cascade)
+  covers       QualificationType @relation("Covered", fields: [coversTypeId], references: [id], onDelete: Cascade)
 
   @@id([typeId, coversTypeId])
 }
 
 model HelperQualification {
-  id         String     @id @default(cuid())
-  helperId   String
-  typeId     String
-  issuedAt   DateTime?
-  validUntil DateTime?
-  status     QualStatus @default(GUELTIG)
-  note       String?
-  documentId String?
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  id          String     @id @default(cuid())
+  helperId    String
+  typeId      String
+  issuedAt    DateTime?
+  validUntil  DateTime?
+  status      QualStatus @default(GUELTIG)
+  note        String?
+  documentId  String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
   /// Merker, damit die Ablaufwarnung nur einmal je Stufe versendet wird.
-  warnedLevel Int       @default(0)
+  warnedLevel Int        @default(0)
 
-  helper   Helper            @relation(fields: [helperId], references: [id], onDelete: Cascade)
-  type     QualificationType @relation(fields: [typeId], references: [id])
-  document Document?         @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  helper      Helper            @relation(fields: [helperId], references: [id], onDelete: Cascade)
+  type        QualificationType @relation(fields: [typeId], references: [id])
+  document    Document?         @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  certificate Certificate?
 
   @@index([helperId])
   @@index([typeId])
@@ -418,16 +428,16 @@ model HelperQualification {
 // ═══════════════════════════ Verfügbarkeit ═══════════════════════════
 
 model Availability {
-  id        String             @id @default(cuid())
+  id        String              @id @default(cuid())
   helperId  String
   /// Zeitraum, ganze Tage (UTC-Mitternacht), Ende inklusive
-  startDate DateTime           @db.Date
-  endDate   DateTime           @db.Date
+  startDate DateTime            @db.Date
+  endDate   DateTime            @db.Date
   status    AvailabilityStatus
   reason    AvailabilityReason?
   /// Privat: nur der Helfer selbst sieht Grund und Notiz.
   note      String?
-  createdAt DateTime           @default(now())
+  createdAt DateTime            @default(now())
 
   helper Helper @relation(fields: [helperId], references: [id], onDelete: Cascade)
 
@@ -437,19 +447,19 @@ model Availability {
 // ═══════════════════════════ Veranstaltungen & Dienste ═══════════════════════════
 
 model Event {
-  id          String    @id @default(cuid())
-  unitId      String
-  name        String
-  description String?
-  startsAt    DateTime
-  endsAt      DateTime
-  location    String?
-  organizer   String?
+  id             String    @id @default(cuid())
+  unitId         String
+  name           String
+  description    String?
+  startsAt       DateTime
+  endsAt         DateTime
+  location       String?
+  organizer      String?
   /// Meldeschluss für alle Schichten der Veranstaltung (Schicht kann eigenen Meldeschluss haben)
   signupDeadline DateTime?
-  cancelled   Boolean   @default(false)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  cancelled      Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   unit   OrgUnit     @relation(fields: [unitId], references: [id])
   shifts Shift[]
@@ -469,27 +479,27 @@ model EventTask {
 }
 
 model Shift {
-  id            String      @id @default(cuid())
-  unitId        String
-  eventId       String?
-  name          String
-  kind          ShiftKind
-  startsAt      DateTime
-  endsAt        DateTime
-  meetingPoint  String?
-  location      String?
-  organizer     String?
-  description   String?
-  responsibleId String?
-  status        ShiftStatus @default(ENTWURF)
+  id             String      @id @default(cuid())
+  unitId         String
+  eventId        String?
+  name           String
+  kind           ShiftKind
+  startsAt       DateTime
+  endsAt         DateTime
+  meetingPoint   String?
+  location       String?
+  organizer      String?
+  description    String?
+  responsibleId  String?
+  status         ShiftStatus @default(ENTWURF)
   /// Meldeschluss: danach sind keine Selbstmeldungen mehr möglich
   signupDeadline DateTime?
   /// Gespeicherte Kartenansicht der Lagekarte (Sanitätsdienste)
-  mapLat        Float?
-  mapLng        Float?
-  mapZoom       Int?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  mapLat         Float?
+  mapLng         Float?
+  mapZoom        Int?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
 
   mapObjects   MapObject[]
   unit         OrgUnit            @relation(fields: [unitId], references: [id])
@@ -536,9 +546,9 @@ model ShiftRequirement {
   functionKey String?
   sortOrder   Int     @default(0)
 
-  shift       Shift                          @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  shift          Shift                           @relation(fields: [shiftId], references: [id], onDelete: Cascade)
   qualifications ShiftRequirementQualification[]
-  assignments ShiftAssignment[]
+  assignments    ShiftAssignment[]
 
   @@index([shiftId])
 }
@@ -594,7 +604,7 @@ model ShiftVehicle {
 model ShiftMaterial {
   shiftId    String
   materialId String
-  quantity   Int    @default(1)
+  quantity   Int          @default(1)
   shift      Shift        @relation(fields: [shiftId], references: [id], onDelete: Cascade)
   material   MaterialItem @relation(fields: [materialId], references: [id])
 
@@ -604,10 +614,10 @@ model ShiftMaterial {
 // ═══════════════════════════ Alarmierung & Einsätze ═══════════════════════════
 
 model AlertGroup {
-  id      String @id @default(cuid())
+  id      String             @id @default(cuid())
   unitId  String
   name    String
-  unit    OrgUnit @relation(fields: [unitId], references: [id])
+  unit    OrgUnit            @relation(fields: [unitId], references: [id])
   members AlertGroupMember[]
   alerts  Alert[]
 
@@ -624,24 +634,24 @@ model AlertGroupMember {
 }
 
 model Alert {
-  id            String            @id @default(cuid())
-  unitId        String
-  title         String
-  message       String?
-  meetingPoint  String?
-  meetingTime   DateTime?
-  audienceType  AlertAudienceType
+  id           String            @id @default(cuid())
+  unitId       String
+  title        String
+  message      String?
+  meetingPoint String?
+  meetingTime  DateTime?
+  audienceType AlertAudienceType
   /// Gruppenname bzw. Qualifikations-ID bzw. null
-  audienceRef   String?
-  alertGroupId  String?
-  shiftId       String?
-  status        AlertStatus       @default(AKTIV)
-  createdById   String
-  createdAt     DateTime          @default(now())
+  audienceRef  String?
+  alertGroupId String?
+  shiftId      String?
+  status       AlertStatus       @default(AKTIV)
+  createdById  String
+  createdAt    DateTime          @default(now())
 
-  unit       OrgUnit     @relation(fields: [unitId], references: [id])
-  alertGroup AlertGroup? @relation(fields: [alertGroupId], references: [id])
-  shift      Shift?      @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+  unit       OrgUnit          @relation(fields: [unitId], references: [id])
+  alertGroup AlertGroup?      @relation(fields: [alertGroupId], references: [id])
+  shift      Shift?           @relation(fields: [shiftId], references: [id], onDelete: SetNull)
   recipients AlertRecipient[]
 
   @@index([unitId, createdAt])
@@ -704,7 +714,7 @@ model IncidentVehicle {
 model IncidentMaterial {
   incidentId String
   materialId String
-  quantity   Int    @default(1)
+  quantity   Int          @default(1)
   incident   Incident     @relation(fields: [incidentId], references: [id], onDelete: Cascade)
   material   MaterialItem @relation(fields: [materialId], references: [id])
 
@@ -714,20 +724,20 @@ model IncidentMaterial {
 // ═══════════════════════════ Fahrzeuge & Material ═══════════════════════════
 
 model Vehicle {
-  id          String        @id @default(cuid())
-  unitId      String
-  name        String
-  callSign    String?
-  plate       String?
-  type        String?
-  location    String?
-  odometerKm  Int?
-  tuvDue      DateTime?     @db.Date
-  huDue       DateTime?     @db.Date
-  insuranceDue DateTime?    @db.Date
-  status      VehicleStatus @default(EINSATZBEREIT)
-  notes       String?
-  createdAt   DateTime      @default(now())
+  id           String        @id @default(cuid())
+  unitId       String
+  name         String
+  callSign     String?
+  plate        String?
+  type         String?
+  location     String?
+  odometerKm   Int?
+  tuvDue       DateTime?     @db.Date
+  huDue        DateTime?     @db.Date
+  insuranceDue DateTime?     @db.Date
+  status       VehicleStatus @default(EINSATZBEREIT)
+  notes        String?
+  createdAt    DateTime      @default(now())
 
   unit         OrgUnit              @relation(fields: [unitId], references: [id])
   maintenances VehicleMaintenance[]
@@ -739,12 +749,12 @@ model Vehicle {
 }
 
 model VehicleMaintenance {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   vehicleId   String
-  date        DateTime @db.Date
+  date        DateTime  @db.Date
   description String
   odometerKm  Int?
-  cost        Decimal? @db.Decimal(10, 2)
+  cost        Decimal?  @db.Decimal(10, 2)
   nextDue     DateTime? @db.Date
 
   vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
@@ -753,23 +763,23 @@ model VehicleMaintenance {
 }
 
 model MaterialItem {
-  id               String         @id @default(cuid())
-  unitId           String
-  name             String
-  category         String?
-  quantity         Int            @default(0)
-  minQuantity      Int            @default(0)
-  location         String?
-  serialNumber     String?
-  maintenanceDue   DateTime?      @db.Date
-  expiresAt        DateTime?      @db.Date
-  status           MaterialStatus @default(OK)
-  responsibleId    String?
-  notes            String?
-  createdAt        DateTime       @default(now())
+  id             String         @id @default(cuid())
+  unitId         String
+  name           String
+  category       String?
+  quantity       Int            @default(0)
+  minQuantity    Int            @default(0)
+  location       String?
+  serialNumber   String?
+  maintenanceDue DateTime?      @db.Date
+  expiresAt      DateTime?      @db.Date
+  status         MaterialStatus @default(OK)
+  responsibleId  String?
+  notes          String?
+  createdAt      DateTime       @default(now())
 
-  unit        OrgUnit         @relation(fields: [unitId], references: [id])
-  responsible Helper?         @relation("MaterialResponsible", fields: [responsibleId], references: [id], onDelete: SetNull)
+  unit        OrgUnit            @relation(fields: [unitId], references: [id])
+  responsible Helper?            @relation("MaterialResponsible", fields: [responsibleId], references: [id], onDelete: SetNull)
   issues      MaterialIssue[]
   shifts      ShiftMaterial[]
   incidents   IncidentMaterial[]
@@ -795,24 +805,24 @@ model MaterialIssue {
 // ═══════════════════════════ Dokumente ═══════════════════════════
 
 model Document {
-  id              String      @id @default(cuid())
-  unitId          String
-  title           String
-  category        DocCategory
-  access          DocAccess   @default(FUEHRUNG)
+  id             String      @id @default(cuid())
+  unitId         String
+  title          String
+  category       DocCategory
+  access         DocAccess   @default(FUEHRUNG)
   /// Bei PERSOENLICH: der Helfer, dem das Dokument gehört.
-  ownerHelperId   String?
-  vehicleId       String?
-  expiresAt       DateTime?   @db.Date
-  warnedExpiry    Boolean     @default(false)
-  currentVersion  Int         @default(1)
-  createdById     String
-  createdAt       DateTime    @default(now())
+  ownerHelperId  String?
+  vehicleId      String?
+  expiresAt      DateTime?   @db.Date
+  warnedExpiry   Boolean     @default(false)
+  currentVersion Int         @default(1)
+  createdById    String
+  createdAt      DateTime    @default(now())
 
-  unit     OrgUnit  @relation(fields: [unitId], references: [id])
-  owner    Helper?  @relation(fields: [ownerHelperId], references: [id], onDelete: Cascade)
-  vehicle  Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
-  versions DocumentVersion[]
+  unit           OrgUnit               @relation(fields: [unitId], references: [id])
+  owner          Helper?               @relation(fields: [ownerHelperId], references: [id], onDelete: Cascade)
+  vehicle        Vehicle?              @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  versions       DocumentVersion[]
   qualifications HelperQualification[]
 
   @@index([unitId, category])
@@ -900,8 +910,8 @@ model Notification {
 model NotificationPreference {
   userId String
   type   NotificationType
-  inApp  Boolean @default(true)
-  email  Boolean @default(false)
+  inApp  Boolean          @default(true)
+  email  Boolean          @default(false)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -928,4 +938,101 @@ model AuditLog {
   @@index([entityType, entityId])
   @@index([unitId, at])
   @@index([actorUserId])
+}
+
+// ═══════════════════════════ Lehrgänge & Zertifikate ═══════════════════════════
+
+enum CourseStatus {
+  GEPLANT
+  ABGESCHLOSSEN
+  ABGESAGT
+}
+
+enum CourseParticipantStatus {
+  ANGEMELDET
+  WARTELISTE
+  ABGEMELDET
+  BESTANDEN
+  NICHT_BESTANDEN
+}
+
+/// Lehrgangstermin. Helfer der Einheit (und ihrer Untereinheiten) können sich anmelden.
+model Course {
+  id                  String       @id @default(cuid())
+  unitId              String
+  title               String
+  description         String?
+  location            String?
+  startsAt            DateTime
+  endsAt              DateTime
+  signupDeadline      DateTime?
+  /// null = unbegrenzt
+  capacity            Int?
+  /// Qualifikation, die bei „bestanden“ eingetragen wird
+  qualificationTypeId String?
+  /// Voraussetzungen (IDs von Qualifikationsarten, alle erforderlich)
+  prerequisiteIds     String[]
+  leadHelperId        String?
+  /// weitere Ausbilder (Freitext, erscheint auf dem Zertifikat)
+  instructors         String?
+  status              CourseStatus @default(GEPLANT)
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  unit          OrgUnit             @relation(fields: [unitId], references: [id])
+  qualification QualificationType?  @relation(fields: [qualificationTypeId], references: [id])
+  lead          Helper?             @relation("CourseLead", fields: [leadHelperId], references: [id], onDelete: SetNull)
+  participants  CourseParticipant[]
+  certificates  Certificate[]
+
+  @@index([unitId, startsAt])
+}
+
+model CourseParticipant {
+  id         String                  @id @default(cuid())
+  courseId   String
+  helperId   String
+  status     CourseParticipantStatus @default(ANGEMELDET)
+  /// Bemerkung des Helfers bei der Anmeldung
+  note       String?
+  /// Bewertung/Bemerkung der Lehrgangsleitung
+  result     String?
+  assessedAt DateTime?
+  createdAt  DateTime                @default(now())
+  updatedAt  DateTime                @updatedAt
+
+  course      Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  helper      Helper       @relation(fields: [helperId], references: [id], onDelete: Cascade)
+  certificate Certificate?
+
+  @@unique([courseId, helperId])
+  @@index([helperId])
+}
+
+/// Ausgestelltes Zertifikat. Angaben werden beim Ausstellen festgeschrieben (Schnappschuss).
+model Certificate {
+  id                    String    @id @default(cuid())
+  /// fortlaufende Nummer, z. B. HN-2026-00042
+  number                String    @unique
+  /// zufälliger Prüfcode für den öffentlichen Prüf-Link
+  code                  String    @unique
+  participantId         String?   @unique
+  courseId              String?
+  helperQualificationId String?   @unique
+  holderName            String
+  courseTitle           String
+  qualificationName     String?
+  unitName              String
+  courseStartsAt        DateTime
+  courseEndsAt          DateTime
+  issuedAt              DateTime  @default(now())
+  validUntil            DateTime?
+  issuedByName          String
+  instructors           String?
+  revokedAt             DateTime?
+  revokeReason          String?
+
+  participant         CourseParticipant?   @relation(fields: [participantId], references: [id], onDelete: SetNull)
+  course              Course?              @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  helperQualification HelperQualification? @relation(fields: [helperQualificationId], references: [id], onDelete: SetNull)
 }

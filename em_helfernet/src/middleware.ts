@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 // Grobe Vorprüfung (nur Cookie vorhanden?). Die echte Sitzungsprüfung passiert serverseitig in getCtx().
-const PUBLIC = ["/login", "/setup", "/api/", "/_next/", "/icon", "/apple-icon", "/favicon"];
+const PUBLIC = ["/login", "/setup", "/zertifikat/", "/api/", "/_next/", "/icon", "/apple-icon", "/favicon"];
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;

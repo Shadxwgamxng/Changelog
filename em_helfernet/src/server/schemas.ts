@@ -224,3 +224,19 @@ export const announcementInput = z.object({
   pinned: bool.default(false),
   expiresAt: dateTime.nullable().optional().or(z.literal("").transform(() => null)),
 });
+
+export const courseInput = z.object({
+  unitId: id,
+  title: reqStr(160),
+  description: optStr(4000),
+  location: optStr(200),
+  startsAt: dateTime,
+  endsAt: dateTime,
+  signupDeadline: z.union([z.literal(""), z.null(), z.undefined(), dateTime]).transform((v) => (v ? v : null)),
+  capacity: optInt.refine((v) => v === null || (v >= 1 && v <= 1000), "1–1000 Plätze oder leer für unbegrenzt"),
+  qualificationTypeId: optId,
+  prerequisiteIds: z.array(id).max(20).default([]),
+  leadHelperId: optId,
+  instructors: optStr(300),
+}).refine((v) => v.endsAt > v.startsAt, { message: "Das Ende muss nach dem Beginn liegen", path: ["endsAt"] })
+  .refine((v) => !v.signupDeadline || v.signupDeadline <= v.startsAt, { message: "Der Anmeldeschluss muss vor dem Beginn liegen", path: ["signupDeadline"] });

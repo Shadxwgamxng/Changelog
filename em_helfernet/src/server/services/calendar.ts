@@ -40,6 +40,16 @@ export async function calendarEntries(ctx: Ctx, q: CalendarQuery): Promise<Calen
       out.push({ id: `shift:${s.id}`, type, title: s.name, start: s.startsAt, end: s.endsAt, allDay: false, unitName: s.unit.name, link: `/shifts/${s.id}`, status: s.status === "ABGESAGT" ? "ABGESAGT" : s.status === "ENTWURF" ? "ENTWURF" : s.assignments[0]?.status, mine: s.assignments[0]?.status === "BESTAETIGT", subtitle: SHIFT_KIND_LABEL[s.kind], location: s.location });
     }
   }
+  if (types.has("AUSBILDUNG")) {
+    const { coursesBetween } = await import("./courses");
+    const unitPath = q.unitId ? units.get(q.unitId)?.path : undefined;
+    for (const c of await coursesBetween(ctx, q.from, q.to)) {
+      const my = c.participants[0]?.status;
+      if (q.mine && !(my === "ANGEMELDET" || my === "BESTANDEN" || my === "NICHT_BESTANDEN")) continue;
+      if (unitPath && !units.get(c.unitId)?.path.startsWith(unitPath)) continue;
+      out.push({ id: `course:${c.id}`, type: "AUSBILDUNG", title: c.title, start: c.startsAt, end: c.endsAt, allDay: false, unitName: c.unit.name, link: `/courses/${c.id}`, status: c.status === "ABGESAGT" ? "ABGESAGT" : my, mine: my === "ANGEMELDET" || my === "BESTANDEN", subtitle: "Lehrgang", location: c.location });
+    }
+  }
   if (types.has("VERANSTALTUNG") && hasAnywhere(ctx, "event.view") && !q.mine) {
     const events = await prisma.event.findMany({ where: { AND: [scopeWhere(ctx, "event.view") as Prisma.EventWhereInput, { startsAt: { lte: q.to }, endsAt: { gte: q.from } }, unitFilter] }, include: { unit: { select: { name: true } } }, take: 500 });
     for (const e of events) out.push({ id: `event:${e.id}`, type: "VERANSTALTUNG", title: e.name, start: e.startsAt, end: e.endsAt, allDay: false, unitName: e.unit.name, link: `/events/${e.id}`, status: e.cancelled ? "ABGESAGT" : undefined, subtitle: "Veranstaltung", location: e.location });

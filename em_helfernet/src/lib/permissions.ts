@@ -12,6 +12,9 @@ export const PERMISSIONS = {
   // Qualifikationen
   "qualification.view": "Qualifikationen von Helfern sehen",
   "qualification.manage": "Qualifikationen und Qualifikationsarten verwalten",
+  // Lehrgänge
+  "course.view": "Lehrgänge ansehen und sich anmelden",
+  "course.manage": "Lehrgänge planen, Teilnehmer bewerten, Zertifikate ausstellen",
   // Dienste & Veranstaltungen
   "shift.view": "Dienste ansehen",
   "shift.create": "Dienste erstellen",
@@ -53,7 +56,7 @@ export function isPermission(p: string): p is Permission {
   return p in PERMISSIONS;
 }
 
-const base: Permission[] = ["shift.view", "event.view", "vehicle.view", "material.view", "document.view", "helper.view"];
+const base: Permission[] = ["shift.view", "event.view", "vehicle.view", "material.view", "document.view", "helper.view", "course.view"];
 
 const staffing: Permission[] = [
   "shift.view", "shift.create", "shift.edit", "shift.staff", "event.view", "event.manage", "availability.view_others",
@@ -107,6 +110,13 @@ export const DEFAULT_ROLES: DefaultRole[] = [
     description: "Erstellt Dienste und teilt Helfer ein – ohne Stammdaten ändern zu dürfen.",
     rank: 50,
     permissions: [...base, ...staffing, "shift.cancel", "alert.view", "message.send"],
+  },
+  {
+    key: "AUSBILDER",
+    name: "Ausbilder",
+    description: "Plant Lehrgänge, bewertet Teilnehmer und stellt Zertifikate aus.",
+    rank: 40,
+    permissions: [...base, "qualification.view", "course.manage"],
   },
   {
     key: "HELFER",

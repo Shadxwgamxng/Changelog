@@ -5,17 +5,19 @@ import { env } from "@/server/env";
 import { Card, Field, Notice, PageHeader } from "@/components/ui";
 import { ActionButton, ActionForm, SubmitButton } from "@/components/forms";
 import { fmtDateTime } from "@/lib/dates";
-import { beginTotpAction, changePasswordAction, confirmTotpAction, disableTotpAction, icalTokenAction, revokeSessionsAction } from "./actions";
+import { beginTotpAction, changePasswordAction, confirmTotpAction, disableTotpAction, icalTokenAction, revokeSessionsAction, unlinkDiscordAction } from "./actions";
 import { savePrefsAction } from "../notifications/actions";
 import { TotpSetup } from "./totp-setup";
+import { discordEnabled } from "@/server/discord";
+import { DiscordButton, DiscordLogo } from "@/components/discord";
 
 export const metadata = { title: "Konto & Sicherheit" };
 
-export default async function AccountPage({ searchParams }: { searchParams: Promise<{ force?: string; changed?: string }> }) {
+export default async function AccountPage({ searchParams }: { searchParams: Promise<{ force?: string; changed?: string; discord?: string; error?: string }> }) {
   const ctx = await requireCtxAllowPwChange();
   const sp = await searchParams;
   const [user, prefs, sessions] = await Promise.all([
-    prisma.user.findUniqueOrThrow({ where: { id: ctx.userId }, select: { email: true, totpEnabled: true, icalToken: true, lastLoginAt: true, passwordChangedAt: true } }),
+    prisma.user.findUniqueOrThrow({ where: { id: ctx.userId }, select: { email: true, totpEnabled: true, icalToken: true, lastLoginAt: true, passwordChangedAt: true, discordId: true, discordName: true } }),
     getPreferences(ctx),
     prisma.session.findMany({ where: { userId: ctx.userId }, orderBy: { lastSeenAt: "desc" }, take: 10 }),
   ]);
@@ -25,6 +27,8 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
       <PageHeader title="Konto & Sicherheit" subtitle={user.email} />
       {ctx.mustChangePw && <div className="mb-5"><Notice tone="warn">Bitte vergib jetzt ein eigenes Passwort. Erst danach kannst du HelferNet nutzen.</Notice></div>}
       {sp.changed && <div className="mb-5"><Notice tone="ok">Passwort geändert. Andere Geräte wurden abgemeldet.</Notice></div>}
+      {sp.discord && <div className="mb-5"><Notice tone="ok">Discord-Konto verknüpft. Du kannst dich ab jetzt mit Discord anmelden.</Notice></div>}
+      {sp.error && <div className="mb-5"><Notice tone="danger">{sp.error.slice(0, 300)}</Notice></div>}
       <div className="grid gap-5 lg:grid-cols-2">
         <Card title="Passwort ändern">
           <ActionForm action={changePasswordAction} className="space-y-3">
@@ -42,6 +46,21 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
                   <ActionForm action={disableTotpAction} className="flex flex-wrap items-end gap-3"><label className="block"><span className="label">Passwort zur Bestätigung</span><input type="password" name="password" className="input !w-56" required /></label><SubmitButton variant="danger" confirm="2FA wirklich deaktivieren?">Deaktivieren</SubmitButton></ActionForm></div>
               ) : <TotpSetup begin={beginTotpAction} confirm={confirmTotpAction} />}
             </Card>
+            {(discordEnabled() || user.discordId) && (
+              <Card title="Discord">
+                {user.discordId ? (
+                  <div className="space-y-3">
+                    <p className="flex items-center gap-2 text-sm"><DiscordLogo className="h-5 w-5 text-[#5865F2]" /><span>Verknüpft{user.discordName ? <> mit <strong>{user.discordName}</strong></> : <> (ID {user.discordId})</>} – du kannst dich mit Discord anmelden.</span></p>
+                    <ActionButton action={unlinkDiscordAction} small={false} label="Verknüpfung entfernen" variant="danger" confirm="Discord-Verknüpfung entfernen? Danach ist nur noch die Anmeldung mit E-Mail und Passwort möglich." />
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-sm text-fg-muted">Verknüpfe dein Discord-Konto, um dich künftig mit einem Klick über Discord anzumelden. Ist 2FA aktiv, wird der Code weiterhin abgefragt.</p>
+                    <div className="max-w-xs"><DiscordButton href="/api/auth/discord/start?mode=link" label="Mit Discord verknüpfen" /></div>
+                  </div>
+                )}
+              </Card>
+            )}
             <Card title="Kalender-Abo (iCalendar)">
               <p className="mb-3 text-sm text-fg-muted">Mit diesem privaten Link siehst du deine Dienste in Google/Apple/Outlook-Kalender. Wer den Link kennt, sieht deine Dienste – gib ihn nicht weiter.</p>
               {feed && <input readOnly className="input mb-3 font-mono !text-xs" value={feed} aria-label="Kalender-Link" onFocus={undefined} />}

@@ -62,6 +62,24 @@ docker compose up -d
 
 Ohne SMTP funktionieren alle Benachrichtigungen innerhalb von HelferNet; E-Mails werden dann nur ins Protokoll geschrieben.
 
+## 4. Login mit Discord einrichten (optional)
+
+1. Im [Discord Developer Portal](https://discord.com/developers/applications) „New Application“ anlegen (Name z. B. „HelferNet“).
+2. Unter **OAuth2** die **Client ID** kopieren, ein **Client Secret** erzeugen und kopieren.
+3. Unter **OAuth2 → Redirects** genau diese Adresse eintragen: `https://<domain>/api/auth/discord/callback`
+4. In der `.env` eintragen und neu starten (`docker compose up -d`):
+   ```
+   DISCORD_CLIENT_ID="…"
+   DISCORD_CLIENT_SECRET="…"
+   ```
+
+Danach erscheint auf der Anmeldeseite „Mit Discord anmelden“. Es können sich **nur Konten anmelden, die mit Discord verknüpft sind** – fremde Discord-Nutzer kommen nicht hinein. Verknüpfen geht auf zwei Wegen:
+
+- Der Helfer meldet sich einmal mit E-Mail und Passwort an und klickt unter **Konto → Discord** auf „Mit Discord verknüpfen“.
+- Die Leitung trägt unter **Administration → Benutzer & Rollen → Konto verwalten** die Discord-ID ein (in Discord: Einstellungen → Erweitert → Entwicklermodus, dann Rechtsklick auf den Benutzer → „ID kopieren“). Der Helfer kann sich dann sofort mit Discord anmelden, ohne das Initialpasswort zu kennen.
+
+Ist die Zwei-Faktor-Anmeldung aktiv, wird der Code auch beim Discord-Login abgefragt.
+
 ## Betrieb
 
 | Aufgabe | Befehl |
@@ -121,6 +139,7 @@ docker compose up -d
 | `SETUP_TOKEN` | Einrichtungs-Code für `/setup` |
 | `CRON_SECRET` | optional: Wartungslauf per HTTP (`POST /api/cron/maintenance`, `Authorization: Bearer …`) |
 | `SMTP_*` | E-Mail-Versand |
+| `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` | optional: Login mit Discord |
 | `SESSION_IDLE_MINUTES`, `SESSION_MAX_HOURS` | Abmeldung nach Inaktivität / maximale Sitzungsdauer |
 | `RETAIN_*` | Aufbewahrungsfristen (Löschkonzept) |
 

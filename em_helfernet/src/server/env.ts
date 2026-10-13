@@ -9,6 +9,11 @@ export const env = {
   get retainLeftHelperMonths() { return num(process.env.RETAIN_LEFT_HELPER_MONTHS, 24); },
   get retainAuditMonths() { return num(process.env.RETAIN_AUDIT_MONTHS, 36); },
   get retainNotificationDays() { return num(process.env.RETAIN_NOTIFICATION_DAYS, 90); },
+  get discord() {
+    return process.env.DISCORD_CLIENT_ID && process.env.DISCORD_CLIENT_SECRET
+      ? { clientId: process.env.DISCORD_CLIENT_ID, clientSecret: process.env.DISCORD_CLIENT_SECRET }
+      : null;
+  },
   get smtp() {
     return process.env.SMTP_HOST
       ? { host: process.env.SMTP_HOST, port: num(process.env.SMTP_PORT, 587), user: process.env.SMTP_USER, pass: process.env.SMTP_PASS, from: process.env.SMTP_FROM || "HelferNet <no-reply@localhost>" }
