@@ -194,6 +194,22 @@ await step("Zertifikat-Prüfseite ist öffentlich, ungültiger Code wird erkannt
   assert.equal(r.status, 200);
   assert.match(await r.text(), /Kein Zertifikat gefunden/);
 });
+await step("Zertifikat-Vorlage anpassen (Admin) und Vorschau als PDF", async () => {
+  const p = admin.page;
+  await p.goto("/admin/certificate");
+  await p.fill("input[name=title]", "Urkunde E2E");
+  await p.selectOption("select[name=logoMode]", "EIGENES");
+  await p.setInputFiles("input[name=logoFile]", { name: "logo.png", mimeType: "image/png", buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=", "base64") });
+  await p.click("main button[type=submit]:has-text('Speichern')");
+  await p.waitForSelector("text=Vorlage gespeichert");
+  const r = await admin.ctx.request.get(base + "/api/certificates/preview");
+  assert.equal(r.status(), 200);
+  assert.equal(r.headers()["content-type"], "application/pdf");
+  assert.equal((await planer.ctx.request.get(base + "/api/certificates/preview")).status(), 403);
+  await p.reload();
+  assert.equal(await p.inputValue("input[name=title]"), "Urkunde E2E");
+  assert.match(await p.textContent("main"), /Bild hinterlegt/);
+});
 await step("private Verfügbarkeitsgründe sind für Planer nicht sichtbar", async () => {
   const maxId = (await (await api(max.ctx, "GET", "/me")).json()).helperId;
   const own = await (await api(max.ctx, "GET", `/helpers/${maxId}/availability?from=2020-01-01&to=2099-01-01`)).json();
@@ -256,7 +272,7 @@ await step("Audit-Log: nur Berechtigte; Einträge für Aktionen vorhanden", asyn
 });
 
 console.log("Oberfläche: alle Hauptseiten laden ohne Fehler (Desktop + Smartphone)");
-const pages = ["/", "/shifts", `/shifts/${shiftId}`, `/shifts/${shiftId}/lagekarte`, "/calendar", "/calendar?view=week", "/calendar?view=list", "/availability", "/helpers", "/qualifications", "/qualifications?tab=ablauf", "/qualifications?tab=arten", "/vehicles", "/materials", "/documents", "/messages", "/messages?tab=neu", "/messages?tab=announcements", "/notifications", "/hours", "/reports", "/reports?r=qualifications", "/events", "/admin/units", "/admin/users", "/admin/users?tab=rollen", "/admin/audit", "/account", "/search?q=Max", "/shifts/new", "/helpers/new", "/events/new", "/vehicles/new", "/materials/new", "/courses", "/courses?tab=mine", "/courses/new"];
+const pages = ["/", "/shifts", `/shifts/${shiftId}`, `/shifts/${shiftId}/lagekarte`, "/calendar", "/calendar?view=week", "/calendar?view=list", "/availability", "/helpers", "/qualifications", "/qualifications?tab=ablauf", "/qualifications?tab=arten", "/vehicles", "/materials", "/documents", "/messages", "/messages?tab=neu", "/messages?tab=announcements", "/notifications", "/hours", "/reports", "/reports?r=qualifications", "/events", "/admin/units", "/admin/users", "/admin/users?tab=rollen", "/admin/audit", "/account", "/search?q=Max", "/shifts/new", "/helpers/new", "/events/new", "/vehicles/new", "/materials/new", "/courses", "/courses?tab=mine", "/courses/new", "/admin/certificate"];
 for (const [label, vp, who] of [["Desktop", { width: 1280, height: 900 }, admin], ["Smartphone", { width: 390, height: 844 }, leitung]]) {
   await step(`${label}: ${pages.length} Seiten`, async () => {
     const p = await who.ctx.newPage(); await p.setViewportSize(vp); const bad = []; let cur = "";

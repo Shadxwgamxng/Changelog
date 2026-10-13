@@ -22,6 +22,7 @@ export function navItems(ctx: Ctx): NavItem[] {
     { group: "Auswertung", href: "/reports", label: "Berichte", icon: "BarChart3", show: any("report.view") },
     { group: "Administration", href: "/admin/units", label: "Einheiten", icon: "Network", show: admin },
     { group: "Administration", href: "/admin/users", label: "Benutzer & Rollen", icon: "ShieldCheck", show: any("user.manage") || any("user.view") || ctx.all },
+    { group: "Administration", href: "/admin/certificate", label: "Zertifikat-Vorlage", icon: "FileBadge", show: ctx.all },
     { group: "Administration", href: "/admin/audit", label: "Audit-Log", icon: "ScrollText", show: any("audit.view") },
   ];
   return items.filter((i) => i.show);

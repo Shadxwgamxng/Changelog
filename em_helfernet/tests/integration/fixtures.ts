@@ -7,7 +7,7 @@ import { hashPassword } from "../../src/lib/crypto";
 import { resetRateLimit } from "../../src/lib/rate-limit";
 
 const TABLES = [
-  "Certificate", "CourseParticipant", "Course", "Notification", "NotificationPreference", "MessageRecipient", "Message", "Announcement", "DocumentVersion", "HelperQualification", "Document",
+  "CertificateTemplate", "Certificate", "CourseParticipant", "Course", "Notification", "NotificationPreference", "MessageRecipient", "Message", "Announcement", "DocumentVersion", "HelperQualification", "Document",
   "ShiftMaterial", "ShiftVehicle", "ShiftRequirementQualification", "ShiftAssignment", "ShiftRequirement", "Alert", "AlertRecipient", "AlertGroupMember", "AlertGroup", "Shift", "EventTask", "Event",
   "IncidentHelper", "IncidentVehicle", "IncidentMaterial", "Incident", "MaterialIssue", "MaterialItem", "VehicleMaintenance", "Vehicle", "Availability",
   "QualificationCover", "QualificationType", "Helper", "RoleAssignment", "Session", "PasswordResetToken", "User", "RoleDefinition", "OrgUnit",

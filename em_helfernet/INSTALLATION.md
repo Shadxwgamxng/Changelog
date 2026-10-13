@@ -44,7 +44,8 @@ Empfohlene nächste Schritte:
 1. *Konto* → Zwei-Faktor-Anmeldung aktivieren.
 2. *Administration → Einheiten*: Untereinheiten anlegen.
 3. *Administration → Benutzer & Rollen*: Rollenvorlagen prüfen/anpassen.
-4. *Helfer*: Helfer anlegen und ihnen ein Benutzerkonto geben, Rollen je Einheit zuweisen.
+4. *Administration → Zertifikat-Vorlage*: Zertifikate für eure Organisation gestalten (Logo, Texte, Unterschriften, Farben).
+5. *Helfer*: Helfer anlegen und ihnen ein Benutzerkonto geben, Rollen je Einheit zuweisen.
 
 Alternative ohne Browser (z. B. für Skripte):
 

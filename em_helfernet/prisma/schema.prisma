@@ -1036,3 +1036,34 @@ model Certificate {
   course              Course?              @relation(fields: [courseId], references: [id], onDelete: SetNull)
   helperQualification HelperQualification? @relation(fields: [helperQualificationId], references: [id], onDelete: SetNull)
 }
+
+/// Gestaltung der Zertifikate (eine Vorlage je Installation, id = "default").
+model CertificateTemplate {
+  id             String   @id
+  /// Kopfzeile unter dem Logo; leer = Name der ausstellenden Einheit
+  orgName        String?
+  title          String
+  /// Fließtext mit Platzhaltern und einfacher Formatierung (siehe src/lib/certificate-template.ts)
+  body           String
+  footerText     String?
+  accentColor    String
+  textColor      String
+  font           String
+  /// STANDARD = EmergencyForge-Logo, EIGENES = hochgeladenes Bild, KEINES
+  logoMode       String
+  logo           Bytes?
+  logoMime       String?
+  background     Bytes?
+  backgroundMime String?
+  showFrame      Boolean  @default(true)
+  showQr         Boolean  @default(true)
+  sig1Label      String?
+  sig1Name       String?
+  sig1Image      Bytes?
+  sig1Mime       String?
+  sig2Label      String?
+  sig2Name       String?
+  sig2Image      Bytes?
+  sig2Mime       String?
+  updatedAt      DateTime @updatedAt
+}
