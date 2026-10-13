@@ -125,6 +125,8 @@ enum DocCategory {
   FAHRZEUG
   PRUEFBERICHT
   INTERN
+  /// automatisch erzeugte Zertifikate (Lehrgang oder manuell ausgestellt)
+  ZERTIFIKAT
 }
 
 /// Wer darf ein Dokument lesen?
@@ -361,6 +363,7 @@ model Helper {
   alertGroupMembers    AlertGroupMember[]
   incidentHelpers      IncidentHelper[]
   courseParticipations CourseParticipant[]
+  certificates         Certificate[]
   ledCourses           Course[]              @relation("CourseLead")
   materialIssues       MaterialIssue[]
   responsibleShifts    Shift[]               @relation("ShiftResponsible")
@@ -824,6 +827,7 @@ model Document {
   vehicle        Vehicle?              @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
   versions       DocumentVersion[]
   qualifications HelperQualification[]
+  certificate    Certificate?
 
   @@index([unitId, category])
 }
@@ -1018,6 +1022,10 @@ model Certificate {
   code                  String    @unique
   participantId         String?   @unique
   courseId              String?
+  /// Inhaber (auch bei Zertifikaten ohne Lehrgang)
+  helperId              String?
+  /// Abgelegtes PDF in der Personalakte
+  documentId            String?   @unique
   helperQualificationId String?   @unique
   holderName            String
   courseTitle           String
@@ -1034,6 +1042,8 @@ model Certificate {
 
   participant         CourseParticipant?   @relation(fields: [participantId], references: [id], onDelete: SetNull)
   course              Course?              @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  helper              Helper?              @relation(fields: [helperId], references: [id], onDelete: SetNull)
+  document            Document?            @relation(fields: [documentId], references: [id], onDelete: SetNull)
   helperQualification HelperQualification? @relation(fields: [helperQualificationId], references: [id], onDelete: SetNull)
 }
 

@@ -11,7 +11,10 @@ import { daysUntil, fmtDate } from "@/lib/dates";
 const level = (days: number): number => (days < 0 ? 0 : days <= 7 ? 7 : days <= 30 ? 30 : days <= 90 ? 90 : -1);
 
 export async function runMaintenance(now = new Date()) {
-  const result = { qualWarnings: 0, docWarnings: 0, resourceWarnings: 0, anonymized: 0, notificationsDeleted: 0, auditDeleted: 0, sessionsDeleted: 0 };
+  const result = { qualWarnings: 0, docWarnings: 0, resourceWarnings: 0, anonymized: 0, notificationsDeleted: 0, auditDeleted: 0, sessionsDeleted: 0, certificateDocuments: 0 };
+
+  // 0) Zertifikate ohne abgelegtes Dokument nachtragen
+  result.certificateDocuments = await (await import("./certificate-documents")).backfillCertificateDocuments();
 
   // 1) Qualifikationen: Warnung je Stufe (90/30/7 Tage, abgelaufen) – genau einmal pro Stufe und Ablaufdatum
   const quals = await prisma.helperQualification.findMany({

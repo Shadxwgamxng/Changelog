@@ -174,7 +174,7 @@ export default async function HelperProfile({ params, searchParams }: { params: 
       )}
 
       {tab === "dokumente" && (
-        <Card title="Dokumente" action={(access.self || canIn(ctx, "document.manage", unit)) && <LinkButton href={`/documents/new?helper=${id}`} size="sm">Hochladen</LinkButton>}>
+        <Card title="Dokumente" action={<div className="flex gap-2">{canIn(ctx, "course.manage", unit) && <LinkButton href={`/documents/certificate?helper=${id}`} size="sm">Zertifikat ausstellen</LinkButton>}{(access.self || canIn(ctx, "document.manage", unit)) && <LinkButton href={`/documents/new?helper=${id}`} size="sm">Hochladen</LinkButton>}</div>}>
           {docs.length === 0 ? <Empty title="Keine Dokumente" text="Hier erscheinen persönliche Nachweise, soweit du sie sehen darfst." /> : <ul className="divide-y divide-line">{docs.map((d) => <li key={d.id}><Link href={`/documents/${d.id}`} className="flex min-h-[52px] items-center justify-between gap-3 py-2.5"><span className="font-medium">{d.title}</span><span className="text-sm text-fg-muted">{DOC_CATEGORY_LABEL[d.category]} · v{d.version}{d.expiresAt ? ` · bis ${fmtDate(d.expiresAt)}` : ""}</span></Link></li>)}</ul>}
         </Card>
       )}

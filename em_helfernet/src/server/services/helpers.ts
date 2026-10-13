@@ -169,7 +169,7 @@ export async function anonymizeCore(helperId: string): Promise<boolean> {
   await prisma.$transaction(async (tx) => {
     await tx.document.deleteMany({ where: { ownerHelperId: helperId } });
     await tx.availability.deleteMany({ where: { helperId } });
-    await tx.certificate.updateMany({ where: { participant: { helperId } }, data: { holderName: "Anonymisiert", revokedAt: new Date(), revokeReason: "Personenbezogene Daten gelöscht" } });
+    await tx.certificate.updateMany({ where: { OR: [{ helperId }, { participant: { helperId } }] }, data: { holderName: "Anonymisiert", revokedAt: new Date(), revokeReason: "Personenbezogene Daten gelöscht" } });
     await tx.courseParticipant.updateMany({ where: { helperId }, data: { note: null, result: null } });
     await tx.helperQualification.deleteMany({ where: { helperId } });
     await tx.alertRecipient.deleteMany({ where: { helperId } });

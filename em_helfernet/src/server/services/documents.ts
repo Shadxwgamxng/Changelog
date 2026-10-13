@@ -19,6 +19,8 @@ export function documentVisibility(ctx: Ctx): Prisma.DocumentWhereInput {
     { AND: [{ access: { in: ["HELFER", "FUEHRUNG"] } }, manage] },
     { AND: [{ access: "PERSOENLICH" }, scopeWhere(ctx, "qualification.manage") as Prisma.DocumentWhereInput] },
     { AND: [{ access: "PERSOENLICH" }, scopeWhere(ctx, "helper.view_sensitive") as Prisma.DocumentWhereInput] },
+    // Ausbilder sehen die von ihnen verwalteten Zertifikate
+    { AND: [{ category: "ZERTIFIKAT" }, scopeWhere(ctx, "course.manage") as Prisma.DocumentWhereInput] },
   ];
   if (ctx.helperId) or.push({ ownerHelperId: ctx.helperId });
   return { OR: or };
@@ -79,7 +81,8 @@ async function uploadGuard(ctx: Ctx, input: UploadInput) {
 }
 
 export async function uploadDocument(ctx: Ctx, input: UploadInput, file: FileInput) {
-  if (!CATS.includes(input.category) || !ACCESS.includes(input.access)) throw badRequest("Ungültige Angaben.");
+  /* ZERTIFIKAT wird nur automatisch erzeugt, nicht hochgeladen */
+  if (!(CATS as readonly string[]).includes(input.category) || !ACCESS.includes(input.access)) throw badRequest("Ungültige Angaben.");
   if (!input.title.trim()) throw badRequest("Titel fehlt.");
   validateFile(file);
   await uploadGuard(ctx, input);
@@ -112,6 +115,7 @@ export async function uploadDocument(ctx: Ctx, input: UploadInput, file: FileInp
 export async function addDocumentVersion(ctx: Ctx, id: string, file: FileInput, expiresAt?: Date | null) {
   validateFile(file);
   const d = await loadVisible(ctx, id);
+  if (d.category === "ZERTIFIKAT") throw badRequest("Zertifikat-Dokumente werden automatisch verwaltet. Zum Ungültigmachen das Zertifikat widerrufen.");
   const unit = (await loadUnits()).get(d.unitId)!;
   const own = d.ownerHelperId && isSelf(ctx, d.ownerHelperId) && d.access === "PERSOENLICH";
   if (!canIn(ctx, "document.manage", unit) && !own) throw forbidden();
@@ -143,7 +147,9 @@ export async function downloadDocument(ctx: Ctx, id: string, version?: number) {
 
 export async function updateDocumentMeta(ctx: Ctx, id: string, patch: { title?: string; category?: DocCategory; access?: DocAccess; expiresAt?: Date | null }) {
   const d = await loadVisible(ctx, id);
+  if (d.category === "ZERTIFIKAT") throw badRequest("Zertifikat-Dokumente werden automatisch verwaltet. Zum Ungültigmachen das Zertifikat widerrufen.");
   await require_(ctx, "document.manage", d.unitId);
+  if (patch.category === "ZERTIFIKAT") throw badRequest("Diese Kategorie wird nur automatisch vergeben.");
   if (patch.access === "PERSOENLICH" && !d.ownerHelperId) throw badRequest("Persönliche Dokumente brauchen einen Besitzer.");
   await prisma.document.update({ where: { id }, data: { title: patch.title?.trim() || undefined, category: patch.category, access: patch.access, expiresAt: patch.expiresAt, warnedExpiry: patch.expiresAt !== undefined ? false : undefined } });
   await audit(ctx, { action: "document.update", entityType: "Document", entityId: id, unitId: d.unitId, summary: `Dokument „${d.title}“ geändert`, changes: patch.access && patch.access !== d.access ? { access: [d.access, patch.access] } : null });
@@ -151,6 +157,7 @@ export async function updateDocumentMeta(ctx: Ctx, id: string, patch: { title?: 
 
 export async function deleteDocument(ctx: Ctx, id: string) {
   const d = await loadVisible(ctx, id);
+  if (d.category === "ZERTIFIKAT") throw badRequest("Zertifikat-Dokumente werden automatisch verwaltet. Zum Ungültigmachen das Zertifikat widerrufen.");
   const unit = (await loadUnits()).get(d.unitId)!;
   const own = d.ownerHelperId && isSelf(ctx, d.ownerHelperId);
   if (!canIn(ctx, "document.manage", unit) && !own) throw forbidden();

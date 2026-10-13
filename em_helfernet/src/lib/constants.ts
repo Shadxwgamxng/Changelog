@@ -112,6 +112,7 @@ export const DOC_CATEGORY_LABEL = {
   FAHRZEUG: "Fahrzeugdokument",
   PRUEFBERICHT: "Prüfbericht",
   INTERN: "Intern",
+  ZERTIFIKAT: "Zertifikat",
 } as const;
 
 export const DOC_ACCESS_LABEL = {

@@ -232,6 +232,20 @@ await step("Neues Konto: erster Login landet auf der Startseite mit Banner zum P
   await n.goto("/"); assert.doesNotMatch(await n.textContent("main"), /Bitte ändere dein Startpasswort/);
   await ctx.close();
 });
+await step("Zertifikat ohne Lehrgang ausstellen (Admin) – landet in Max' Dokumenten", async () => {
+  const p = admin.page;
+  await p.goto("/documents/certificate");
+  const maxOpt = await p.locator("select[name=helperId] option", { hasText: "Mustermann, Max" }).first().getAttribute("value");
+  await p.selectOption("select[name=helperId]", maxOpt);
+  await p.fill("input[name=title]", "Atemschutz-Grundlehrgang (extern)");
+  await p.fill("input[name=startsAt]", "2026-09-01");
+  await p.fill("input[name=endsAt]", "2026-09-03");
+  await p.click("main button[type=submit]");
+  await p.waitForURL(/\/documents\/(?!certificate)[^/]+$/, { timeout: 20000 });
+  assert.match(await p.textContent("main"), /Zertifikat[\s\S]*Ohne Lehrgang ausgestellt/);
+  await max.page.goto("/documents");
+  assert.match(await max.page.textContent("main"), /Atemschutz-Grundlehrgang \(extern\)/);
+});
 await step("private Verfügbarkeitsgründe sind für Planer nicht sichtbar", async () => {
   const maxId = (await (await api(max.ctx, "GET", "/me")).json()).helperId;
   const own = await (await api(max.ctx, "GET", `/helpers/${maxId}/availability?from=2020-01-01&to=2099-01-01`)).json();
@@ -294,7 +308,7 @@ await step("Audit-Log: nur Berechtigte; Einträge für Aktionen vorhanden", asyn
 });
 
 console.log("Oberfläche: alle Hauptseiten laden ohne Fehler (Desktop + Smartphone)");
-const pages = ["/", "/shifts", `/shifts/${shiftId}`, `/shifts/${shiftId}/lagekarte`, "/calendar", "/calendar?view=week", "/calendar?view=list", "/availability", "/helpers", "/qualifications", "/qualifications?tab=ablauf", "/qualifications?tab=arten", "/vehicles", "/materials", "/documents", "/messages", "/messages?tab=neu", "/messages?tab=announcements", "/notifications", "/hours", "/reports", "/reports?r=qualifications", "/events", "/admin/units", "/admin/users", "/admin/users?tab=rollen", "/admin/audit", "/account", "/search?q=Max", "/shifts/new", "/helpers/new", "/events/new", "/vehicles/new", "/materials/new", "/courses", "/courses?tab=mine", "/courses/new", "/admin/certificate"];
+const pages = ["/", "/shifts", `/shifts/${shiftId}`, `/shifts/${shiftId}/lagekarte`, "/calendar", "/calendar?view=week", "/calendar?view=list", "/availability", "/helpers", "/qualifications", "/qualifications?tab=ablauf", "/qualifications?tab=arten", "/vehicles", "/materials", "/documents", "/messages", "/messages?tab=neu", "/messages?tab=announcements", "/notifications", "/hours", "/reports", "/reports?r=qualifications", "/events", "/admin/units", "/admin/users", "/admin/users?tab=rollen", "/admin/audit", "/account", "/search?q=Max", "/shifts/new", "/helpers/new", "/events/new", "/vehicles/new", "/materials/new", "/courses", "/courses?tab=mine", "/courses/new", "/admin/certificate", "/documents/certificate"];
 for (const [label, vp, who] of [["Desktop", { width: 1280, height: 900 }, admin], ["Smartphone", { width: 390, height: 844 }, leitung]]) {
   await step(`${label}: ${pages.length} Seiten`, async () => {
     const p = await who.ctx.newPage(); await p.setViewportSize(vp); const bad = []; let cur = "";

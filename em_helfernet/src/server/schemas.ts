@@ -240,3 +240,13 @@ export const courseInput = z.object({
   instructors: optStr(300),
 }).refine((v) => v.endsAt > v.startsAt, { message: "Das Ende muss nach dem Beginn liegen", path: ["endsAt"] })
   .refine((v) => !v.signupDeadline || v.signupDeadline <= v.startsAt, { message: "Der Anmeldeschluss muss vor dem Beginn liegen", path: ["signupDeadline"] });
+
+export const manualCertificateInput = z.object({
+  helperId: id,
+  title: reqStr(160),
+  qualificationTypeId: optId,
+  startsAt: dateOnly,
+  endsAt: dateOnly,
+  validUntil: optDateOnly,
+  instructors: optStr(300),
+});

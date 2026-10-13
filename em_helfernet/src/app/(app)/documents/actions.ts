@@ -22,3 +22,9 @@ export const uploadAction = action(async (ctx, f) => {
 export const newVersionAction = action(async (ctx, f) => { const v = await D.addDocumentVersion(ctx, str(f, "id"), await readFile(f)); return `Version ${v} hochgeladen.`; });
 export const updateMetaAction = action(async (ctx, f) => { const exp = str(f, "expiresAt"); await D.updateDocumentMeta(ctx, str(f, "id"), { title: str(f, "title"), category: str(f, "category") as never, access: str(f, "access") as never, expiresAt: exp ? parseDateOnly(exp) : null }); return "Gespeichert."; });
 export const deleteDocAction = action(async (ctx, f) => { await D.deleteDocument(ctx, str(f, "id")); redirect("/documents"); });
+
+export const issueCertificateAction = action(async (ctx, f) => {
+  const { issueCertificate } = await import("@/server/services/courses");
+  const c = await issueCertificate(ctx, { helperId: str(f, "helperId"), title: str(f, "title"), qualificationTypeId: str(f, "qualificationTypeId"), startsAt: str(f, "startsAt"), endsAt: str(f, "endsAt"), validUntil: str(f, "validUntil"), instructors: str(f, "instructors") });
+  redirect(c.documentId ? `/documents/${c.documentId}` : "/documents");
+});

@@ -11,6 +11,8 @@ import { loadCovers } from "./qualifications";
 import { computeValidUntil, effectiveQualTypes, missingTypes } from "@/lib/qualification";
 import { randomToken } from "@/lib/crypto";
 import { fmtDateTime, fmtRange } from "@/lib/dates";
+import { storeCertificateDocument } from "./certificate-documents";
+import { manualCertificateInput } from "../schemas";
 
 export const PARTICIPANT_STATUS_LABEL: Record<CourseParticipantStatus, string> = {
   ANGEMELDET: "Angemeldet", WARTELISTE: "Warteliste", ABGEMELDET: "Abgemeldet", BESTANDEN: "Bestanden", NICHT_BESTANDEN: "Nicht bestanden",
@@ -286,7 +288,7 @@ export async function assessParticipant(ctx: Ctx, participantId: string, passed:
         helperQualificationId = hq.id;
       }
       const certData = {
-        number: await nextCertificateNumber(tx, issuedAt), code: randomToken(12).replace(/[-_]/g, "x"), courseId: course.id, helperQualificationId,
+        number: await nextCertificateNumber(tx, issuedAt), code: randomToken(12).replace(/[-_]/g, "x"), courseId: course.id, helperId: p.helperId, helperQualificationId,
         holderName: name, courseTitle: course.title, qualificationName: course.qualification?.name ?? null, unitName: course.unit.name,
         courseStartsAt: course.startsAt, courseEndsAt: course.endsAt, issuedAt: new Date(), validUntil, issuedByName: issuer,
         instructors: [course.lead ? `${course.lead.firstName} ${course.lead.lastName}` : null, course.instructors].filter(Boolean).join(", ") || null,
@@ -300,6 +302,9 @@ export async function assessParticipant(ctx: Ctx, participantId: string, passed:
       if (p.certificate.helperQualificationId) await tx.helperQualification.updateMany({ where: { id: p.certificate.helperQualificationId }, data: { status: "WIDERRUFEN" } });
     }
   });
+  const certNow = await prisma.certificate.findUnique({ where: { participantId: p.id }, select: { id: true } });
+  const issuedOrRevoked = (passed && (!p.certificate || p.certificate.revokedAt)) || (!passed && p.certificate && !p.certificate.revokedAt);
+  if (certNow && issuedOrRevoked) await storeCertificateDocument(certNow.id, ctx.userId);
   await audit(ctx, { action: "course.assess", entityType: "Course", entityId: p.courseId, unitId: p.course.unitId, summary: `${name}: ${passed ? "bestanden" : "nicht bestanden"} (Lehrgang „${p.course.title}“)` });
   if (p.status !== (passed ? "BESTANDEN" : "NICHT_BESTANDEN")) {
     await notifyHelpers([p.helperId], {
@@ -311,11 +316,24 @@ export async function assessParticipant(ctx: Ctx, participantId: string, passed:
   }
 }
 
+/** Darf der Benutzer dieses Zertifikat verwalten? Lehrgangszertifikat: Leitung des Lehrgangs; sonst course.manage in der Einheit des Inhabers. */
+async function certificateManageGuard(ctx: Ctx, cert: { courseId: string | null; helperId: string | null }) {
+  if (cert.courseId) {
+    const { manage } = await loadCourse(ctx, cert.courseId).catch(() => ({ manage: false }));
+    if (manage) return true;
+  }
+  if (cert.helperId) {
+    const h = await prisma.helper.findUnique({ where: { id: cert.helperId }, select: { unitId: true } });
+    const unit = h ? (await loadUnits()).get(h.unitId) : null;
+    if (unit && canIn(ctx, "course.manage", unit)) return true;
+  }
+  return false;
+}
+
 export async function revokeCertificate(ctx: Ctx, certificateId: string, reason: string) {
   const cert = await prisma.certificate.findUnique({ where: { id: certificateId } });
-  if (!cert || !cert.courseId) throw notFound();
-  const { manage, c } = await loadCourse(ctx, cert.courseId);
-  if (!manage) throw forbidden();
+  if (!cert) throw notFound();
+  if (!(await certificateManageGuard(ctx, cert))) throw forbidden();
   if (cert.revokedAt) throw badRequest("Das Zertifikat ist bereits widerrufen.");
   const why = reason.trim().slice(0, 300);
   if (!why) throw badRequest("Bitte einen Grund angeben.");
@@ -323,19 +341,62 @@ export async function revokeCertificate(ctx: Ctx, certificateId: string, reason:
     await tx.certificate.update({ where: { id: cert.id }, data: { revokedAt: new Date(), revokeReason: why } });
     if (cert.helperQualificationId) await tx.helperQualification.updateMany({ where: { id: cert.helperQualificationId }, data: { status: "WIDERRUFEN" } });
   });
-  await audit(ctx, { action: "certificate.revoke", entityType: "Certificate", entityId: cert.id, unitId: c.unitId, summary: `Zertifikat ${cert.number} widerrufen: ${why}` });
+  await storeCertificateDocument(cert.id, ctx.userId);
+  await audit(ctx, { action: "certificate.revoke", entityType: "Certificate", entityId: cert.id, summary: `Zertifikat ${cert.number} widerrufen: ${why}` });
+}
+
+/** Zertifikat ohne Lehrgang ausstellen (z. B. externe Ausbildung, Nachtrag). Trägt optional die Qualifikation ein. */
+export async function issueCertificate(ctx: Ctx, raw: unknown) {
+  const input = manualCertificateInput.parse(raw);
+  const helper = await prisma.helper.findUnique({ where: { id: input.helperId }, include: { unit: { select: { id: true, name: true, path: true } } } });
+  if (!helper || helper.status === "ANONYMISIERT") throw notFound("Helfer nicht gefunden.");
+  if (!canIn(ctx, "course.manage", helper.unit)) throw forbidden("Zertifikate darf ausstellen, wer in der Einheit Lehrgänge verwalten darf.");
+  if (input.endsAt < input.startsAt) throw badRequest("Das Ende liegt vor dem Beginn.");
+  const qual = input.qualificationTypeId ? await prisma.qualificationType.findUnique({ where: { id: input.qualificationTypeId } }) : null;
+  if (input.qualificationTypeId && !qual) throw badRequest("Qualifikationsart nicht gefunden.");
+  const validUntil = input.validUntil ?? (qual ? computeValidUntil(input.endsAt, qual.validityMonths) : null);
+  if (validUntil && validUntil < input.endsAt) throw badRequest("„Gültig bis“ liegt vor dem Ende.");
+  const name = `${helper.firstName} ${helper.lastName}`;
+  const cert = await prisma.$transaction(async (tx) => {
+    const hq = qual ? await tx.helperQualification.create({ data: { helperId: helper.id, typeId: qual.id, issuedAt: input.endsAt, validUntil, status: "GUELTIG", note: `Zertifikat „${input.title}“` } }) : null;
+    return tx.certificate.create({
+      data: {
+        number: await nextCertificateNumber(tx, input.endsAt), code: randomToken(12).replace(/[-_]/g, "x"), helperId: helper.id, helperQualificationId: hq?.id ?? null,
+        holderName: name, courseTitle: input.title, qualificationName: qual?.name ?? null, unitName: helper.unit.name,
+        courseStartsAt: input.startsAt, courseEndsAt: input.endsAt, validUntil, issuedByName: ctx.helperName ?? ctx.email, instructors: input.instructors,
+      },
+    });
+  });
+  const documentId = await storeCertificateDocument(cert.id, ctx.userId);
+  await audit(ctx, { action: "certificate.issue", entityType: "Certificate", entityId: cert.id, unitId: helper.unitId, summary: `Zertifikat ${cert.number} „${input.title}“ für ${name} ausgestellt (ohne Lehrgang)${qual ? `, Qualifikation „${qual.name}“ eingetragen` : ""}` });
+  await notifyHelpers([helper.id], { type: "LEHRGANG_ERGEBNIS", title: `Zertifikat ausgestellt: ${input.title}`, body: `Dein Zertifikat ${cert.number} liegt in deinen Dokumenten.${qual ? ` Die Qualifikation „${qual.name}“ wurde eingetragen.` : ""}`, link: documentId ? `/documents/${documentId}` : "/courses?tab=mine" });
+  return { ...cert, documentId };
+}
+
+/** Zertifikat zu einem Dokument (für die Dokumentseite). */
+export async function certificateForDocument(ctx: Ctx, documentId: string) {
+  const cert = await prisma.certificate.findUnique({ where: { documentId } });
+  if (!cert) return null;
+  return { id: cert.id, number: cert.number, code: cert.code, revokedAt: cert.revokedAt, revokeReason: cert.revokeReason, courseId: cert.courseId, canManage: await certificateManageGuard(ctx, cert) };
+}
+
+/** Wem darf man ein Zertifikat ausstellen? */
+export async function certificateIssueOptions(ctx: Ctx) {
+  const units = await unitsWith(ctx, "course.manage");
+  if (!units.length) return null;
+  const [helpers, qualTypes] = await Promise.all([
+    prisma.helper.findMany({ where: { status: { not: "ANONYMISIERT" }, OR: units.map((u) => ({ unit: { path: { startsWith: u.path } } })) }, select: { id: true, firstName: true, lastName: true, unit: { select: { name: true } } }, orderBy: [{ lastName: "asc" }, { firstName: "asc" }], take: 3000 }),
+    prisma.qualificationType.findMany({ where: { active: true }, select: { id: true, name: true, validityMonths: true }, orderBy: { name: "asc" } }),
+  ]);
+  return { helpers: helpers.map((h) => ({ id: h.id, name: `${h.lastName}, ${h.firstName}`, unitName: h.unit.name })), qualTypes };
 }
 
 /** Zertifikat für den Download: eigenes oder als Lehrgangsleitung. */
 export async function certificateForDownload(ctx: Ctx, certificateId: string) {
-  const cert = await prisma.certificate.findUnique({ where: { id: certificateId }, include: { participant: { select: { helperId: true } } } });
+  const cert = await prisma.certificate.findUnique({ where: { id: certificateId } });
   if (!cert) throw notFound();
-  const own = !!ctx.helperId && cert.participant?.helperId === ctx.helperId;
-  if (!own) {
-    if (!cert.courseId) throw notFound();
-    const { manage } = await loadCourse(ctx, cert.courseId).catch(() => ({ manage: false }));
-    if (!manage) throw notFound();
-  }
+  const own = !!ctx.helperId && cert.helperId === ctx.helperId;
+  if (!own && !(await certificateManageGuard(ctx, cert))) throw notFound();
   return cert;
 }
 

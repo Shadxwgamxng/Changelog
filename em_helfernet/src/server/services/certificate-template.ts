@@ -79,7 +79,7 @@ export function sampleCertificate(): Certificate {
   const now = new Date();
   const start = new Date(now.getTime() - 3 * 86_400_000), end = new Date(now.getTime() - 2 * 86_400_000);
   return {
-    id: "vorschau", number: `HN-${now.getFullYear()}-00042`, code: "VORSCHAU0000", participantId: null, courseId: null, helperQualificationId: null,
+    id: "vorschau", number: `HN-${now.getFullYear()}-00042`, code: "VORSCHAU0000", participantId: null, courseId: null, helperId: null, documentId: null, helperQualificationId: null,
     holderName: "Max Mustermann", courseTitle: "Sanitätshelfer-Lehrgang", qualificationName: "Sanitätshelfer", unitName: "Musterorganisation",
     courseStartsAt: start, courseEndsAt: end, issuedAt: now, validUntil: new Date(end.getTime() + 730 * 86_400_000), issuedByName: "Anna Ausbilder",
     instructors: "Anna Ausbilder, Ben Beispiel", revokedAt: null, revokeReason: null,
