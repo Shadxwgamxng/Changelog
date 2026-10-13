@@ -1057,6 +1057,14 @@ model CertificateTemplate {
   backgroundMime String?
   showFrame      Boolean  @default(true)
   showQr         Boolean  @default(true)
+  /// Unterschriften: AUTO = aus dem Namen erzeugt, BILD = hochgeladenes Bild, KEINE
+  sig1Mode       String   @default("AUTO")
+  sig2Mode       String   @default("AUTO")
+  /// Handschrift für erzeugte Unterschriften
+  signatureFont  String   @default("GREAT_VIBES")
+  signatureInk   String   @default("#1a3a8a")
+  /// VOLL = „Anna Ausbilder“, KURZ = „A. Ausbilder“
+  signatureForm  String   @default("KURZ")
   sig1Label      String?
   sig1Name       String?
   sig1Image      Bytes?

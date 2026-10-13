@@ -5,7 +5,8 @@ import PDFDocument from "pdfkit";
 import QRCode from "qrcode";
 import type { Certificate } from "@prisma/client";
 import { env } from "./env";
-import { certificateVars, fillPlaceholders, renderBody, type CertFont } from "@/lib/certificate-template";
+import { certificateVars, fillPlaceholders, renderBody, type CertFont, type SignatureFont } from "@/lib/certificate-template";
+import { drawSignature } from "./signature";
 import { getCertificateTemplate, type TemplateData } from "./services/certificate-template";
 
 const buf = (b: Uint8Array) => Buffer.from(b);
@@ -84,17 +85,18 @@ export async function renderCertificatePdf(c: Certificate, template?: TemplateDa
 
   // Unterschriften
   const sigs = [
-    { label: t.sig1Label, name: t.sig1Name, img: t.sig1Image },
-    { label: t.sig2Label, name: t.sig2Name, img: t.sig2Image },
-  ].filter((s) => s.label || s.name || s.img);
+    { label: t.sig1Label, name: t.sig1Name, mode: t.sig1Mode, img: t.sig1Image },
+    { label: t.sig2Label, name: t.sig2Name, mode: t.sig2Mode, img: t.sig2Image },
+  ].filter((s) => s.label || s.name || (s.mode === "BILD" && s.img));
   const sigY = H - 250;
   const colW = 200;
   sigs.forEach((s, i) => {
     const x = sigs.length === 1 ? W / 2 - colW / 2 : i === 0 ? M + 10 : W - M - 10 - colW;
-    if (s.img) doc.image(buf(s.img), x + 20, sigY - 58, { fit: [colW - 40, 52], align: "center", valign: "bottom" });
-    doc.moveTo(x, sigY).lineTo(x + colW, sigY).lineWidth(0.8).strokeColor(t.textColor).stroke();
     const name = s.name ? fillPlaceholders(s.name, vars).trim() : "";
-    if (name) doc.fillColor(t.textColor).font(f.bold).fontSize(10.5).text(name, x, sigY + 6, { width: colW, align: "center" });
+    if (s.mode === "BILD" && s.img) doc.image(buf(s.img), x + 20, sigY - 58, { fit: [colW - 40, 52], align: "center", valign: "bottom" });
+    else if (s.mode === "AUTO" && name) drawSignature(doc, { name, x, lineY: sigY, width: colW, font: t.signatureFont as SignatureFont, ink: t.signatureInk, form: t.signatureForm === "VOLL" ? "VOLL" : "KURZ" });
+    doc.moveTo(x, sigY).lineTo(x + colW, sigY).lineWidth(0.8).strokeColor(t.textColor).stroke();
+    if (name) doc.fillColor(t.textColor).font(f.bold).fontSize(10.5).text(name, x, sigY + 9, { width: colW, align: "center" });
     if (s.label) doc.fillColor(MUTED).font(f.regular).fontSize(9).text(s.label, x, name ? doc.y + 1 : sigY + 6, { width: colW, align: "center" });
   });
 

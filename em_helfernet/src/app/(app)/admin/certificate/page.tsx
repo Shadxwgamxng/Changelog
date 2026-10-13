@@ -4,7 +4,7 @@ import { forbidden } from "@/server/errors";
 import { getCertificateTemplate } from "@/server/services/certificate-template";
 import { Card, Field, PageHeader } from "@/components/ui";
 import { ActionButton, ActionForm, SubmitButton } from "@/components/forms";
-import { CERT_FONTS, CERT_PLACEHOLDERS } from "@/lib/certificate-template";
+import { CERT_FONTS, CERT_PLACEHOLDERS, SIGNATURE_FONTS, SIGNATURE_MODES } from "@/lib/certificate-template";
 import { resetTemplateAction, saveTemplateAction } from "./actions";
 
 export const metadata = { title: "Zertifikat-Vorlage" };
@@ -43,15 +43,22 @@ export default async function CertificateTemplatePage() {
               <fieldset className="space-y-3"><legend className="label">Links</legend>
                 <input name="sig1Label" className="input" maxLength={60} defaultValue={t.sig1Label ?? ""} placeholder="Bezeichnung, z. B. Lehrgangsleitung" aria-label="Bezeichnung links" />
                 <input name="sig1Name" className="input" maxLength={120} defaultValue={t.sig1Name ?? ""} placeholder="Name oder {lehrgangsleitung}" aria-label="Name links" />
-                <ImageField slot="sig1" label="Unterschrift als Bild (optional)" hint="PNG mit transparentem Hintergrund, max. 3 MB." present={!!t.sig1Image} />
+                <select name="sig1Mode" className="input" defaultValue={t.sig1Mode} aria-label="Unterschrift links">{Object.entries(SIGNATURE_MODES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
+                <ImageField slot="sig1" label="Bild (bei „Eigenes Bild“)" hint="PNG mit transparentem Hintergrund, max. 3 MB." present={!!t.sig1Image} />
               </fieldset>
               <fieldset className="space-y-3"><legend className="label">Rechts</legend>
                 <input name="sig2Label" className="input" maxLength={60} defaultValue={t.sig2Label ?? ""} placeholder="Bezeichnung, z. B. Leitung" aria-label="Bezeichnung rechts" />
                 <input name="sig2Name" className="input" maxLength={120} defaultValue={t.sig2Name ?? ""} placeholder="Name oder {aussteller}" aria-label="Name rechts" />
-                <ImageField slot="sig2" label="Unterschrift als Bild (optional)" hint="PNG mit transparentem Hintergrund, max. 3 MB." present={!!t.sig2Image} />
+                <select name="sig2Mode" className="input" defaultValue={t.sig2Mode} aria-label="Unterschrift rechts">{Object.entries(SIGNATURE_MODES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
+                <ImageField slot="sig2" label="Bild (bei „Eigenes Bild“)" hint="PNG mit transparentem Hintergrund, max. 3 MB." present={!!t.sig2Image} />
               </fieldset>
             </div>
-            <p className="mt-3 text-xs text-fg-subtle">Bleiben Bezeichnung, Name und Bild einer Seite leer, entfällt diese Unterschrift.</p>
+            <div className="mt-4 grid gap-3 border-t border-line pt-4 sm:grid-cols-3">
+              <Field label="Handschrift (automatisch)"><select name="signatureFont" className="input" defaultValue={t.signatureFont}>{Object.entries(SIGNATURE_FONTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
+              <Field label="Namensform"><select name="signatureForm" className="input" defaultValue={t.signatureForm}><option value="KURZ">Kurz („A. Ausbilder“)</option><option value="VOLL">Voll („Anna Ausbilder“)</option></select></Field>
+              <Field label="Tintenfarbe"><input type="color" name="signatureInk" className="input !h-10 !p-1" defaultValue={t.signatureInk} /></Field>
+            </div>
+            <p className="mt-3 text-xs text-fg-subtle">„Automatisch“ erzeugt aus dem Namen eine handschriftliche Unterschrift – jede Person unterschreibt dabei immer gleich (leichte Neigung und Schwung je Name). Bei mehreren Namen unterschreibt die erste Person. Bleiben Bezeichnung und Name einer Seite leer, entfällt diese Unterschrift.</p>
           </Card>
         </div>
         <div className="space-y-5">

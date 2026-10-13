@@ -19,6 +19,7 @@ export const saveTemplateAction = action(async (ctx, f) => {
     orgName: str(f, "orgName"), title: str(f, "title"), body: String(f.get("body") ?? ""), footerText: str(f, "footerText"),
     accentColor: str(f, "accentColor"), textColor: str(f, "textColor"), font: str(f, "font"), logoMode: str(f, "logoMode"),
     showFrame: checked(f, "showFrame"), showQr: checked(f, "showQr"),
+    sig1Mode: str(f, "sig1Mode"), sig2Mode: str(f, "sig2Mode"), signatureFont: str(f, "signatureFont"), signatureInk: str(f, "signatureInk"), signatureForm: str(f, "signatureForm"),
     sig1Label: str(f, "sig1Label"), sig1Name: str(f, "sig1Name"), sig2Label: str(f, "sig2Label"), sig2Name: str(f, "sig2Name"), images,
   });
   return "Vorlage gespeichert. Die Vorschau zeigt den neuen Stand.";

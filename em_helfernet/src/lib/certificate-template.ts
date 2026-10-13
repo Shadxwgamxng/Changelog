@@ -27,6 +27,29 @@ export type CertVars = Partial<Record<keyof typeof CERT_PLACEHOLDERS, string | n
 export const CERT_FONTS = { Helvetica: "Serifenlos (Helvetica)", Times: "Mit Serifen (Times)", Courier: "Schreibmaschine (Courier)" } as const;
 export type CertFont = keyof typeof CERT_FONTS;
 
+export const SIGNATURE_FONTS = { GREAT_VIBES: "Elegant (Great Vibes)", SAINT_DELAFIELD: "Schwungvoll (Mrs Saint Delafield)", MUELLERHOFF: "Kräftig (Herr Von Muellerhoff)" } as const;
+export type SignatureFont = keyof typeof SIGNATURE_FONTS;
+export const SIGNATURE_MODES = { AUTO: "Automatisch aus dem Namen", BILD: "Eigenes Bild", KEINE: "Keine Unterschrift (nur Linie)" } as const;
+
+/** Name für die Unterschrift: bei mehreren Personen die erste; KURZ = „A. Ausbilder“. */
+export function signatureText(name: string, form: "VOLL" | "KURZ"): string {
+  const first = name.split(/[,;/]|\bund\b|&/)[0].replace(/\s+/g, " ").trim();
+  if (!first) return "";
+  const parts = first.split(" ");
+  if (form === "VOLL" || parts.length < 2) return first;
+  const titles = parts.filter((p) => /^(dr|prof|med|dipl)\.?$/i.test(p));
+  const rest = parts.filter((p) => !titles.includes(p));
+  if (rest.length < 2) return first;
+  return `${rest[0][0]}. ${rest.slice(1).join(" ")}`;
+}
+
+/** Stabiler Zahlenwert aus einem Text (gleicher Name → gleiche Unterschrift). */
+export function seedOf(text: string): number {
+  let h = 2166136261;
+  for (const ch of text) { h ^= ch.codePointAt(0)!; h = Math.imul(h, 16777619); }
+  return (h >>> 0) / 4294967295;
+}
+
 export const DEFAULT_CERT_TEMPLATE = {
   orgName: null as string | null,
   title: "Zertifikat",
@@ -49,6 +72,11 @@ export const DEFAULT_CERT_TEMPLATE = {
   logoMode: "STANDARD" as "STANDARD" | "EIGENES" | "KEINES",
   showFrame: true,
   showQr: true,
+  sig1Mode: "AUTO",
+  sig2Mode: "AUTO",
+  signatureFont: "GREAT_VIBES" as SignatureFont,
+  signatureInk: "#1a3a8a",
+  signatureForm: "KURZ" as "VOLL" | "KURZ",
   sig1Label: "Lehrgangsleitung",
   sig1Name: "{lehrgangsleitung}",
   sig2Label: "Ausgestellt durch",

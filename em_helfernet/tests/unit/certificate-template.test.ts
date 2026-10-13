@@ -13,3 +13,15 @@ test("Zertifikat-Vorlage: Platzhalter, Überschriften, bedingte Zeilen", () => {
   assert.equal(fillPlaceholders("{name} / {tippfehler}", vars), "Max Muster / {tippfehler}");
   assert.deepEqual(renderBody("### {lehrgang}\n\n\n\nText", vars).map((l) => l.style), ["h3", "gap", "text"]);
 });
+
+test("Unterschrift: Namensform, mehrere Personen, Titel, stabile Variation", async () => {
+  const { signatureText, seedOf } = await import("../../src/lib/certificate-template");
+  assert.equal(signatureText("Anna Ausbilder, Ben Beispiel", "KURZ"), "A. Ausbilder");
+  assert.equal(signatureText("Anna Ausbilder und Ben Beispiel", "VOLL"), "Anna Ausbilder");
+  assert.equal(signatureText("Dr. Leonie Schäfer-Brandt", "KURZ"), "L. Schäfer-Brandt");
+  assert.equal(signatureText("Alexander von Hohenstein", "KURZ"), "A. von Hohenstein");
+  assert.equal(signatureText("Madonna", "KURZ"), "Madonna");
+  assert.equal(signatureText("  ", "KURZ"), "");
+  assert.equal(seedOf("A. Ausbilder"), seedOf("A. Ausbilder"));
+  assert.notEqual(seedOf("A. Ausbilder"), seedOf("B. Beispiel"));
+});

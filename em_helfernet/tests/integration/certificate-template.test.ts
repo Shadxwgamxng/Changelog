@@ -15,7 +15,7 @@ const input = (extra: Partial<TemplateInput> = {}): TemplateInput => ({ ...DEFAU
 
 test("Zertifikat-Vorlage: Standard, Speichern mit Bildern, Validierung, Zurücksetzen", async () => {
   assert.equal((await getCertificateTemplate()).title, "Zertifikat");
-  await saveCertificateTemplate(S.adminCtx, input({ font: "Times", accentColor: "#123abc", logoMode: "EIGENES", images: { logo: { mime: "image/png", data: PNG }, sig1: { mime: "image/png", data: PNG }, background: { mime: "image/png", data: PNG } } }));
+  await saveCertificateTemplate(S.adminCtx, input({ font: "Times", accentColor: "#123abc", logoMode: "EIGENES", sig1Mode: "BILD", images: { logo: { mime: "image/png", data: PNG }, sig1: { mime: "image/png", data: PNG }, background: { mime: "image/png", data: PNG } } }));
   let t = await getCertificateTemplate();
   assert.equal(t.title, "Urkunde");
   assert.equal(t.font, "Times");
@@ -24,7 +24,7 @@ test("Zertifikat-Vorlage: Standard, Speichern mit Bildern, Validierung, Zurücks
   assert.equal(pdf.subarray(0, 5).toString(), "%PDF-");
 
   // Bild entfernen, andere bleiben
-  await saveCertificateTemplate(S.adminCtx, input({ logoMode: "EIGENES", images: { sig1: null } }));
+  await saveCertificateTemplate(S.adminCtx, input({ logoMode: "EIGENES", sig1Mode: "AUTO", images: { sig1: null } }));
   t = await getCertificateTemplate();
   assert.equal(t.sig1Image, null);
   assert.ok(t.logo);
@@ -34,6 +34,16 @@ test("Zertifikat-Vorlage: Standard, Speichern mit Bildern, Validierung, Zurücks
   await rejects(saveCertificateTemplate(S.adminCtx, input({ accentColor: "rot" })), 400);
   await rejects(saveCertificateTemplate(S.adminCtx, input({ font: "Comic" })), 400);
   await rejects(saveCertificateTemplate(S.adminCtx, input({ title: " " })), 400);
+
+  // automatische Unterschriften in allen Handschriften
+  for (const signatureFont of ["GREAT_VIBES", "SAINT_DELAFIELD", "MUELLERHOFF"]) {
+    await saveCertificateTemplate(S.adminCtx, input({ logoMode: "EIGENES", sig1Mode: "AUTO", sig2Mode: "AUTO", signatureFont, signatureForm: "VOLL", signatureInk: "#000000" }));
+    const pdf2 = await renderCertificatePdf(sampleCertificate(), await getCertificateTemplate());
+    assert.equal(pdf2.subarray(0, 5).toString(), "%PDF-");
+    assert.ok(pdf2.toString("latin1").includes("FontFile2") || pdf2.length > 10_000, "Handschrift eingebettet");
+  }
+  await rejects(saveCertificateTemplate(S.adminCtx, input({ logoMode: "EIGENES", signatureFont: "Comic" })), 400);
+  await rejects(saveCertificateTemplate(S.adminCtx, input({ logoMode: "EIGENES", sig1Mode: "BILD" })), 400, /Bild hochladen/);
 
   await resetCertificateTemplate(S.adminCtx);
   assert.equal((await getCertificateTemplate()).title, "Zertifikat");
